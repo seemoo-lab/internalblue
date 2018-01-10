@@ -1,6 +1,30 @@
 #!/usr/bin/python2
 
-# Dennis Mantz
+# cmds.py
+#
+# This is a submodule of brcm_bt_debugtool.py
+# It contains all implemented commands. New commands can be added by defining
+# a new subclass of Cmd. The new subclass must have the attributes 'keywords'
+# and 'description' and should overwrite the method 'work' in order to accomplish
+# the desired behavior.
+#
+# Copyright (c) 2017 Dennis Mantz. (MIT License)
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+# - The above copyright notice and this permission notice shall be included in
+#   all copies or substantial portions of the Software.
+# - The Software is provided "as is", without warranty of any kind, express or
+#   implied, including but not limited to the warranties of merchantability,
+#   fitness for a particular purpose and noninfringement. In no event shall the
+#   authors or copyright holders be liable for any claim, damages or other
+#   liability, whether in an action of contract, tort or otherwise, arising from,
+#   out of or in connection with the Software or the use or other dealings in the
+#   Software.
 
 from pwn import *
 import os
@@ -221,6 +245,8 @@ class CmdDumpMem(Cmd):
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--norefresh", "-n", action="store_true",
+                        help="Do not refresh internal memory image before dumping to file.")
     parser.add_argument("--file", "-f", default="memdump.bin",
                         help="Filename of memory dump (default: %(default)s)")
 
@@ -233,7 +259,7 @@ class CmdDumpMem(Cmd):
             if not yesno("Overwrite '%s'?" % os.path.abspath(args.file)):
                 return False
         
-        dump = self.getMemoryImage(refresh=True)
+        dump = self.getMemoryImage(refresh=not args.norefresh)
         f = open(args.file, 'wb')
         f.write(dump)
         f.close()
@@ -250,6 +276,8 @@ class CmdSearchMem(Cmd):
                         help="Refresh internal memory image before searching.")
     parser.add_argument("--hex", action="store_true",
                         help="Interpret pattern as hex string (e.g. ff000a20...)")
+    parser.add_argument("--context", "-c", type=auto_int, default=0,
+                        help="Length of the hexdump before and after the matching pattern (default: %(default)s).")
     parser.add_argument("pattern", nargs='*',
                         help="Search Pattern")
 
@@ -271,8 +299,8 @@ class CmdSearchMem(Cmd):
 
         hexdumplen = (len(pattern) + 16) & 0xFFFF0
         for match in matches:
-            startadr = match & 0xFFFFFFF0
-            endadr = match+len(pattern)+16 & 0xFFFFFFF0
+            startadr = (match & 0xFFFFFFF0) - args.context
+            endadr = (match+len(pattern)+16 & 0xFFFFFFF0) + args.context
             log.info("Match at 0x%08x:" % match)
             log.hexdump(memimage[startadr:endadr], begin=startadr, highlight=pattern)
         return True

@@ -1,6 +1,33 @@
 #!/usr/bin/python2
 
-# Dennis Mantz
+# brcm_bt_debugtool.py
+#
+# This is a helper tool for debuging and reversing Broadcom Bluetooth chips.
+# It requires a smartphone with compatible BCM chip and patched bluetooth stack
+# which is connected via adb. Also pwntools must be installed.
+# Features include dumping and manipulating memory in various ways.
+#
+# The tool is modular and allows adding new commands in a simple way (see cmds.py)
+# HCI code was partially taken from https://github.com/joekickass/python-btsnoop
+#
+# Copyright (c) 2017 Dennis Mantz. (MIT License)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+# - The above copyright notice and this permission notice shall be included in
+#   all copies or substantial portions of the Software.
+# - The Software is provided "as is", without warranty of any kind, express or
+#   implied, including but not limited to the warranties of merchantability,
+#   fitness for a particular purpose and noninfringement. In no event shall the
+#   authors or copyright holders be liable for any claim, damages or other
+#   liability, whether in an action of contract, tort or otherwise, arising from,
+#   out of or in connection with the Software or the use or other dealings in the
+#   Software.
+
 
 from pwn import *
 import socket
@@ -23,8 +50,18 @@ btsnooplog_file = None
 recvQueue = Queue.Queue()
 recvThread = None
 
-# List of available commands:
-command_list = [obj for name, obj in inspect.getmembers(sys.modules['cmds']) if inspect.isclass(obj) and issubclass(obj, cmds.Cmd)]
+def print_banner():
+    banner = """\
+   ___                     ___ ______    ___      __             __            __
+  / _ )__________ _       / _ )_  __/   / _ \___ / /  __ _____ _/ /____  ___  / /
+ / _  / __/ __/  ' \     / _  |/ /     / // / -_) _ \/ // / _ `/ __/ _ \/ _ \/ /
+/____/_/  \__/_/_/_/    /____//_/     /____/\__/_.__/\_,_/\_, /\__/\___/\___/_/
+                                                         /___/
+by Dennis Mantz.
+
+type <help> for usage information!\n\n"""
+    for line in banner:
+        term.output(text.yellow(line))
 
 def read_btsnoop_hdr():
     data = s_snoop.recv(16)
@@ -65,8 +102,10 @@ def recvThreadFunc():
                 pass # this is ok. just try again without error
 
         if not record_hdr or len(record_hdr) != 24:
-            log.warn("Cannot recv record_hdr")
-            exit(-1) # TODO
+            if not global_state.exit_requested:
+                log.error("Cannot recv record_hdr")
+                global_state.exit_requested = True
+            break
 
         if(global_state.write_btsnooplog):
             btsnooplog_file.write(record_hdr)
@@ -102,12 +141,16 @@ def recvThreadFunc():
 def setupSockets():
     global s_snoop, s_inject
 
+    saved_loglevel = context.log_level
+    context.log_level = 'warn'
     try:
         adb.forward(8872)
         adb.forward(8873)
     except PwnlibException as e:
         log.warn("Setup adb port forwarding failed: " + str(e))
         return False
+    finally:
+        context.log_level = saved_loglevel
     
     # Connect to hci injection port
     s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -138,6 +181,9 @@ def teardownSockets():
         s_snoop = None
 
 def commandLoop():
+    # List of available commands:
+    command_list = [obj for name, obj in inspect.getmembers(sys.modules['cmds']) if inspect.isclass(obj) and issubclass(obj, cmds.Cmd)]
+
     while(not global_state.exit_requested):
         try:
             cmdline = term.readline.readline(prompt='> ').strip()
@@ -174,6 +220,9 @@ def commandLoop():
                 log.info("Got Ctrl-C by user; exiting...")
                 global_state.exit_requested = True
                 break
+        except Exception as e:
+            global_state.exit_requested = True      # Make sure all threads terminate
+            raise e
         cmd_running = False
             
 
@@ -182,13 +231,21 @@ def commandLoop():
 # Main Program Start
 #
 
+print_banner()
+
 # settings
 context.log_level = 'info'
-context.log_file = '_bcbt_debugger.log'
+context.log_file = '_brcm_bt_debugtool.log'
+
+# Restore readline history:
+if os.path.exists("_brcm_bt_debugtool.hist"):
+    readline_history = read("_brcm_bt_debugtool.hist")
+    term.readline.history = readline_history.split('\n')
 
 if(global_state.write_btsnooplog):
     btsnooplog_file = open('btsnoop.log','wb')
 
+# Check for connected adb devices
 adb_devices = adb.devices()
 if(len(adb_devices) == 0):
     log.critical("No adb devices found.")
@@ -209,16 +266,18 @@ recvThread.start()
 
 hci_tx = hci.HCI_TX(s_inject)
 
+# Enter command loop (runs until user quits)
 commandLoop()
 
-if(not global_state.exit_requested):
-    log.warn("Command Loop ended but global_state.exit_requested is still False!")
-    global_state.exit_requested = True   # to end recvThread
+# Save readline history:
+f = open("_brcm_bt_debugtool.hist", "w")
+f.write("\n".join(term.readline.history))
+f.close()
 
+# Cleanup
 recvThread.join()
 teardownSockets()
 if(global_state.write_btsnooplog):
     btsnooplog_file.close()
 log.info("Goodbye")
-
 
