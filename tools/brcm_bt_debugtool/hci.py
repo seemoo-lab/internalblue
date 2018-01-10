@@ -28,6 +28,8 @@
 
 from pwn import *
 
+import global_state
+
 HCI_UART_TYPE_CLASS = {}
 
 class HCI:
@@ -477,3 +479,50 @@ class HCI_TX:
 
 def parse_hci_packet(data):
     return HCI.from_data(data)
+
+class StackDumpReceiver:
+    memdump_addr = None
+    memdumps = {}
+    registers = {}
+    
+    def recvPacket(self, hcipkt):
+        if not issubclass(hcipkt.__class__, HCI_Event):
+            return
+        if hcipkt.event_code != 0xff:
+            return
+        if hcipkt.data[0:4] != p32(0x039200f7):
+            return
+        
+        if hcipkt.data[4] == '\x2c':
+            data = hcipkt.data[6:]
+            values = [hex(u32(data[i:i+4])) for i in range(0, 64, 4)]
+            log.warn("Stack Dump (0x%x):\n" % u8(hcipkt.data[5]) + '\n'.join(values))
+
+        elif hcipkt.data[4] == '\xf0':
+            addr = u32(hcipkt.data[10:14])
+            if self.memdump_addr == None:
+                self.memdump_addr = addr
+            self.memdumps[addr-self.memdump_addr] = hcipkt.data[14:]
+
+        elif hcipkt.data[4] == '\x4c':
+            addr = u32(hcipkt.data[10:14])
+            if self.memdump_addr == None:
+                self.memdump_addr = addr
+            self.memdumps[addr-self.memdump_addr] = hcipkt.data[14:]
+
+            # This is the last pkt ouput:
+            dump = fit(self.memdumps)
+            log.warn("Stack dump @0x%08x written to brcm_stackdump.bin!" % self.memdump_addr)
+            f = open("brcm_stackdump.bin", "wb")
+            f.write(dump)
+            f.close()
+
+            # Shut down:
+            global_state.exit_requested = True
+
+
+
+
+
+
+

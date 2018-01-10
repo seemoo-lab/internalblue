@@ -73,6 +73,7 @@ class Cmd:
         return True
 
     def abort_cmd(self):
+        self.aborted = True
         if hasattr(self, 'progress_log'):
             self.progress_log.failure("Command aborted")
 
@@ -109,6 +110,8 @@ class Cmd:
                 try:
                     hcipkt, orig_len, inc_len, flags, drops, recvtime = self.recvQueue.get(timeout=0.5)
                 except Queue.Empty:
+                    if global_state.exit_requested or (hasattr(self, 'aborted') and self.aborted):
+                        return None
                     continue
 
                 if isinstance(hcipkt, hci.HCI_Event):
@@ -328,6 +331,9 @@ class CmdHexdump(Cmd):
 
         dump = self.readMem(args.address, args.address + args.length)
 
+        if dump == None:
+            return False
+
         log.hexdump(dump, begin=args.address)
         return True
 
@@ -363,7 +369,14 @@ class CmdTelescope(Cmd):
         if args == None:
             return True
 
+        if not self.isAddressInSections(args.address, args.length):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
+            if not answer:
+                return False
+
         dump = self.readMem(args.address, args.address + args.length + 4)
+        if dump == None:
+            return False
 
         for index in range(0, len(dump)-4, 4):
             chain = self.telescope(dump[index:], 4)

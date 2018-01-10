@@ -89,6 +89,9 @@ def parse_time(time):
 
 def recvThreadFunc():
     log.debug("Receive Thread started.")
+
+    stackDumpReceiver = hci.StackDumpReceiver()
+
     while not global_state.exit_requested:
 
         # Little bit ugly: need to re-apply changes to the global context to the thread-copy
@@ -134,6 +137,8 @@ def recvThreadFunc():
         if(record != None and global_state.cmd_running):
             recvQueue.put(record)
 
+        stackDumpReceiver.recvPacket(record[0])
+
     log.debug("Receive Thread terminated.")
 
 
@@ -155,6 +160,7 @@ def setupSockets():
     # Connect to hci injection port
     s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s_inject.connect(('127.0.0.1', 8873))
+    s_inject.settimeout(0.5)
 
     # Connect to hci snoop log port
     s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -243,7 +249,7 @@ if os.path.exists("_brcm_bt_debugtool.hist"):
     term.readline.history = readline_history.split('\n')
 
 if(global_state.write_btsnooplog):
-    btsnooplog_file = open('btsnoop.log','wb')
+    btsnooplog_file = open('btsnoop.log','wb', 0)  # Write unbuffered!
 
 # Check for connected adb devices
 adb_devices = adb.devices()
@@ -254,6 +260,9 @@ if(len(adb_devices) > 1):
     log.info("Found multiple adb devices. ")
     choice = options("Please choose:", [d.serial + ' (' + d.model + ')' for d in adb_devices])
     context.device = adb_devices[choice].serial
+else:
+    log.info("Using adb device: %s (%s)" % (adb_devices[0].serial, adb_devices[0].model))
+    context.device = adb_devices[0].serial
 
 # setup sockets
 if not setupSockets():
