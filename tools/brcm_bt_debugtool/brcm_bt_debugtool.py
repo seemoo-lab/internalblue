@@ -1,0 +1,224 @@
+#!/usr/bin/python2
+
+# Dennis Mantz
+
+from pwn import *
+import socket
+import sys
+import time
+import datetime
+import Queue
+import inspect
+
+import global_state
+import hci
+import cmds
+
+
+# Globals
+s_inject = None
+s_snoop = None
+hci_tx = None
+btsnooplog_file = None
+recvQueue = Queue.Queue()
+recvThread = None
+
+# List of available commands:
+command_list = [obj for name, obj in inspect.getmembers(sys.modules['cmds']) if inspect.isclass(obj) and issubclass(obj, cmds.Cmd)]
+
+def read_btsnoop_hdr():
+    data = s_snoop.recv(16)
+    if(len(data) < 16):
+        return None
+    if(global_state.write_btsnooplog):
+        btsnooplog_file.write(data)
+
+    btsnoop_hdr = (data[:8], u32(data[8:12]),u32(data[12:16]))
+    log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
+    return btsnoop_hdr
+
+def parse_time(time):
+    """
+    Record time is a 64-bit signed integer representing the time of packet arrival,
+    in microseconds since midnight, January 1st, 0 AD nominal Gregorian.
+
+    In order to avoid leap-day ambiguity in calculations, note that an equivalent
+    epoch may be used of midnight, January 1st 2000 AD, which is represented in
+    this field as 0x00E03AB44A676000.
+    """
+    time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
+    time_since_2000_epoch = datetime.timedelta(microseconds=time) - datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
+    return datetime.datetime(2000, 1, 1) + time_since_2000_epoch
+
+def recvThreadFunc():
+    log.debug("Receive Thread started.")
+    while not global_state.exit_requested:
+
+        # Little bit ugly: need to re-apply changes to the global context to the thread-copy
+        context.log_level = global_state.log_level
+
+        record_hdr = b''
+        while(not global_state.exit_requested and len(record_hdr) < 24):
+            try:
+                record_hdr += s_snoop.recv(24 - len(record_hdr))
+            except socket.timeout:
+                pass # this is ok. just try again without error
+
+        if not record_hdr or len(record_hdr) != 24:
+            log.warn("Cannot recv record_hdr")
+            exit(-1) # TODO
+
+        if(global_state.write_btsnooplog):
+            btsnooplog_file.write(record_hdr)
+
+        orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
+
+        record_data = b''
+        while(not global_state.exit_requested and len(record_data) < inc_len):
+            try:
+                record_data += s_snoop.recv(inc_len - len(record_data))
+            except socket.timeout:
+                pass # this is ok. just try again without error
+        
+        if(global_state.write_btsnooplog):
+            btsnooplog_file.write(record_data)
+
+        try:
+            parsed_time = parse_time(time64)
+        except OverflowError:
+            parsed_time = None
+
+        record = (hci.parse_hci_packet(record_data), orig_len, inc_len, flags, drops, parsed_time)
+
+        log.debug("Recv: [" + str(parsed_time) + "] " + str(record[0]))
+
+        if(record != None and global_state.cmd_running):
+            recvQueue.put(record)
+
+    log.debug("Receive Thread terminated.")
+
+
+
+def setupSockets():
+    global s_snoop, s_inject
+
+    try:
+        adb.forward(8872)
+        adb.forward(8873)
+    except PwnlibException as e:
+        log.warn("Setup adb port forwarding failed: " + str(e))
+        return False
+    
+    # Connect to hci injection port
+    s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s_inject.connect(('127.0.0.1', 8873))
+
+    # Connect to hci snoop log port
+    s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s_snoop.connect(('127.0.0.1', 8872))
+    s_snoop.settimeout(0.5)
+
+    # Read btsnoop header
+    if(read_btsnoop_hdr() == None):
+        log.warn("Could not read btsnoop header")
+        s_inject.close()
+        s_snoop.close()
+        s_inject = s_snoop = None
+        return False
+    return True
+
+def teardownSockets():
+    global s_inject, s_snoop
+
+    if(s_inject != None):
+        s_inject.close()
+        s_inject = None
+    if(s_snoop != None):
+        s_snoop.close()
+        s_snoop = None
+
+def commandLoop():
+    while(not global_state.exit_requested):
+        try:
+            cmdline = term.readline.readline(prompt='> ').strip()
+            cmdword = cmdline.split(' ')[0].split('=')[0]
+            if(cmdword == ''):
+                continue
+            log.debug("Command Line: [[" + cmdword + "]] " + cmdline)
+            matching_cmds = [cmd for cmd in command_list if cmdword in cmd.keywords]
+            if(len(matching_cmds) == 0):
+                log.warn("Command unknown: " + cmdline)
+                continue
+            if(len(matching_cmds) > 1):
+                log.warn("Multiple commands match: " + str(matching_cmds))
+                continue
+            cmd_instance = matching_cmds[0](cmdline, recvQueue, hci_tx)
+            global_state.cmd_running = True
+
+            # Empty queue:
+            while True:
+                try:
+                    recvQueue.get_nowait()
+                except Queue.Empty:
+                    break
+
+            if(not cmd_instance.work()):
+                log.warn("Command failed: " + str(cmd_instance))
+        except ValueError as e:
+            log.warn(str(e))
+            continue
+        except KeyboardInterrupt:
+            if(global_state.cmd_running):
+                cmd_instance.abort_cmd()
+            else:
+                log.info("Got Ctrl-C by user; exiting...")
+                global_state.exit_requested = True
+                break
+        cmd_running = False
+            
+
+
+#
+# Main Program Start
+#
+
+# settings
+context.log_level = 'info'
+context.log_file = '_bcbt_debugger.log'
+
+if(global_state.write_btsnooplog):
+    btsnooplog_file = open('btsnoop.log','wb')
+
+adb_devices = adb.devices()
+if(len(adb_devices) == 0):
+    log.critical("No adb devices found.")
+    exit(-1)
+if(len(adb_devices) > 1):
+    log.info("Found multiple adb devices. ")
+    choice = options("Please choose:", [d.serial + ' (' + d.model + ')' for d in adb_devices])
+    context.device = adb_devices[choice].serial
+
+# setup sockets
+if not setupSockets():
+    log.critical("No connection to target device.")
+    exit(-1)
+
+# start receive thread
+recvThread = context.Thread(target=recvThreadFunc)
+recvThread.start()
+
+hci_tx = hci.HCI_TX(s_inject)
+
+commandLoop()
+
+if(not global_state.exit_requested):
+    log.warn("Command Loop ended but global_state.exit_requested is still False!")
+    global_state.exit_requested = True   # to end recvThread
+
+recvThread.join()
+teardownSockets()
+if(global_state.write_btsnooplog):
+    btsnooplog_file.close()
+log.info("Goodbye")
+
+
