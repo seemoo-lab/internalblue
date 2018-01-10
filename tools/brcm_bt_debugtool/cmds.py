@@ -7,30 +7,13 @@ import os
 import sys
 import Queue
 import inspect
+import argparse
 
 import global_state
 import hci
 
-def getValueFromCmdline(cmdline):
-    """Returns the value for cmdlines like:
-       key=value
-       key = value
-       key value"""
-
-    space_separated = cmdline.split(' ')
-    if(len(space_separated) > 1):
-        if(len(space_separated) == 2):
-            return space_separated[1]
-        elif(len(space_separated) == 3 and space_separated[1] == '='):
-            return space_separated[2]
-        else:
-            raise ValueError("Cannot extract value from cmd")
-    else:
-        equal_separated = cmdline.split('=')
-        if(len(equal_separated) == 2):
-            return equal_separated[1]
-        else:
-            raise ValueError("Cannot extract value from cmd")
+def auto_int(x):
+    return int(x, 0)
 
 class Cmd:
     keywords = []
@@ -68,6 +51,12 @@ class Cmd:
     def abort_cmd(self):
         if hasattr(self, 'progress_log'):
             self.progress_log.failure("Command aborted")
+
+    def getArgs(self):
+        try:
+            return self.parser.parse_args(self.cmdline.split(' ')[1:])
+        except SystemExit:
+            return None
 
     def isAddressInSections(self, address, length=0):
         for sectionstart, sectionend, is_rom in self.sections:
@@ -152,29 +141,57 @@ class Cmd:
             self.refreshMemoryImage()
         return Cmd.memory_image
 
+#
+# Start of implemented commands:
+#
+
 class CmdHelp(Cmd):
     keywords = ['help', '?']
+    description = "Display available commands. Use help <cmd> to display command specific help."
 
     def work(self):
+        args = self.cmdline.split(' ')
         command_list = [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
-                            if inspect.isclass(obj) and issubclass(obj, Cmd)]
-        for cmd in command_list:
-            print(str(cmd.keywords))
+                            if inspect.isclass(obj) and issubclass(obj, Cmd)][1:]
+        if(len(args) > 1):
+            cmd = [c for c in command_list if args[1] in c.keywords]
+            if(len(cmd) < 1):
+                log.info("No command with the name: " + args[1])
+                return True
+            if hasattr(cmd[0],'parser'):
+                cmd[0].parser.print_help()
+            else:
+                print(cmd[0].description)
+                print("Aliases: " + " ".join(cmd[0].keywords))
+        else:
+            for cmd in command_list:
+                print(cmd.keywords[0].ljust(15) + cmd.description)
         return True
 
 class CmdExit(Cmd):
     keywords = ['exit', 'quit', 'q', 'bye']
+    description = "Exit the program."
 
     def work(self):
         global_state.exit_requested = True
         return True
 
 class CmdLogLevel(Cmd):
-    keywords = ['log_level', 'loglevel']
+    keywords = ['log_level', 'loglevel', 'verbosity']
+    description = "Change the verbosity of log messages."
+    log_levels = ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'NOTSET', 'WARN', 'WARNING']
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("level",
+                        help="New log level (%s)" % ", ".join(log_levels))
 
     def work(self):
-        loglevel = getValueFromCmdline(self.cmdline)
-        if(loglevel.upper() in ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'NOTSET', 'WARN', 'WARNING']):
+        args = self.getArgs()
+        if args==None:
+            return True
+        loglevel = args.level
+        if(loglevel.upper() in self.log_levels):
             context.log_level = loglevel
             global_state.log_level = loglevel
             log.info("New log level: " + str(context.log_level))
@@ -185,6 +202,7 @@ class CmdLogLevel(Cmd):
 
 class CmdListen(Cmd):
     keywords = ['listen']
+    description = "Dump every received HCI packet on the screen."
 
     def work(self):
         self.progress_log = log.progress("Listening... (stop with Ctrl-C)")
@@ -199,50 +217,56 @@ class CmdListen(Cmd):
 
 class CmdDumpMem(Cmd):
     keywords = ['dumpmem', 'memdump']
+    description = "Dumps complete memory image into a file."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--file", "-f", default="memdump.bin",
+                        help="Filename of memory dump (default: %(default)s)")
 
     def work(self):
-        filename = "memdump.bin"
-        cmd_chunks = self.cmdline.split(' ')
-        if(len(cmd_chunks) > 1):
-            filename = cmd_chunks[1]
+        args = self.getArgs()
+        if args==None:
+            return True
 
-        if(os.path.exists(filename)):
-            if not yesno("Overwrite '%s'?" % os.path.abspath(filename)):
+        if(os.path.exists(args.file)):
+            if not yesno("Overwrite '%s'?" % os.path.abspath(args.file)):
                 return False
         
         dump = self.getMemoryImage(refresh=True)
-        f = open(filename, 'wb')
+        f = open(args.file, 'wb')
         f.write(dump)
         f.close()
-        log.info("Memory dump saved in '%s'!" % os.path.abspath(filename))
+        log.info("Memory dump saved in '%s'!" % os.path.abspath(args.file))
         return True
 
 class CmdSearchMem(Cmd):
     keywords = ['searchmem', 'memsearch']
+    description = "Search a pattern (string or hex) in the memory image."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--refresh", "-r", action="store_true",
+                        help="Refresh internal memory image before searching.")
+    parser.add_argument("--hex", action="store_true",
+                        help="Interpret pattern as hex string (e.g. ff000a20...)")
+    parser.add_argument("pattern", nargs='*',
+                        help="Search Pattern")
 
     def work(self):
-        cmd_chunks = self.cmdline.split(' ')
-        refresh = False
-        hexstring = False
-        if('-r' in cmd_chunks or '--refresh' in cmd_chunks):
-            refresh = True
-        if('-h' in cmd_chunks or '--hex' in cmd_chunks):
-            hexstring = True
-        
-        cmd_chunks_clean = [x for x in cmd_chunks if not x.startswith('-')]
+        args = self.getArgs()
+        if args == None:
+            return True
 
-        if(len(cmd_chunks_clean) < 2):
-            raise ValueError("searchmem needs at least one argument")
-
-        pattern = cmd_chunks_clean[1]
-        if hexstring:
+        pattern = ' '.join(args.pattern)
+        if args.hex:
             try:
                 pattern = pattern.decode('hex')
             except TypeError as e:
                 log.warn("Search pattern cannot be converted to hexstring: " + str(e))
                 return False
-        
-        memimage = self.getMemoryImage()
+
+        memimage = self.getMemoryImage(refresh=args.refresh)
         matches = [m.start(0) for m in re.finditer(re.escape(pattern), memimage)]
 
         hexdumplen = (len(pattern) + 16) & 0xFFFF0
@@ -255,28 +279,40 @@ class CmdSearchMem(Cmd):
 
 class CmdHexdump(Cmd):
     keywords = ['hexdump', 'hd']
+    description = "Display a hexdump of a specified region in the memory."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--length", "-l", type=auto_int, default=256,
+                        help="Length of the hexdump (default: %(default)s).")
+    parser.add_argument("address", type=auto_int,
+                        help="Start address of the hexdump.")
 
     def work(self):
-        cmd_chunks = self.cmdline.split(' ')
-        if(len(cmd_chunks) < 2):
-            raise ValueError("hexdump needs at least one argument")
-        address = int(cmd_chunks[1],16) if cmd_chunks[1].startswith("0x") else int(cmd_chunks[1])
-        length = 0x50
-        if(len(cmd_chunks) > 2):
-            length = int(cmd_chunks[2],16) if cmd_chunks[2].startswith("0x") else int(cmd_chunks[2])
+        args = self.getArgs()
+        if args == None:
+            return True
 
-        if not self.isAddressInSections(address, length):
-            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (address, length))
+        if not self.isAddressInSections(args.address, args.length):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
             if not answer:
                 return False
 
-        dump = self.readMem(address, address+length)
+        dump = self.readMem(args.address, args.address + args.length)
 
-        log.hexdump(dump, begin=address)
+        log.hexdump(dump, begin=args.address)
         return True
 
 class CmdTelescope(Cmd):
     keywords = ['telescope']
+    description = "Display a specified region in the memory and follow pointers to valid addresses."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--length", "-l", type=auto_int, default=64,
+                        help="Length of the telescope dump (default: %(default)s).")
+    parser.add_argument("address", type=auto_int,
+                        help="Start address of the telescope dump.")
 
     def telescope(self, data, depth):
         val = u32(data[0:4])
@@ -295,19 +331,15 @@ class CmdTelescope(Cmd):
             return [val, s]
 
     def work(self):
-        cmd_chunks = self.cmdline.split(' ')
-        if(len(cmd_chunks) < 2):
-            raise ValueError("telescope needs at least one argument")
-        address = int(cmd_chunks[1],16) if cmd_chunks[1].startswith("0x") else int(cmd_chunks[1])
-        length = 0x24
-        if(len(cmd_chunks) > 2):
-            length = int(cmd_chunks[2],16) if cmd_chunks[2].startswith("0x") else int(cmd_chunks[2])
+        args = self.getArgs()
+        if args == None:
+            return True
 
-        dump = self.readMem(address, address + length)
+        dump = self.readMem(args.address, args.address + args.length + 4)
 
         for index in range(0, len(dump)-4, 4):
             chain = self.telescope(dump[index:], 4)
-            output = "0x%08x: " % (address+index)
+            output = "0x%08x: " % (args.address+index)
             output += ' -> '.join(["0x%08x" % x for x in chain[:-1]])
             output += ' \"' + chain[-1] + '"'
             log.info(output)

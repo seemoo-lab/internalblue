@@ -302,6 +302,14 @@ class HCI_Cmd(HCI):
         return parent + "<0x%04x %s (len=%d): %s>" % (self.opcode, cmdname, self.length, self.data[0:16].encode('hex'))
 
 class HCI_Acl(HCI):
+
+    @staticmethod
+    def from_data(data):
+        handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16,'0')))
+        pb = u8(unbits(bits_str(data[1:2])[4:6].rjust(8,'0')))
+        bc = u8(unbits(bits_str(data[1:2])[6:8].rjust(8,'0')))
+        return HCI_Acl(handle, pb, bc, u16(data[2:4]), data[4:])
+
     def __init__(self, handle, bp, bc, length, data):
         HCI.__init__(self, HCI.ACL_DATA)
         self.handle = handle
@@ -311,6 +319,13 @@ class HCI_Acl(HCI):
         self.data = data
 
 class HCI_Sco(HCI):
+
+    @staticmethod
+    def from_data(data):
+        handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16,'0')))
+        ps = u8(unbits(bits_str(data[1:2])[4:6].rjust(8,'0')))
+        return HCI_Sco(handle, ps, u16(data[2]), data[3:])
+
     def __init__(self, handle, ps, length, data):
         HCI.__init__(self, HCI.SCO_DATA)
         self.handle = handle
