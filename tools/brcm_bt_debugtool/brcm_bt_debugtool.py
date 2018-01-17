@@ -36,6 +36,7 @@ import time
 import datetime
 import Queue
 import inspect
+import traceback
 
 import global_state
 import hci
@@ -228,7 +229,9 @@ def commandLoop():
                 break
         except Exception as e:
             global_state.exit_requested = True      # Make sure all threads terminate
-            raise e
+            log.critical("Uncaught exception (%s). Abort." % str(e))
+            print(traceback.format_exc())
+            break
         cmd_running = False
             
 
