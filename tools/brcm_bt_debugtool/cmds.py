@@ -83,8 +83,11 @@ class Cmd:
         except SystemExit:
             return None
 
-    def isAddressInSections(self, address, length=0):
+    def isAddressInSections(self, address, length=0, sectiontype=""):
         for sectionstart, sectionend, is_rom in self.sections:
+            if (sectiontype.upper() == "ROM" and not is_rom) or (sectiontype.upper() == "RAM" and is_rom):
+                continue
+
             if(address >= sectionstart and address <= sectionend):
                 if(address + length <= sectionend):
                     return True
@@ -129,6 +132,45 @@ class Cmd:
                                 progress_log.status(msg)
                             break
         return outbuffer
+
+    def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
+        write_addr = address
+        byte_counter = 0
+        while(byte_counter < len(data)):
+            # Send hci frame
+            bytes_left = len(data) - byte_counter
+            blocksize = bytes_left
+            if blocksize > 251:
+                blocksize = 251
+
+            self.hci_tx.sendWriteRamCmd(write_addr, data[byte_counter:byte_counter+blocksize])
+
+            while(True):
+                # Receive response
+                try:
+                    hcipkt, orig_len, inc_len, flags, drops, recvtime = self.recvQueue.get(timeout=0.5)
+                except Queue.Empty:
+                    if global_state.exit_requested or (hasattr(self, 'aborted') and self.aborted):
+                        return False
+                    continue
+
+                if isinstance(hcipkt, hci.HCI_Event):
+                    if(hcipkt.event_code == 0x0e): # Cmd Complete event
+                        if(hcipkt.data[0:3] == '\x01\x4c\xfc'):
+                            if(hcipkt.data[3] != '\x00'):
+                                log.warn("Got error code %x in command complete event." % hcipkt.data[3])
+                                return False
+                            write_addr += blocksize
+                            byte_counter += blocksize
+                            if(progress_log != None):
+                                if(bytes_total > 0):
+                                    msg = "sending data... %d / %d Bytes" % (bytes_done+byte_counter, bytes_total)
+                                else:
+                                    msg = "sending data... 0x%08x" % start
+                                progress_log.status(msg)
+                            break
+        return True
+
 
     def initMemoryImage(self):
         bytes_done = 0
@@ -279,6 +321,8 @@ class CmdSearchMem(Cmd):
                         help="Refresh internal memory image before searching.")
     parser.add_argument("--hex", action="store_true",
                         help="Interpret pattern as hex string (e.g. ff000a20...)")
+    parser.add_argument("--address", "-a", action="store_true",
+                        help="Interpret pattern as address (hex)")
     parser.add_argument("--context", "-c", type=auto_int, default=0,
                         help="Length of the hexdump before and after the matching pattern (default: %(default)s).")
     parser.add_argument("pattern", nargs='*',
@@ -290,12 +334,17 @@ class CmdSearchMem(Cmd):
             return True
 
         pattern = ' '.join(args.pattern)
+        highlight = pattern
         if args.hex:
             try:
                 pattern = pattern.decode('hex')
+                highlight = pattern
             except TypeError as e:
                 log.warn("Search pattern cannot be converted to hexstring: " + str(e))
                 return False
+        elif args.address:
+            pattern = p32(int(pattern, 16))
+            highlight = [x for x in pattern if x != '\x00']
 
         memimage = self.getMemoryImage(refresh=args.refresh)
         matches = [m.start(0) for m in re.finditer(re.escape(pattern), memimage)]
@@ -305,7 +354,7 @@ class CmdSearchMem(Cmd):
             startadr = (match & 0xFFFFFFF0) - args.context
             endadr = (match+len(pattern)+16 & 0xFFFFFFF0) + args.context
             log.info("Match at 0x%08x:" % match)
-            log.hexdump(memimage[startadr:endadr], begin=startadr, highlight=pattern)
+            log.hexdump(memimage[startadr:endadr], begin=startadr, highlight=highlight)
         return True
 
 class CmdHexdump(Cmd):
@@ -385,5 +434,59 @@ class CmdTelescope(Cmd):
             output += ' \"' + chain[-1] + '"'
             log.info(output)
         return True
+
+
+class CmdWriteMem(Cmd):
+    keywords = ['writemem']
+    description = "Writes data to a specified memory address."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--hex", action="store_true",
+                        help="Interpret pattern as hex string (e.g. ff000a20...)")
+    parser.add_argument("--file", "-f",
+                        help="Read data from this file instead.")
+    parser.add_argument("--repeat", "-r", default=1, type=auto_int,
+                        help="Number of times to repeat the data (default: %(default)s)")
+    parser.add_argument("address", type=auto_int,
+                        help="Destination address") 
+    parser.add_argument("data", nargs="*",
+                        help="Data as string (or hexstring, see --hex)")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if args.file != None:
+            data = read(args.file)
+        elif len(args.data) > 0:
+            data = ' '.join(args.data)
+            if args.hex:
+                try:
+                    data = data.decode('hex')
+                except TypeError as e:
+                    log.warn("Data string cannot be converted to hexstring: " + str(e))
+                    return False
+        else:
+            self.parser.print_usage()
+            print("Either data or --file is required!")
+            return False
+
+        data = data * args.repeat
+
+        if not self.isAddressInSections(args.address, len(data), sectiontype="RAM"):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?" % (args.address, args.length))
+            if not answer:
+                return False
+
+        self.progress_log = log.progress("Writing Memory")
+        if self.writeMem(args.address, data, self.progress_log, bytes_done=0, bytes_total=len(data)):
+            self.progress_log.success("Written %d bytes to 0x%08x." % (len(data), args.address))
+            return True
+        else:
+            self.progress_log.failure("Write failed!")
+            return False
+
 
 

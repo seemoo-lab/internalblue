@@ -476,15 +476,19 @@ class HCI_TX:
     def sendReadRamCmd(self, addr, length):
         self.sendCmd(0xfc4d, p32(addr) + p8(length))
 
+    def sendWriteRamCmd(self, addr, data):
+        self.sendCmd(0xfc4c, p32(addr) + data)
+
 
 def parse_hci_packet(data):
     return HCI.from_data(data)
+
 
 class StackDumpReceiver:
     memdump_addr = None
     memdumps = {}
     registers = {}
-    
+
     def recvPacket(self, hcipkt):
         if not issubclass(hcipkt.__class__, HCI_Event):
             return
@@ -492,7 +496,7 @@ class StackDumpReceiver:
             return
         if hcipkt.data[0:4] != p32(0x039200f7):
             return
-        
+
         if hcipkt.data[4] == '\x2c':
             data = hcipkt.data[6:]
             values = [hex(u32(data[i:i+4])) for i in range(0, 64, 4)]
