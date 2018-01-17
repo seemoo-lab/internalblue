@@ -476,7 +476,7 @@ class CmdWriteMem(Cmd):
         data = data * args.repeat
 
         if not self.isAddressInSections(args.address, len(data), sectiontype="RAM"):
-            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?" % (args.address, args.length))
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?" % (args.address, len(args.data)))
             if not answer:
                 return False
 
