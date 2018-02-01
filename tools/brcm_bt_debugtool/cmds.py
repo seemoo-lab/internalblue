@@ -32,6 +32,7 @@ import sys
 import Queue
 import inspect
 import argparse
+import subprocess
 
 import global_state
 import hci
@@ -74,6 +75,7 @@ class Cmd:
 
     def abort_cmd(self):
         self.aborted = True
+        global_state.cmd_running = False
         if hasattr(self, 'progress_log'):
             self.progress_log.failure("Command aborted")
 
@@ -435,6 +437,34 @@ class CmdTelescope(Cmd):
             log.info(output)
         return True
 
+class CmdDisasm(Cmd):
+    keywords = ['disasm', 'disassemble', 'd']
+    description = "Display a disassembly of a specified region in the memory."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--length", "-l", type=auto_int, default=128,
+                        help="Length of the disassembly (default: %(default)s).")
+    parser.add_argument("address", type=auto_int,
+                        help="Start address of the disassembly.")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if not self.isAddressInSections(args.address, args.length):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
+            if not answer:
+                return False
+
+        dump = self.readMem(args.address, args.address + args.length)
+
+        if dump == None:
+            return False
+
+        print(disasm(dump, vma=args.address))
+        return True
 
 class CmdWriteMem(Cmd):
     keywords = ['writemem']
@@ -443,7 +473,9 @@ class CmdWriteMem(Cmd):
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("--hex", action="store_true",
-                        help="Interpret pattern as hex string (e.g. ff000a20...)")
+                        help="Interpret data as hex string (e.g. ff000a20...)")
+    parser.add_argument("--int", action="store_true",
+                        help="Interpret data as 32 bit integer (e.g. 0x123)")
     parser.add_argument("--file", "-f",
                         help="Read data from this file instead.")
     parser.add_argument("--repeat", "-r", default=1, type=auto_int,
@@ -451,7 +483,7 @@ class CmdWriteMem(Cmd):
     parser.add_argument("address", type=auto_int,
                         help="Destination address") 
     parser.add_argument("data", nargs="*",
-                        help="Data as string (or hexstring, see --hex)")
+                        help="Data as string (or hexstring/integer, see --hex, --int)")
 
     def work(self):
         args = self.getArgs()
@@ -468,6 +500,8 @@ class CmdWriteMem(Cmd):
                 except TypeError as e:
                     log.warn("Data string cannot be converted to hexstring: " + str(e))
                     return False
+            elif args.int:
+                data = p32(auto_int(data))
         else:
             self.parser.print_usage()
             print("Either data or --file is required!")
@@ -488,5 +522,72 @@ class CmdWriteMem(Cmd):
             self.progress_log.failure("Write failed!")
             return False
 
+class CmdWriteAsm(Cmd):
+    keywords = ['writeasm', 'patch', 'asm']
+    description = "Writes assembler instructions to a specified memory address."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--dry", action="store_true",
+                        help="Only pass code to the assembler but don't write to memory")
+    parser.add_argument("--file", "-f",
+                        help="Open file in text editor, then read assembly from this file.")
+    parser.add_argument("address", type=auto_int,
+                        help="Destination address") 
+    parser.add_argument("code", nargs="*",
+                        help="Assembler code as string")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if args.file != None:
+            if(not os.path.exists(args.file)):
+                f = open(args.file, "w")
+                f.write("/* Write arm thumb code here.\n")
+                f.write("   Use '@' or '//' for single line comments or C-like block comments. */\n")
+                f.write("\n// 0x%08x:\n\n" % args.address)
+                f.close()
+
+            editor = os.environ.get("EDITOR", "vim")
+            subprocess.call([editor, args.file])
+
+            code = read(args.file)
+        elif len(args.code) > 0:
+            code = ' '.join(args.code)
+        else:
+            self.parser.print_usage()
+            print("Either code or --file is required!")
+            return False
+
+        try:
+            data = asm(code, vma=args.address)
+        except PwnlibException:
+            return False
+
+        if len(data)>0:
+            log.info("Assembler was successful. Machine code (len = %d bytes) is:" % len(data))
+            log.hexdump(data, begin=args.address)
+        else:
+            log.info("Assembler didn't produce any machine code.")
+            return False
+
+        if(args.dry):
+            log.info("This was a dry run. No data writen to memory!")
+            return True
+
+        if not self.isAddressInSections(args.address, len(data), sectiontype="RAM"):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?" % (args.address, len(args.data)))
+            if not answer:
+                return False
+
+        self.progress_log = log.progress("Writing Memory")
+        if self.writeMem(args.address, data, self.progress_log, bytes_done=0, bytes_total=len(data)):
+            self.progress_log.success("Written %d bytes to 0x%08x." % (len(data), args.address))
+            return True
+        else:
+            self.progress_log.failure("Write failed!")
+            return False
 
 

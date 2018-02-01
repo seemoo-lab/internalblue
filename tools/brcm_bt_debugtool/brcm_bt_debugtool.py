@@ -32,11 +32,13 @@
 from pwn import *
 import socket
 import sys
+import os
 import time
 import datetime
 import Queue
 import inspect
 import traceback
+from glob import glob
 
 import global_state
 import hci
@@ -63,6 +65,37 @@ by Dennis Mantz.
 type <help> for usage information!\n\n"""
     for line in banner:
         term.output(text.yellow(line))
+
+def check_binutils():
+    # Test if arm binutils is in path so that asm and disasm work:
+    saved_loglevel = context.log_level
+    context.log_level = 'critical'
+    try:
+        pwnlib.asm.which_binutils('as')
+        context.log_level = saved_loglevel
+        return True
+    except PwnlibException:
+        context.log_level = saved_loglevel
+        log.debug("pwnlib.asm.which_binutils() cannot find 'as'!")
+
+    # Work around for arch (with installed arm-none-eabi-binutils)
+    def which_binutils_fixed(tool):
+        pattern = "arm-*-%s" % tool
+        for directory in os.environ['PATH'].split(':'):
+            res = sorted(glob(os.path.join(directory, pattern)))
+            if res:
+                return res[0]
+        raise PwnlibException("Could not find tool %s." % tool)
+
+    try:
+        which_binutils_fixed('as')
+        # yeay it worked! fix it in pwnlib:
+        pwnlib.asm.which_binutils = which_binutils_fixed
+        log.debug("installing workaround for pwnlib.asm.which_binutils() ...")
+        return True
+    except PwnlibException:
+        log.warn("pwntools cannot find binutils for arm architecture. Disassembing will not work!")
+        return False
 
 def read_btsnoop_hdr():
     data = s_snoop.recv(16)
@@ -232,7 +265,7 @@ def commandLoop():
             log.critical("Uncaught exception (%s). Abort." % str(e))
             print(traceback.format_exc())
             break
-        cmd_running = False
+        global_state.cmd_running = False
             
 
 
@@ -245,6 +278,9 @@ print_banner()
 # settings
 context.log_level = 'info'
 context.log_file = '_brcm_bt_debugtool.log'
+context.arch = "thumb"
+
+check_binutils()
 
 # Restore readline history:
 if os.path.exists("_brcm_bt_debugtool.hist"):
