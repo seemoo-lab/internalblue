@@ -479,6 +479,9 @@ class HCI_TX:
     def sendWriteRamCmd(self, addr, data):
         self.sendCmd(0xfc4c, p32(addr) + data)
 
+    def sendLaunchRamCmd(self, addr):
+        self.sendCmd(0xfc4e, p32(addr))
+
 
 def parse_hci_packet(data):
     return HCI.from_data(data)
@@ -487,7 +490,6 @@ def parse_hci_packet(data):
 class StackDumpReceiver:
     memdump_addr = None
     memdumps = {}
-    registers = {}
 
     def recvPacket(self, hcipkt):
         if not issubclass(hcipkt.__class__, HCI_Event):
@@ -498,9 +500,18 @@ class StackDumpReceiver:
             return
 
         if hcipkt.data[4] == '\x2c':
+            self.stack_dump_event_nr += 1
             data = hcipkt.data[6:]
-            values = [hex(u32(data[i:i+4])) for i in range(0, 64, 4)]
-            log.warn("Stack Dump (0x%x):\n" % u8(hcipkt.data[5]) + '\n'.join(values))
+            values = [u32(data[i:i+4]) for i in range(0, 64, 4)]
+            log.debug("Stack Dump (0x%x):\n" % u8(hcipkt.data[5]) + '\n'.join([hex(x) for x in values]))
+            if data[0] == 2:
+                # This is the second stack dump event (contains register values)
+                log.warn("Received Stack-Dump Event (contains %d registers):" % (data[1]))
+                registers  = "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n" % \
+                            (values[2], values[3], values[1], values[4], values[5])
+                registers += "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n" % \
+                            tuple(values[6:11])
+                log.warn(registers)
 
         elif hcipkt.data[4] == '\xf0':
             addr = u32(hcipkt.data[10:14])

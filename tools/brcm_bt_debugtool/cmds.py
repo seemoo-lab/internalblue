@@ -212,6 +212,30 @@ class Cmd:
             self.refreshMemoryImage()
         return Cmd.memory_image
 
+    def launchRam(self, address):
+        self.hci_tx.sendLaunchRamCmd(address)
+
+        while(True):
+            # Receive response
+            try:
+                hcipkt, orig_len, inc_len, flags, drops, recvtime = self.recvQueue.get(timeout=0.5)
+            except Queue.Empty:
+                if global_state.exit_requested or (hasattr(self, 'aborted') and self.aborted):
+                    return False
+                continue
+
+            if isinstance(hcipkt, hci.HCI_Event):
+                if(hcipkt.event_code == 0x0e): # Cmd Complete event
+                    if(hcipkt.data[0:3] == '\x01\x4e\xfc'):
+                        if(hcipkt.data[3] != '\x00'):
+                            log.warn("Got error code %x in command complete event." % hcipkt.data[3])
+                            return False
+                        break
+        return True
+
+
+
+
 #
 # Start of implemented commands:
 #
@@ -528,7 +552,7 @@ class CmdWriteAsm(Cmd):
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
-    parser.add_argument("--dry", action="store_true",
+    parser.add_argument("--dry", "-d", action="store_true",
                         help="Only pass code to the assembler but don't write to memory")
     parser.add_argument("--file", "-f",
                         help="Open file in text editor, then read assembly from this file.")
@@ -574,7 +598,7 @@ class CmdWriteAsm(Cmd):
             return False
 
         if(args.dry):
-            log.info("This was a dry run. No data writen to memory!")
+            log.info("This was a dry run. No data written to memory!")
             return True
 
         if not self.isAddressInSections(args.address, len(data), sectiontype="RAM"):
@@ -591,3 +615,74 @@ class CmdWriteAsm(Cmd):
             return False
 
 
+class CmdExec(Cmd):
+    keywords = ['exec', 'execute']
+    description = "Writes assembler instructions to RAM and jumps there."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--dry", "-d", action="store_true",
+                        help="Only pass code to the assembler but don't write to memory and don't execute")
+    parser.add_argument("--edit", "-e", action="store_true",
+                        help="Edit command before execution")
+    parser.add_argument("--addr", "-a", type=auto_int, default=0x210000,
+                        help="Destination address of the command instructions") 
+    parser.add_argument("cmd",
+                        help="Name of the command to execute (corresponds to file exec_<cmd>.s)")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        filename = "exec_%s.s" % args.cmd
+        if not os.path.exists(filename):
+            f = open(filename, "w")
+            f.write("/* Write arm thumb code here.\n")
+            f.write("   Use '@' or '//' for single line comments or C-like block comments. */\n")
+            f.write("\n// Default destination address is 0x%08x:\n\n" % args.addr)
+            f.close()
+            args.edit = True
+
+        if args.edit:
+            editor = os.environ.get("EDITOR", "vim")
+            subprocess.call([editor, filename])
+
+        code = read(filename)
+
+        try:
+            data = asm(code, vma=args.addr)
+        except PwnlibException:
+            return False
+
+        if len(data)==0:
+            log.info("Assembler didn't produce any machine code.")
+            return False
+
+        if args.edit:
+            log.info("Assembler was successful. Machine code (len = %d bytes) is:" % len(data))
+            log.hexdump(data, begin=args.addr)
+
+        if(args.dry):
+            log.info("This was a dry run. No data written to memory!")
+            return True
+
+        if not self.isAddressInSections(args.addr, len(data), sectiontype="RAM"):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?" % (args.addr, len(args.data)))
+            if not answer:
+                return False
+
+        self.progress_log = log.progress("Writing Memory")
+        if not self.writeMem(args.addr, data, self.progress_log, bytes_done=0, bytes_total=len(data)):
+            self.progress_log.failure("Write failed!")
+            return False
+
+        self.progress_log.success("Written %d bytes to 0x%08x." % (len(data), args.addr))
+
+        self.progress_log = log.progress("Launching Command")
+        if self.launchRam(args.addr):
+            self.progress_log.success("launch_ram cmd was sent successfully!")
+            return True
+        else:
+            self.progress_log.failure("Sending launch_ram command failed!")
+            return False
