@@ -46,10 +46,10 @@ class Cmd:
     #            start,    end,      is_rom?
     sections = [(0x0,      0x90000,  True),
                 (0xd0000,  0xd8000,  False),
-                (0xe0000,  0x1f0000, True),
+               #(0xe0000,  0x1f0000, True),
                 (0x200000, 0x228000, False),
                 (0x260000, 0x268000, True),
-                (0x280000, 0x2a0000, True),
+               #(0x280000, 0x2a0000, True),
                 (0x318000, 0x320000, True),
                 (0x324000, 0x360000, False),
                 (0x362000, 0x362100, False),
@@ -57,7 +57,8 @@ class Cmd:
                 (0x600000, 0x600800, True),
                 (0x640000, 0x640800, True),
                 (0x650000, 0x650800, True),
-                (0x680000, 0x800000, True)]
+               #(0x680000, 0x800000, True)
+               ]
 
     memory_image = None
     memory_image_template_filename = "_memdump_template.bin"
@@ -187,7 +188,7 @@ class Cmd:
             self.progress_log.success("Received Data: complete")
             Cmd.memory_image = fit(dumped_sections, filler='\x00')
             f = open(self.memory_image_template_filename, 'wb')
-            f.write(Cmd.memory)
+            f.write(Cmd.memory_image)
             f.close()
         else:
             log.info("Template found. Only read non-ROM sections!")

@@ -33,6 +33,7 @@ from pwn import *
 import socket
 import sys
 import os
+import signal
 import time
 import datetime
 import Queue
@@ -127,14 +128,19 @@ def recvThreadFunc():
     stackDumpReceiver = hci.StackDumpReceiver()
 
     while not global_state.exit_requested:
-
         # Little bit ugly: need to re-apply changes to the global context to the thread-copy
         context.log_level = global_state.log_level
 
         record_hdr = b''
         while(not global_state.exit_requested and len(record_hdr) < 24):
             try:
-                record_hdr += s_snoop.recv(24 - len(record_hdr))
+                recv_data = s_snoop.recv(24 - len(record_hdr))
+                if len(recv_data) == 0:
+                    log.info("bt_snoop socket was closed by remote site. sending Ctrl-C...")
+                    global_state.exit_requested = True
+                    os.kill(os.getpid(), signal.SIGINT)
+                    break
+                record_hdr += recv_data
             except socket.timeout:
                 pass # this is ok. just try again without error
 
@@ -152,7 +158,13 @@ def recvThreadFunc():
         record_data = b''
         while(not global_state.exit_requested and len(record_data) < inc_len):
             try:
-                record_data += s_snoop.recv(inc_len - len(record_data))
+                recv_data = s_snoop.recv(inc_len - len(record_data))
+                if len(recv_data) == 0:
+                    log.info("bt_snoop socket was closed by remote site. sending Ctrl-C...")
+                    global_state.exit_requested = True
+                    os.kill(os.getpid(), signal.SIGINT)
+                    break
+                record_data += recv_data
             except socket.timeout:
                 pass # this is ok. just try again without error
         
@@ -257,7 +269,7 @@ def commandLoop():
             if(global_state.cmd_running):
                 cmd_instance.abort_cmd()
             else:
-                log.info("Got Ctrl-C by user; exiting...")
+                log.info("Got Ctrl-C; exiting...")
                 global_state.exit_requested = True
                 break
         except Exception as e:
