@@ -687,3 +687,37 @@ class CmdExec(Cmd):
         else:
             self.progress_log.failure("Sending launch_ram command failed!")
             return False
+
+
+class CmdSendHciCmd(Cmd):
+    keywords = ['sendhcicmd']
+    description = "Send an arbitrary hci command to the BT controller"
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("cmdcode", type=auto_int,
+                        help="The command code (e.g. 0xfc4c for WriteRam).")
+    parser.add_argument("data", nargs="*",
+                        help="Data as combinations of hexstrings and hex-ints (starting with 0x..)")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if args.cmdcode > 0xffff:
+            log.info("cmdcode needs to be in the range of 0x0000 - 0xffff")
+            return False
+
+        data = ''
+        for data_part in args.data:
+            if data_part[0:2] == "0x":
+                data += p32(auto_int(data_part))
+            else:
+                data += data_part.decode('hex')
+
+        self.hci_tx.sendCmd(args.cmdcode, data)
+
+        return True
+
+
