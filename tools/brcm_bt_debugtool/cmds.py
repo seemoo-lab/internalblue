@@ -548,7 +548,7 @@ class CmdWriteMem(Cmd):
             return False
 
 class CmdWriteAsm(Cmd):
-    keywords = ['writeasm', 'patch', 'asm']
+    keywords = ['writeasm', 'asm']
     description = "Writes assembler instructions to a specified memory address."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -688,7 +688,6 @@ class CmdExec(Cmd):
             self.progress_log.failure("Sending launch_ram command failed!")
             return False
 
-
 class CmdSendHciCmd(Cmd):
     keywords = ['sendhcicmd']
     description = "Send an arbitrary hci command to the BT controller"
@@ -698,7 +697,7 @@ class CmdSendHciCmd(Cmd):
     parser.add_argument("cmdcode", type=auto_int,
                         help="The command code (e.g. 0xfc4c for WriteRam).")
     parser.add_argument("data", nargs="*",
-                        help="Data as combinations of hexstrings and hex-ints (starting with 0x..)")
+                        help="Payload as combinations of hexstrings and hex-uint32 (starting with 0x..)")
 
     def work(self):
         args = self.getArgs()
@@ -719,5 +718,87 @@ class CmdSendHciCmd(Cmd):
         self.hci_tx.sendCmd(args.cmdcode, data)
 
         return True
+
+class CmdPatchRom(Cmd):
+    keywords = ['patchrom', 'patch']
+    description = "Patches 4 byte of data at a specified ROM address."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--hex", action="store_true",
+                        help="Interpret data as hex string (e.g. ff000a20...)")
+    parser.add_argument("--int", action="store_true",
+                        help="Interpret data as 32 bit integer (e.g. 0x123)")
+    parser.add_argument("--asm", action="store_true",
+                        help="Interpret data as assembler instruction")
+    parser.add_argument("slot", type=auto_int,
+                        help="Patchram slot to use (0-130)") 
+    parser.add_argument("address", type=auto_int,
+                        help="Destination address") 
+    parser.add_argument("data", nargs="*",
+                        help="Data as string (or hexstring/integer, see --hex, --int)")
+
+    # Not so nice hack to keep track of used slots:
+    slot_dwords = [0xffffffff, 0xffffffff, 0xffffffff, 0x0000ffff, 0x00000000]
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if len(args.data) > 0:
+            data = ' '.join(args.data)
+            if args.hex:
+                try:
+                    data = data.decode('hex')
+                except TypeError as e:
+                    log.warn("Data string cannot be converted to hexstring: " + str(e))
+                    return False
+            elif args.int:
+                data = p32(auto_int(data))
+            elif args.asm:
+                data = asm(data, vma=args.address)
+        else:
+            self.parser.print_usage()
+            print("Data is required!")
+            return False
+
+        if args.slot < 0 or args.slot > 130:
+            log.warn("Slot has to be in the range 0 to 130!")
+            return False
+
+        if len(data) > 4:
+            log.warn("Data size is %d bytes. Trunkating to 4 byte!" % len(data))
+            data = data[0:4]
+        if len(data) < 4:
+            log.warn("Data size is %d bytes. 0-Padding to 4 byte!" % len(data))
+            data = data.ljust(4, "\x00")
+
+        if not self.isAddressInSections(args.address, len(data), sectiontype="ROM"):
+            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a ROM section. Continue?" % (args.address, len(data)))
+            if not answer:
+                return False
+
+        # We need to enable the slot by setting a bit in a multi-dword bitfield
+        target_dword = int(args.slot / 32)
+        target_bit = args.slot % 32
+
+        if self.slot_dwords[target_dword] & (0b1 << target_bit):
+            log.warn("Slot %d is already in use. Overwriting..." % args.slot)
+
+        self.slot_dwords[target_dword] |= 0b1 << target_bit
+
+        # Write new value to patchram value table at 0xd0000
+        self.writeMem(0xd0000 + args.slot*4, data)
+
+        # Write address to patchram target table at 0x31000
+        self.writeMem(0x310000 + args.slot*4, p32(args.address >> 2))
+
+        # Enable patchram slot (enable bitfield starts at 0x310204)
+        self.writeMem(0x310204 + target_dword*4, p32(self.slot_dwords[target_dword]))
+        return True
+
+
+
 
 
