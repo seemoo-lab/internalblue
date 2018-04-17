@@ -50,6 +50,7 @@ import cmds
 s_inject = None
 s_snoop = None
 hci_tx = None
+write_btsnooplog = True
 btsnooplog_file = None
 recvQueue = Queue.Queue()
 recvThread = None
@@ -102,7 +103,7 @@ def read_btsnoop_hdr():
     data = s_snoop.recv(16)
     if(len(data) < 16):
         return None
-    if(global_state.write_btsnooplog):
+    if(write_btsnooplog):
         btsnooplog_file.write(data)
 
     btsnoop_hdr = (data[:8], u32(data[8:12]),u32(data[12:16]))
@@ -150,7 +151,7 @@ def recvThreadFunc():
                 global_state.exit_requested = True
             break
 
-        if(global_state.write_btsnooplog):
+        if(write_btsnooplog):
             btsnooplog_file.write(record_hdr)
 
         orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
@@ -168,7 +169,7 @@ def recvThreadFunc():
             except socket.timeout:
                 pass # this is ok. just try again without error
         
-        if(global_state.write_btsnooplog):
+        if(write_btsnooplog):
             btsnooplog_file.write(record_data)
 
         try:
@@ -299,7 +300,7 @@ if os.path.exists("_brcm_bt_debugtool.hist"):
     readline_history = read("_brcm_bt_debugtool.hist")
     term.readline.history = readline_history.split('\n')
 
-if(global_state.write_btsnooplog):
+if(write_btsnooplog):
     btsnooplog_file = open('btsnoop.log','wb', 0)  # Write unbuffered!
 
 # Check for connected adb devices
@@ -337,7 +338,7 @@ f.close()
 # Cleanup
 recvThread.join()
 teardownSockets()
-if(global_state.write_btsnooplog):
+if(write_btsnooplog):
     btsnooplog_file.close()
 log.info("Goodbye")
 

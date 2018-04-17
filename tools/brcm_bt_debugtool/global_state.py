@@ -25,5 +25,4 @@
 
 exit_requested = False
 cmd_running = False
-write_btsnooplog = True
 log_level = 'info'

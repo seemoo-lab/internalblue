@@ -33,6 +33,7 @@ import Queue
 import inspect
 import argparse
 import subprocess
+import textwrap
 
 import global_state
 import hci
@@ -102,6 +103,7 @@ class Cmd:
         read_addr = start
         byte_counter = 0
         outbuffer = ''
+        memory_type = None
         while(read_addr < end):
             # Send hci frame
             bytes_left = (end-start) - byte_counter
@@ -122,7 +124,10 @@ class Cmd:
 
                 if isinstance(hcipkt, hci.HCI_Event):
                     if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                        if(hcipkt.data[0:4] == '\x01\x4d\xfc\x00'):
+                        if(hcipkt.data[0:3] == '\x01\x4d\xfc'):
+                            memory_type = data = ord(hcipkt.data[3])
+                            if memory_type != 0:
+                                log.warning("readMem: [TODO] Got memory type != 0 : 0x%02X" % memory_type)
                             data = hcipkt.data[4:]
                             outbuffer += data
                             read_addr += len(data)
@@ -134,7 +139,7 @@ class Cmd:
                                     msg = "receiving data... 0x%08x" % start
                                 progress_log.status(msg)
                             break
-        return outbuffer
+        return outbuffer  # TODO: return memory_type
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
         write_addr = address
@@ -261,7 +266,8 @@ class CmdHelp(Cmd):
                 print("Aliases: " + " ".join(cmd[0].keywords))
         else:
             for cmd in command_list:
-                print(cmd.keywords[0].ljust(15) + cmd.description)
+                print(cmd.keywords[0].ljust(15) + 
+                        ("\n" + " "*15).join(textwrap.wrap(cmd.description, 60)))
         return True
 
 class CmdExit(Cmd):
@@ -400,10 +406,10 @@ class CmdHexdump(Cmd):
         if args == None:
             return True
 
-        if not self.isAddressInSections(args.address, args.length):
-            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
-            if not answer:
-                return False
+        #if not self.isAddressInSections(args.address, args.length):
+        #    answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
+        #    if not answer:
+        #        return False
 
         dump = self.readMem(args.address, args.address + args.length)
 
