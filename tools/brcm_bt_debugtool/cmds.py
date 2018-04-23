@@ -38,28 +38,53 @@ import textwrap
 import global_state
 import hci
 
+def getCmdList():
+    # List of available commands:
+    return [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
+                            if inspect.isclass(obj) and issubclass(obj, Cmd)][1:]
+
+def findCmd(keyword):
+    command_list = getCmdList()
+    matching_cmds = [cmd for cmd in command_list if keyword in cmd.keywords]
+    if(len(matching_cmds) == 0):
+        return None
+    if(len(matching_cmds) > 1):
+        log.warn("Multiple commands match: " + str(matching_cmds))
+        return None
+    return matching_cmds[0]
+
 def auto_int(x):
     return int(x, 0)
+
+class MemorySection:
+    def __init__(self, start_addr, end_addr, is_rom, is_ram):
+        self.start_addr = start_addr
+        self.end_addr = end_addr
+        self.is_rom = is_rom
+        self.is_ram = is_ram
+
+    def size(self):
+        return self.end_addr - self.start_addr
 
 class Cmd:
     keywords = []
 
-    #            start,    end,      is_rom?
-    sections = [(0x0,      0x90000,  True),
-                (0xd0000,  0xd8000,  False),
-               #(0xe0000,  0x1f0000, True),
-                (0x200000, 0x228000, False),
-                (0x260000, 0x268000, True),
-               #(0x280000, 0x2a0000, True),
-                (0x318000, 0x320000, True),
-                (0x324000, 0x360000, False),
-                (0x362000, 0x362100, False),
-                (0x363000, 0x363100, False),
-                (0x600000, 0x600800, True),
-                (0x640000, 0x640800, True),
-                (0x650000, 0x650800, True),
-               #(0x680000, 0x800000, True)
-               ]
+    #                          start,    end,      is_rom? is_ram?
+    sections = [ MemorySection(0x0,      0x90000,  True , False),
+                 MemorySection(0xd0000,  0xd8000,  False, True ),
+                #MemorySection(0xe0000,  0x1f0000, True , False),
+                 MemorySection(0x200000, 0x228000, False, True ),
+                 MemorySection(0x260000, 0x268000, True , False),
+                #MemorySection(0x280000, 0x2a0000, True , False),
+                 MemorySection(0x318000, 0x320000, False, False),
+                 MemorySection(0x324000, 0x360000, False, False),
+                 MemorySection(0x362000, 0x362100, False, False),
+                 MemorySection(0x363000, 0x363100, False, False),
+                 MemorySection(0x600000, 0x600800, False, False),
+                 MemorySection(0x640000, 0x640800, False, False),
+                 MemorySection(0x650000, 0x650800, False, False),
+                #MemorySection(0x680000, 0x800000, False, False)
+                ]
 
     memory_image = None
     memory_image_template_filename = "_memdump_template.bin"
@@ -88,12 +113,12 @@ class Cmd:
             return None
 
     def isAddressInSections(self, address, length=0, sectiontype=""):
-        for sectionstart, sectionend, is_rom in self.sections:
-            if (sectiontype.upper() == "ROM" and not is_rom) or (sectiontype.upper() == "RAM" and is_rom):
+        for section in self.sections:
+            if (sectiontype.upper() == "ROM" and not section.is_rom) or (sectiontype.upper() == "RAM" and not section.is_ram):
                 continue
 
-            if(address >= sectionstart and address <= sectionend):
-                if(address + length <= sectionend):
+            if(address >= section.start_addr and address <= section.end_addr):
+                if(address + length <= section.end_addr):
                     return True
                 else:
                     return False
@@ -184,12 +209,12 @@ class Cmd:
         bytes_done = 0
         if(not os.path.exists(self.memory_image_template_filename)):
             log.info("No template found. Need to read ROM sections as well!")
-            bytes_total = sum([end-start for start,end,is_rom in self.sections])
+            bytes_total = sum([s.size() for s in self.sections])
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
-            for sectionstart, sectionend, is_rom in self.sections:
-                dumped_sections[sectionstart] = self.readMem(sectionstart, sectionend, self.progress_log, bytes_done, bytes_total)
-                bytes_done += sectionend-sectionstart
+            for section in self.sections:
+                dumped_sections[section.start_addr] = self.readMem(section.start_addr, section.end_addr, self.progress_log, bytes_done, bytes_total)
+                bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
             Cmd.memory_image = fit(dumped_sections, filler='\x00')
             f = open(self.memory_image_template_filename, 'wb')
@@ -202,13 +227,13 @@ class Cmd:
 
     def refreshMemoryImage(self):
         bytes_done = 0
-        bytes_total = sum([end-start for start,end,is_rom in self.sections if not is_rom])
+        bytes_total = sum([s.size() for s in self.sections if not s.is_rom])
         self.progress_log = log.progress("Refresh internal memory image")
-        for sectionstart, sectionend, is_rom in self.sections:
-            if not is_rom:
-                sectiondump = self.readMem(sectionstart, sectionend, self.progress_log, bytes_done, bytes_total)
-                Cmd.memory_image = Cmd.memory_image[0:sectionstart] + sectiondump + Cmd.memory_image[sectionend:]
-                bytes_done += sectionend-sectionstart
+        for section in self.sections:
+            if not section.is_rom:
+                sectiondump = self.readMem(section.start_addr, section.end_addr, self.progress_log, bytes_done, bytes_total)
+                Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
+                bytes_done += section.size()
         self.progress_log.success("Received Data: complete")
 
     def getMemoryImage(self, refresh=False):
@@ -252,18 +277,17 @@ class CmdHelp(Cmd):
 
     def work(self):
         args = self.cmdline.split(' ')
-        command_list = [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
-                            if inspect.isclass(obj) and issubclass(obj, Cmd)][1:]
+        command_list = getCmdList()
         if(len(args) > 1):
-            cmd = [c for c in command_list if args[1] in c.keywords]
-            if(len(cmd) < 1):
+            cmd = findCmd(args[1])
+            if cmd == None:
                 log.info("No command with the name: " + args[1])
                 return True
-            if hasattr(cmd[0],'parser'):
-                cmd[0].parser.print_help()
+            if hasattr(cmd,'parser'):
+                cmd.parser.print_help()
             else:
-                print(cmd[0].description)
-                print("Aliases: " + " ".join(cmd[0].keywords))
+                print(cmd.description)
+                print("Aliases: " + " ".join(cmd.keywords))
         else:
             for cmd in command_list:
                 print(cmd.keywords[0].ljust(15) + 
@@ -317,6 +341,48 @@ class CmdListen(Cmd):
         Cmd.abort_cmd(self)
         global_state.log_level = self.saved_loglevel
 
+
+class CmdRepeat(Cmd):
+    keywords = ['repeat']
+    description = "Repeat a given command until user stops it."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("timeout", type=int,
+                        help="idle time (in milliseconds) between repetitions.")
+    parser.add_argument("command", 
+                        help="Command which shall be repeated.")
+
+    def work(self):
+        args = self.cmdline.split(" ")
+        if len(args) < 3:
+            log.info("Need more arguments!")
+            return False
+
+        timeout = int(args[1])
+        repcmdline = " ".join(args[2:])
+        cmdclass = findCmd(args[2])
+
+        if cmdclass == None:
+            log.warn("Unknown command: " + args[2])
+            return False
+
+        while True:
+            # Empty recv queue:
+            while True:
+                try:
+                    self.recvQueue.get_nowait()
+                except Queue.Empty:
+                    break
+
+            # instanciate and run cmd
+            cmd_instance = cmdclass(repcmdline, self.recvQueue, self.hci_tx)
+            if(not cmd_instance.work()):
+                log.warn("Command failed: " + str(cmd_instance))
+                return False
+            time.sleep(timeout*0.001)
+            
+
 class CmdDumpMem(Cmd):
     keywords = ['dumpmem', 'memdump']
     description = "Dumps complete memory image into a file."
@@ -325,12 +391,33 @@ class CmdDumpMem(Cmd):
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("--norefresh", "-n", action="store_true",
                         help="Do not refresh internal memory image before dumping to file.")
+    parser.add_argument("--ram", "-r", action="store_true",
+                        help="Only dump the two RAM sections.")
     parser.add_argument("--file", "-f", default="memdump.bin",
                         help="Filename of memory dump (default: %(default)s)")
 
     def work(self):
         args = self.getArgs()
         if args==None:
+            return True
+
+        if args.ram:
+            bytes_total = sum([s.size() for s in self.sections if s.is_ram])
+            bytes_done = 0
+            self.progress_log = log.progress("Downloading RAM sections...")
+            for section in filter(lambda s: s.is_ram, self.sections):
+                filename = args.file + "_" + hex(section.start_addr)
+                if(os.path.exists(filename)):
+                    if not yesno("Overwrite '%s'?" % filename):
+                        log.info("Skipping section @%s" % hex(section.start_addr))
+                        bytes_done += section.size()
+                        continue
+                ram = self.readMem(section.start_addr, section.end_addr, self.progress_log, bytes_done, bytes_total)
+                f = open(filename, "wb")
+                f.write(ram)
+                f.close()
+                bytes_done += section.size()
+            self.progress_log.success("Done")
             return True
 
         if(os.path.exists(args.file)):
@@ -420,7 +507,7 @@ class CmdHexdump(Cmd):
         return True
 
 class CmdTelescope(Cmd):
-    keywords = ['telescope']
+    keywords = ['telescope', 'tel']
     description = "Display a specified region in the memory and follow pointers to valid addresses."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -432,6 +519,8 @@ class CmdTelescope(Cmd):
 
     def telescope(self, data, depth):
         val = u32(data[0:4])
+        if val == 0:
+            return [val, '']
         if(depth > 0 and self.isAddressInSections(val,0x20)):
             newdata = self.readMem(val, val + 0x20)
             recursive_result = self.telescope(newdata, depth-1)

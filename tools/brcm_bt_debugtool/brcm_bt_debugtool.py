@@ -37,7 +37,6 @@ import signal
 import time
 import datetime
 import Queue
-import inspect
 import traceback
 from glob import glob
 
@@ -234,9 +233,6 @@ def teardownSockets():
         s_snoop = None
 
 def commandLoop():
-    # List of available commands:
-    command_list = [obj for name, obj in inspect.getmembers(sys.modules['cmds']) if inspect.isclass(obj) and issubclass(obj, cmds.Cmd)]
-
     while(not global_state.exit_requested):
         try:
             cmdline = term.readline.readline(prompt='> ').strip()
@@ -244,14 +240,11 @@ def commandLoop():
             if(cmdword == ''):
                 continue
             log.debug("Command Line: [[" + cmdword + "]] " + cmdline)
-            matching_cmds = [cmd for cmd in command_list if cmdword in cmd.keywords]
-            if(len(matching_cmds) == 0):
+            matching_cmd = cmds.findCmd(cmdword)
+            if matching_cmd == None:
                 log.warn("Command unknown: " + cmdline)
                 continue
-            if(len(matching_cmds) > 1):
-                log.warn("Multiple commands match: " + str(matching_cmds))
-                continue
-            cmd_instance = matching_cmds[0](cmdline, recvQueue, hci_tx)
+            cmd_instance = matching_cmd(cmdline, recvQueue, hci_tx)
             global_state.cmd_running = True
 
             # Empty queue:
