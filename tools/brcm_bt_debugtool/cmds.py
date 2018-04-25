@@ -359,7 +359,12 @@ class CmdRepeat(Cmd):
             log.info("Need more arguments!")
             return False
 
-        timeout = int(args[1])
+        try:
+            timeout = int(args[1])
+        except ValueError:
+            log.info("Not a number: " + args[1])
+            return False
+
         repcmdline = " ".join(args[2:])
         cmdclass = findCmd(args[2])
 
@@ -721,7 +726,7 @@ class CmdExec(Cmd):
                         help="Only pass code to the assembler but don't write to memory and don't execute")
     parser.add_argument("--edit", "-e", action="store_true",
                         help="Edit command before execution")
-    parser.add_argument("--addr", "-a", type=auto_int, default=0x210000,
+    parser.add_argument("--addr", "-a", type=auto_int, default=0x211800,
                         help="Destination address of the command instructions") 
     parser.add_argument("cmd",
                         help="Name of the command to execute (corresponds to file exec_<cmd>.s)")

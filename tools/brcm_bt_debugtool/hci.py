@@ -471,6 +471,7 @@ class HCI_TX:
 
         # Prepend UART TYPE and length
         out = p8(HCI.HCI_CMD) + p16(len(payload)) + payload
+        log.debug("Send: " + str(out.encode('hex')))
         self.s_inject.send(out)
 
     def sendReadRamCmd(self, addr, length):

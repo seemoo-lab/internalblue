@@ -296,6 +296,14 @@ if os.path.exists("_brcm_bt_debugtool.hist"):
 if(write_btsnooplog):
     btsnooplog_file = open('btsnoop.log','wb', 0)  # Write unbuffered!
 
+# Readline Completions
+cmd_keywords = []
+for cmd in cmds.getCmdList():
+    for keyword in cmd.keywords:
+        cmd_keywords.append(keyword)
+readline_completer = term.completer.LongestPrefixCompleter(words=cmd_keywords)
+term.readline.set_completer(readline_completer)
+
 # Check for connected adb devices
 adb_devices = adb.devices()
 if(len(adb_devices) == 0):
