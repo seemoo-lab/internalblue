@@ -35,9 +35,6 @@ import argparse
 import subprocess
 import textwrap
 
-import global_state
-import hci
-
 def getCmdList():
     # List of available commands:
     return [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
@@ -89,10 +86,9 @@ class Cmd:
     memory_image = None
     memory_image_template_filename = "_memdump_template.bin"
 
-    def __init__(self, cmdline, recvQueue, hci_tx):
+    def __init__(self, cmdline, brcmbt):
         self.cmdline = cmdline
-        self.recvQueue = recvQueue
-        self.hci_tx = hci_tx
+        self.brcmbt = brcmbt
 
     def __str__(self):
         return self.cmdline
@@ -102,7 +98,6 @@ class Cmd:
 
     def abort_cmd(self):
         self.aborted = True
-        global_state.cmd_running = False
         if hasattr(self, 'progress_log'):
             self.progress_log.failure("Command aborted")
 
@@ -124,86 +119,11 @@ class Cmd:
                     return False
         return False
 
-    def readMem(self, start, end, progress_log=None, bytes_done=0, bytes_total=0):
-        read_addr = start
-        byte_counter = 0
-        outbuffer = ''
-        memory_type = None
-        while(read_addr < end):
-            # Send hci frame
-            bytes_left = (end-start) - byte_counter
-            blocksize = bytes_left
-            if blocksize > 251:
-                blocksize = 251
-
-            self.hci_tx.sendReadRamCmd(read_addr, blocksize)
-
-            while(True):
-                # Receive response
-                try:
-                    hcipkt, orig_len, inc_len, flags, drops, recvtime = self.recvQueue.get(timeout=0.5)
-                except Queue.Empty:
-                    if global_state.exit_requested or (hasattr(self, 'aborted') and self.aborted):
-                        return None
-                    continue
-
-                if isinstance(hcipkt, hci.HCI_Event):
-                    if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                        if(hcipkt.data[0:3] == '\x01\x4d\xfc'):
-                            memory_type = data = ord(hcipkt.data[3])
-                            if memory_type != 0:
-                                log.warning("readMem: [TODO] Got memory type != 0 : 0x%02X" % memory_type)
-                            data = hcipkt.data[4:]
-                            outbuffer += data
-                            read_addr += len(data)
-                            byte_counter += len(data)
-                            if(progress_log != None):
-                                if(bytes_total > 0):
-                                    msg = "receiving data... %d / %d Bytes" % (bytes_done+byte_counter, bytes_total)
-                                else:
-                                    msg = "receiving data... 0x%08x" % start
-                                progress_log.status(msg)
-                            break
-        return outbuffer  # TODO: return memory_type
+    def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        return self.brcmbt.readMem(address, length, progress_log, bytes_done, bytes_total)
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
-        write_addr = address
-        byte_counter = 0
-        while(byte_counter < len(data)):
-            # Send hci frame
-            bytes_left = len(data) - byte_counter
-            blocksize = bytes_left
-            if blocksize > 251:
-                blocksize = 251
-
-            self.hci_tx.sendWriteRamCmd(write_addr, data[byte_counter:byte_counter+blocksize])
-
-            while(True):
-                # Receive response
-                try:
-                    hcipkt, orig_len, inc_len, flags, drops, recvtime = self.recvQueue.get(timeout=0.5)
-                except Queue.Empty:
-                    if global_state.exit_requested or (hasattr(self, 'aborted') and self.aborted):
-                        return False
-                    continue
-
-                if isinstance(hcipkt, hci.HCI_Event):
-                    if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                        if(hcipkt.data[0:3] == '\x01\x4c\xfc'):
-                            if(hcipkt.data[3] != '\x00'):
-                                log.warn("Got error code %x in command complete event." % hcipkt.data[3])
-                                return False
-                            write_addr += blocksize
-                            byte_counter += blocksize
-                            if(progress_log != None):
-                                if(bytes_total > 0):
-                                    msg = "sending data... %d / %d Bytes" % (bytes_done+byte_counter, bytes_total)
-                                else:
-                                    msg = "sending data... 0x%08x" % start
-                                progress_log.status(msg)
-                            break
-        return True
-
+        return self.brcmbt.writeMem(address, data, progress_log, bytes_done, bytes_total)
 
     def initMemoryImage(self):
         bytes_done = 0
@@ -213,7 +133,7 @@ class Cmd:
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
             for section in self.sections:
-                dumped_sections[section.start_addr] = self.readMem(section.start_addr, section.end_addr, self.progress_log, bytes_done, bytes_total)
+                dumped_sections[section.start_addr] = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
             Cmd.memory_image = fit(dumped_sections, filler='\x00')
@@ -231,7 +151,7 @@ class Cmd:
         self.progress_log = log.progress("Refresh internal memory image")
         for section in self.sections:
             if not section.is_rom:
-                sectiondump = self.readMem(section.start_addr, section.end_addr, self.progress_log, bytes_done, bytes_total)
+                sectiondump = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
                 bytes_done += section.size()
         self.progress_log.success("Received Data: complete")
@@ -244,25 +164,7 @@ class Cmd:
         return Cmd.memory_image
 
     def launchRam(self, address):
-        self.hci_tx.sendLaunchRamCmd(address)
-
-        while(True):
-            # Receive response
-            try:
-                hcipkt, orig_len, inc_len, flags, drops, recvtime = self.recvQueue.get(timeout=0.5)
-            except Queue.Empty:
-                if global_state.exit_requested or (hasattr(self, 'aborted') and self.aborted):
-                    return False
-                continue
-
-            if isinstance(hcipkt, hci.HCI_Event):
-                if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                    if(hcipkt.data[0:3] == '\x01\x4e\xfc'):
-                        if(hcipkt.data[3] != '\x00'):
-                            log.warn("Got error code %x in command complete event." % hcipkt.data[3])
-                            return False
-                        break
-        return True
+        return self.brcmbt.launchRam(address)
 
 
 
@@ -299,7 +201,7 @@ class CmdExit(Cmd):
     description = "Exit the program."
 
     def work(self):
-        global_state.exit_requested = True
+        self.brcmbt.exit_requested = True
         return True
 
 class CmdLogLevel(Cmd):
@@ -319,7 +221,7 @@ class CmdLogLevel(Cmd):
         loglevel = args.level
         if(loglevel.upper() in self.log_levels):
             context.log_level = loglevel
-            global_state.log_level = loglevel
+            self.brcmbt.log_level = loglevel
             log.info("New log level: " + str(context.log_level))
             return True
         else:
@@ -332,14 +234,15 @@ class CmdListen(Cmd):
 
     def work(self):
         self.progress_log = log.progress("Listening... (stop with Ctrl-C)")
-        self.saved_loglevel = global_state.log_level
-        global_state.log_level = 'debug'
+        self.saved_loglevel = self.brcmbt.log_level
+        self.brcmbt.log_level = 'debug'
         while True:
-            time.sleep(1)
+            # Empty the receive queue
+            self.brcmbt.recvPacket(timeout=0.5)
 
     def abort_cmd(self):
         Cmd.abort_cmd(self)
-        global_state.log_level = self.saved_loglevel
+        self.brcmbt.log_level = self.saved_loglevel
 
 
 class CmdRepeat(Cmd):
@@ -374,14 +277,11 @@ class CmdRepeat(Cmd):
 
         while True:
             # Empty recv queue:
-            while True:
-                try:
-                    self.recvQueue.get_nowait()
-                except Queue.Empty:
-                    break
+            while self.brcmbt.recvPacket(timeout=0.1) != None:
+                pass
 
             # instanciate and run cmd
-            cmd_instance = cmdclass(repcmdline, self.recvQueue, self.hci_tx)
+            cmd_instance = cmdclass(repcmdline, brcmbt)
             if(not cmd_instance.work()):
                 log.warn("Command failed: " + str(cmd_instance))
                 return False
@@ -417,7 +317,7 @@ class CmdDumpMem(Cmd):
                         log.info("Skipping section @%s" % hex(section.start_addr))
                         bytes_done += section.size()
                         continue
-                ram = self.readMem(section.start_addr, section.end_addr, self.progress_log, bytes_done, bytes_total)
+                ram = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 f = open(filename, "wb")
                 f.write(ram)
                 f.close()
@@ -503,7 +403,7 @@ class CmdHexdump(Cmd):
         #    if not answer:
         #        return False
 
-        dump = self.readMem(args.address, args.address + args.length)
+        dump = self.readMem(args.address, args.length)
 
         if dump == None:
             return False
@@ -527,7 +427,7 @@ class CmdTelescope(Cmd):
         if val == 0:
             return [val, '']
         if(depth > 0 and self.isAddressInSections(val,0x20)):
-            newdata = self.readMem(val, val + 0x20)
+            newdata = self.readMem(val, 0x20)
             recursive_result = self.telescope(newdata, depth-1)
             recursive_result.insert(0, val)
             return recursive_result
@@ -550,7 +450,7 @@ class CmdTelescope(Cmd):
             if not answer:
                 return False
 
-        dump = self.readMem(args.address, args.address + args.length + 4)
+        dump = self.readMem(args.address, args.length + 4)
         if dump == None:
             return False
 
@@ -563,7 +463,7 @@ class CmdTelescope(Cmd):
         return True
 
 class CmdDisasm(Cmd):
-    keywords = ['disasm', 'disassemble', 'd']
+    keywords = ['disasm', 'disas', 'disassemble', 'd']
     description = "Display a disassembly of a specified region in the memory."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -583,7 +483,7 @@ class CmdDisasm(Cmd):
             if not answer:
                 return False
 
-        dump = self.readMem(args.address, args.address + args.length)
+        dump = self.readMem(args.address, args.length)
 
         if dump == None:
             return False
@@ -815,7 +715,7 @@ class CmdSendHciCmd(Cmd):
             else:
                 data += data_part.decode('hex')
 
-        self.hci_tx.sendCmd(args.cmdcode, data)
+        self.brcmbt.hci_tx.sendCmd(args.cmdcode, data)
 
         return True
 
