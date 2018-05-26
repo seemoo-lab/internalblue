@@ -281,7 +281,7 @@ class CmdRepeat(Cmd):
                 pass
 
             # instanciate and run cmd
-            cmd_instance = cmdclass(repcmdline, brcmbt)
+            cmd_instance = cmdclass(repcmdline, self.brcmbt)
             if(not cmd_instance.work()):
                 log.warn("Command failed: " + str(cmd_instance))
                 return False
@@ -739,6 +739,8 @@ class CmdPatchRom(Cmd):
                         help="Data as string (or hexstring/integer, see --hex, --int)")
 
     # Not so nice hack to keep track of used slots:
+    # TODO: This can be better by reading in the bitfields from the IO
+    # This needs a patch as readRAM crashes if it reads from IO (must read 4 byte chunks)
     slot_dwords = [0xffffffff, 0xffffffff, 0xffffffff, 0x0000ffff, 0x00000000]
 
     def work(self):
@@ -799,6 +801,45 @@ class CmdPatchRom(Cmd):
         return True
 
 
+class CmdInfo(Cmd):
+    keywords = ['info', 'show', 'i']
+    description = "Display various types of information parsed from live RAM"
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("type", 
+                        help="Type of information.")
+
+    def infoConnections(self):
+        CONNECTION_ARRAY_ADDRESS = 0x002038E8
+        CONNECTION_ARRAY_SIZE    = 11
+        CONNECTION_STRUCT_LENGTH = 0x14C
+
+        data = self.readMem(CONNECTION_ARRAY_ADDRESS, CONNECTION_ARRAY_SIZE*CONNECTION_STRUCT_LENGTH)
+        for i in range(CONNECTION_ARRAY_SIZE):
+            connection = data[i*CONNECTION_STRUCT_LENGTH: (i+1)*CONNECTION_STRUCT_LENGTH]
+
+            if connection == b'\x00'*CONNECTION_STRUCT_LENGTH:
+                continue
+            
+            connection_number   = u32(connection[:4])
+            remote_address      = ":".join([b.encode("hex") for b in connection[0x28:0x2E][::-1]])
+            remote_name_address = u32(connection[0x4C:0x50])
+
+            log.info("### | Connection ---%02d--- ###" % i)
+            log.info("    - Number: %d" % connection_number)
+            log.info("    - Remote BT address: %s" % remote_address)
+            log.info("    - Remote BT name: %08X" % remote_name_address)
+        print
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if args.type == 'connections':
+            self.infoConnections()
+        return True
 
 
 
