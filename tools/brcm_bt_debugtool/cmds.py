@@ -34,6 +34,8 @@ import inspect
 import argparse
 import subprocess
 import textwrap
+import struct
+import time
 
 def getCmdList():
     # List of available commands:
@@ -243,6 +245,135 @@ class CmdListen(Cmd):
     def abort_cmd(self):
         Cmd.abort_cmd(self)
         self.brcmbt.log_level = self.saved_loglevel
+
+class CmdMonitor(Cmd):
+    keywords = ['monitor']
+    description = "Controlling the LMP monitor."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("command", 
+                        help="One of: start, status, stop, kill")
+
+    class MonitorController:
+        instance = None
+
+        class __MonitorController:
+            def __init__(self, brcmbt):
+                self.brcmbt = brcmbt
+                self.running = False
+                self.wireshark_process = None
+            
+            def getInstance(brcmbt):
+                if MonitorController.instance == None:
+                    MonitorController.instance = MonitorController(brcmbt)
+                return MonitorController.instance
+
+            def _spawnWireshark(self):
+                # Global Header Values
+                PCAP_GLOBAL_HEADER_FMT = '@ I H H i I I I '
+                PCAP_MAGICAL_NUMBER = 2712847316
+                PCAP_MJ_VERN_NUMBER = 2
+                PCAP_MI_VERN_NUMBER = 4
+                PCAP_LOCAL_CORECTIN = 0
+                PCAP_ACCUR_TIMSTAMP = 0
+                PCAP_MAX_LENGTH_CAP = 65535
+                PCAP_DATA_LINK_TYPE = 1
+
+                pcap_header = struct.pack('@ I H H i I I I ',
+                        PCAP_MAGICAL_NUMBER,
+                        PCAP_MJ_VERN_NUMBER,
+                        PCAP_MI_VERN_NUMBER,
+                        PCAP_LOCAL_CORECTIN,
+                        PCAP_ACCUR_TIMSTAMP,
+                        PCAP_MAX_LENGTH_CAP,
+                        PCAP_DATA_LINK_TYPE)
+
+                self.wireshark_process = subprocess.Popen(
+                        ["wireshark", "-k", "-i", "-"], 
+                        stdin=subprocess.PIPE)
+
+                self.wireshark_process.stdin.write(pcap_header)
+
+            def startMonitor(self):
+                if self.running:
+                    log.warn("Monitor already running!")
+                    return False
+
+                self.running = True
+                if self.wireshark_process == None:
+                    self._spawnWireshark()
+
+                self.brcmbt.startMonitor(self._callback)
+                log.info("LMP Monitor started.")
+                return True
+
+            def stopMonitor(self):
+                if not self.running:
+                    log.warn("Monitor is not running!")
+                    return False
+                self.brcmbt.stopMonitor()
+                self.running = False
+                log.info("LMP Monitor stopped.")
+                return True
+
+            def killMonitor(self):
+                if self.running:
+                    self.stopMonitor()
+                if self.wireshark_process != None:
+                    log.info("Killing Wireshark process...")
+                    self.wireshark_process.terminate()
+                    self.wireshark_process.wait()
+                    self.wireshark_process = None
+
+
+            def getStatus(self):
+                return self.running
+
+            def _callback(self, lmp_packet, sendByOwnDevice):
+                eth_header = "\x00"*12 + "\xff\xf0"
+                meta_data  = "\x00"*6 if sendByOwnDevice else "\x01\x00\x00\x00\x00\x00"
+                packet_header = "\x19\x00\x00" + p8(len(lmp_packet)<<3 | 7)
+
+                packet = eth_header + meta_data + packet_header + lmp_packet
+                packet += "\x00\x00" # CRC
+                length = len(packet)
+                ts_sec, ts_usec = map(int, str(time.time()).split('.'))
+                pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
+                try:
+                    self.wireshark_process.stdin.write(pcap_packet)
+                    self.wireshark_process.stdin.flush()
+                    log.debug("MonitorController._callback: done")
+                except IOError as e:
+                    log.warn("MonitorController._callback: broken pipe. terminate.")
+                    self.killMonitor()
+
+        def __init__(self, brcmbt):
+            if not CmdMonitor.MonitorController.instance:
+                CmdMonitor.MonitorController.instance = CmdMonitor.MonitorController.__MonitorController(brcmbt)
+            else:
+                CmdMonitor.MonitorController.instance.brcmbt = brcmbt
+        def __getattr__(self, name):
+            return getattr(self.instance, name)
+
+    def work(self):
+        args = self.getArgs()
+        if args==None:
+            return True
+
+        monitorController = CmdMonitor.MonitorController(self.brcmbt)
+        if args.command == "start":
+            monitorController.startMonitor()
+        elif args.command == "status":
+            log.info("LMP Monitor is %s." % ("running" if monitorController.getStatus() else "not running"))
+        elif args.command == "stop":
+            monitorController.stopMonitor()
+        elif args.command == "kill":
+            monitorController.killMonitor()
+        else:
+            log.warn("Unknown subcommand: " + args.command)
+            return False
+        return True
 
 
 class CmdRepeat(Cmd):

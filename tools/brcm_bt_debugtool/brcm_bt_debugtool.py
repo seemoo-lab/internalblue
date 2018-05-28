@@ -54,6 +54,7 @@ type <help> for usage information!\n\n"""
 
 def commandLoop():
     while brcmbt.running and not brcmbt.exit_requested:
+        cmd_instance = None
         try:
             cmdline = term.readline.readline(prompt='> ').strip()
             cmdword = cmdline.split(' ')[0].split('=')[0]

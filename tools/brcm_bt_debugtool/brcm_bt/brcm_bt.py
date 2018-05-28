@@ -37,6 +37,11 @@ import Queue
 
 import hci
 
+LMP_SEND_PACKET_HOOK = 0x200d38
+LMP_LENGTHS = [0, 2, 17, 2, 3, 1, 3, 2, 17, 17, 17, 17, 5, 17, 17, 2, 2, 17, 1, 5, 7, 7, 0, 10, 1, 17, 0, 6, 13, 9, 15, 2, 2, 1, 1, 1, 2, 6, 6, 9, 9, 4, 4, 7, 3, 2, 2, 1, 3, 1, 1, 1, 9, 3, 3, 3, 1, 10, 1, 3, 16, 4, 17, 17, 17, 17, 17, 0]
+LMP_ESC_LENGTHS = [0, 6, 6, 1, 6, 0, 0, 0, 0, 0, 0, 1, 25, 57, 0, 0, 0, 0, 0, 0, 0, 1, 2, 17, 17, 17, 2, 0, 0, 0, 0, 0, 0]
+
+
 class BrcmBt():
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True'):
@@ -52,8 +57,12 @@ class BrcmBt():
         else:
             self.write_btsnooplog = False
         self.recvQueue = Queue.Queue(queue_size)
+        self.monitorRecvQueue = Queue.Queue(queue_size)
         self.recvThread = None
+        self.monitorThread = None
+        self.monitorCallback = None
         self.exit_requested = False
+        self.monitor_exit_requested = False
         self.running = False
         self.log_level = log_level
         self.check_binutils(fix_binutils)
@@ -193,13 +202,178 @@ class BrcmBt():
                 except Queue.Full:
                     log.warn("recvThreadFunc: recv queue is full. dropping packets..")
 
-            if stackDumpReceiver.recvPacket(record[0]):
-                # A stack dump has happend!
-                log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
-                self.exit_requested = True
+                if self.monitorThread != None and self.monitorThread.isAlive():
+                    try:
+                        self.monitorRecvQueue.put(record, block=False)
+                    except Queue.Full:
+                        log.warn("recvThreadFunc: monitor recv queue is full. dropping packets..")
+
+
+                if stackDumpReceiver.recvPacket(record[0]):
+                    # A stack dump has happend!
+                    log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
+                    self.exit_requested = True
 
         log.debug("Receive Thread terminated.")
 
+    def _monitorThread(self):
+        log.debug("monitorThread: started!")
+
+        HOOK_BASE_ADDRESS = 0xd7600
+        DATA_BASE_ADDRESS = 0xd7700
+        DATA_LENGTH = 32*32+4
+        MAX_WAITTIME = 0.5
+        INJECTED_CODE = """
+            b hook_send_lmp
+            b hook_recv_lmp
+
+            hook_recv_lmp:
+                push {r2-r8,lr}
+                push {r0-r3,lr}
+
+                // inc counter
+                ldr  r0, =0x%x
+                ldr  r1, [r0]
+                add  r1, 1
+                str  r1, [r0]
+
+                // calc table offset = (cnt & 0b11111) << 5
+                and  r2, r1, 0x1F
+                lsl  r2, r2, 5
+                // store counter at table entry
+                add  r0, 4
+                add  r0, r2
+                str  r1, [r0]
+
+                // read data
+                add  r0, 4
+                ldr  r1, =0x200478
+                ldr  r2, [r1]
+                str  r2, [r0]
+                add  r0, 4
+                add  r1, 4
+                ldr  r1, [r1]
+                add  r1, 0xC    // start of LMP packet
+
+                mov  r2, 24
+                bl   0x2e03c+1  // memcpy
+
+                pop  {r0-r3,lr}
+                b    0x3F3F8
+
+            hook_send_lmp:
+                push {r4,lr}
+
+                // save parameters
+                mov  r3, r0 // conn struct
+                mov  r4, r1 // buffer
+
+                // inc counter
+                ldr  r0, =0x%x
+                ldr  r1, [r0]
+                add  r1, 1
+                str  r1, [r0]
+
+                // calc table offset = (cnt & 0b11111) << 5
+                and  r2, r1, 0x1F
+                lsl  r2, r2, 5
+                // store counter at table entry
+                mov  r3, 1
+                orr.w r1, r1, r3, LSL#31
+                add  r0, 4
+                add  r0, r2
+                str  r1, [r0]
+
+                // read data
+                add  r0, 4
+                // todo: maybe store some data here
+                add  r0, 4
+                add  r1, r4, 0xC    // start of LMP packet
+
+                mov  r2, 24
+                bl   0x2e03c+1  // memcpy
+
+                mov r0, 0
+                pop  {r4,pc}
+""" % (DATA_BASE_ADDRESS, DATA_BASE_ADDRESS)
+
+        # Injecting hooks
+        hooks_code = asm(INJECTED_CODE, vma=HOOK_BASE_ADDRESS)
+        saved_data_hooks = self.readMem(HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_data  = self.readMem(DATA_BASE_ADDRESS, DATA_LENGTH)
+        self.writeMem(DATA_BASE_ADDRESS, p32(0))
+        log.debug("monitorThread: injecting hook functions...")
+        self.writeMem(HOOK_BASE_ADDRESS, hooks_code)
+        log.debug("monitorThread: inserting lmp send hook ...")
+        self.writeMem(LMP_SEND_PACKET_HOOK, p32(HOOK_BASE_ADDRESS + 1))
+        log.debug("monitorThread: inserting lmp recv hook ...")
+        recv_patch_handle = self.patchRom(0x3f3f4, asm("b 0x%x" % (HOOK_BASE_ADDRESS + 5), vma=0x3f3f4))
+        log.debug("monitorThread: monitor mode activated.")
+
+        # Poll data
+        lastCapturedIndex = 0
+        waittime = MAX_WAITTIME
+        while not self.exit_requested and not self.monitor_exit_requested:
+            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
+            context.log_level = self.log_level
+            currentCapturedIndex = u32(self.readMem(DATA_BASE_ADDRESS, 4)) & 0x7FFFFFFF
+            if currentCapturedIndex <= lastCapturedIndex:
+                time.sleep(waittime)
+                if waittime < MAX_WAITTIME:
+                    waittime += MAX_WAITTIME/10
+                continue
+            else:
+                waittime = 0
+
+            currentCapturedPosition = currentCapturedIndex & 0x1f
+            lastCapturedPosition = lastCapturedIndex & 0x1f
+            if currentCapturedIndex - lastCapturedIndex >= 32:
+                # all entries are new (maybe even dropped packets)
+                data = self.readMem(DATA_BASE_ADDRESS+4, 32*32)
+            elif lastCapturedPosition < currentCapturedPosition:
+                # no wrap around
+                data = self.readMem(DATA_BASE_ADDRESS+4+
+                        (lastCapturedPosition+1)*32,
+                        (currentCapturedPosition-lastCapturedPosition)*32)
+            else:
+                # wrap around
+                tmp = self.readMem(DATA_BASE_ADDRESS+4+
+                        (lastCapturedPosition+1)*32,
+                        (31-lastCapturedPosition)*32)
+                data = self.readMem(DATA_BASE_ADDRESS+4,
+                        currentCapturedPosition*32) + tmp
+
+            entries = [(u32(data[i:i+4]), data[i+4:i+32]) for i in range(0, len(data), 32)]
+            entries.sort(key=lambda x: x[0] & 0x7FFFFFFF)
+            #log.info("lastCapturedIndex=%d, currentCapturedIndex=%d, entries=%s" % (lastCapturedIndex, currentCapturedIndex, str(entries)))
+            #log.hexdump(self.readMem(DATA_BASE_ADDRESS, DATA_LENGTH))
+            for entry in entries:
+                sendFromDevice = entry[0] & 0x80000000 > 0
+                index = entry[0] & 0x7FFFFFFF
+                lmp_opcode = u8(entry[1][4]) >> 1
+                if lmp_opcode >= 0x7C:
+                    lmp_opcode = u8(entry[1][5])
+                    lmp_len = LMP_ESC_LENGTHS[lmp_opcode]
+                else:
+                    lmp_len = LMP_LENGTHS[lmp_opcode]
+                lmp_packet = entry[1][4:4+lmp_len]
+                if index > lastCapturedIndex + 1:
+                    log.warn("monitorThread: Dropped %d packets!" % (index-lastCapturedIndex-1))
+                if index <= lastCapturedIndex:
+                    log.warn("monitorThread: Error, got an old packet (index=%d but we are at %d)" % (index, lastCapturedIndex))
+                self.monitorCallback(lmp_packet, sendFromDevice)
+                lastCapturedIndex = index
+
+        # Removing hooks
+        log.debug("monitorThread: removing lmp send hook ...")
+        self.writeMem(LMP_SEND_PACKET_HOOK, p32(0))
+        log.debug("monitorThread: removing lmp recv hook ...")
+        self.disableRomPatch(recv_patch_handle)
+        log.debug("monitorThread: Restoring saved data...")
+        self.writeMem(HOOK_BASE_ADDRESS, saved_data_hooks)
+        self.writeMem(DATA_BASE_ADDRESS, saved_data_data)
+
+        log.debug("monitorThread: terminated!")
 
 
     def _setupSockets(self):
@@ -295,12 +469,39 @@ class BrcmBt():
         self.exit_requested = False
         log.info("Shutdown complete.")
 
+    def startMonitor(self, callback):
+        if not self.check_running():
+            return False
+        if self.monitorThread != None:
+            log.warning("startMonitor: monitor thread does already exist")
+            return False
+
+        self.monitor_exit_requested = False
+        self.monitorCallback = callback
+        self.monitorThread = context.Thread(target=self._monitorThread)
+        self.monitorThread.setDaemon(True)
+        self.monitorThread.start()
+        return True
+
+    def stopMonitor(self):
+        self.monitor_exit_requested = True
+        if threading.currentThread() != self.monitorThread:
+            log.debug("stopMonitor: Waiting on Monitor Thread to terminate...")
+            self.monitorThread.join()
+        else:
+            log.debug("stopMonitor: Called from monitor thread. skip joining.")
+        self.monitorThread = None
+        log.debug("stopMonitor: Monitor Thread terminated.")
+
     def recvPacket(self, timeout=None):
         if not self.check_running():
             return None
 
         try:
-            return self.recvQueue.get(timeout=timeout)
+            if self.monitorThread != None and self.monitorThread == threading.currentThread():
+                return self.monitorRecvQueue.get(timeout=timeout)
+            else:
+                return self.recvQueue.get(timeout=timeout)
         except Queue.Empty:
             return None
 
@@ -410,3 +611,36 @@ class BrcmBt():
                         break
         return True
 
+    def patchRom(self, address, patch):
+        if len(patch) != 4:
+            log.warn("patchRom: patch must be a 32-bit dword!")
+            return False
+
+        # Not so nice hack to keep track of used slots:
+        # TODO: This can be better by reading in the bitfields from the IO
+        # This needs a patch as readRAM crashes if it reads from IO (must read 4 byte chunks)
+        slot_dwords = [0xffffffff, 0xffffffff, 0xffffffff, 0x0000ffff, 0x00000000]
+        slot = 113
+
+        # We need to enable the slot by setting a bit in a multi-dword bitfield
+        target_dword = int(slot / 32)
+        target_bit = slot % 32
+
+        if slot_dwords[target_dword] & (0b1 << target_bit):
+            log.warn("Slot %d is already in use. Overwriting..." % slot)
+
+        slot_dwords[target_dword] |= 0b1 << target_bit
+
+        # Write new value to patchram value table at 0xd0000
+        self.writeMem(0xd0000 + slot*4, patch)
+
+        # Write address to patchram target table at 0x31000
+        self.writeMem(0x310000 + slot*4, p32(address >> 2))
+
+        # Enable patchram slot (enable bitfield starts at 0x310204)
+        self.writeMem(0x310204 + target_dword*4, p32(slot_dwords[target_dword]))
+        return True
+
+    def disableRomPatch(self, patchIndex):
+        #TODO
+        pass
