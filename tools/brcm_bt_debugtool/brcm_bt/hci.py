@@ -459,28 +459,6 @@ HCI_UART_TYPE_CLASS = {
         HCI.HCI_EVT :  HCI_Event
     }
 
-class HCI_TX:
-    def __init__(self, s_inject):
-        self.s_inject = s_inject
-
-    def sendCmd(self, opcode, data):
-        payload = p16(opcode) + p8(len(data)) + data
-
-        # Prepend UART TYPE and length
-        out = p8(HCI.HCI_CMD) + p16(len(payload)) + payload
-        log.debug("Send: " + str(out.encode('hex')))
-        self.s_inject.send(out)
-
-    def sendReadRamCmd(self, addr, length):
-        self.sendCmd(0xfc4d, p32(addr) + p8(length))
-
-    def sendWriteRamCmd(self, addr, data):
-        self.sendCmd(0xfc4c, p32(addr) + data)
-
-    def sendLaunchRamCmd(self, addr):
-        self.sendCmd(0xfc4e, p32(addr))
-
-
 def parse_hci_packet(data):
     return HCI.from_data(data)
 

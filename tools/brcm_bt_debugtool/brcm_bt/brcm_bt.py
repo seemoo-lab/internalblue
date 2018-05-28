@@ -50,15 +50,16 @@ class BrcmBt():
         context.arch = "thumb"
         self.s_inject = None
         self.s_snoop = None
-        self.hci_tx = None
         if btsnooplog_filename != None:
             self.write_btsnooplog = True
             self.btsnooplog_file = open(btsnooplog_filename, "wb")
         else:
             self.write_btsnooplog = False
         self.recvQueue = Queue.Queue(queue_size)
-        self.monitorRecvQueue = Queue.Queue(queue_size)
+        self.sendThreadrecvQueue = Queue.Queue(queue_size)
+        self.sendQueue = Queue.Queue(queue_size)
         self.recvThread = None
+        self.sendThread = None
         self.monitorThread = None
         self.monitorCallback = None
         self.exit_requested = False
@@ -202,12 +203,11 @@ class BrcmBt():
                 except Queue.Full:
                     log.warn("recvThreadFunc: recv queue is full. dropping packets..")
 
-                if self.monitorThread != None and self.monitorThread.isAlive():
+                if self.sendThread != None and self.sendThread.isAlive():
                     try:
-                        self.monitorRecvQueue.put(record, block=False)
+                        self.sendThreadrecvQueue.put(record, block=False)
                     except Queue.Full:
-                        log.warn("recvThreadFunc: monitor recv queue is full. dropping packets..")
-
+                        log.warn("recvThreadFunc: sendThread recv queue is full. dropping packets..")
 
                 if stackDumpReceiver.recvPacket(record[0]):
                     # A stack dump has happend!
@@ -216,7 +216,41 @@ class BrcmBt():
 
         log.debug("Receive Thread terminated.")
 
-    def _monitorThread(self):
+    def _sendThreadFunc(self):
+        log.debug("Send Thread started.")
+        while not self.exit_requested:
+            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
+            context.log_level = self.log_level
+
+            try:
+                task = self.sendQueue.get(timeout=0.5)
+            except Queue.Empty:
+                continue
+
+            opcode, data, queue = task
+            payload = p16(opcode) + p8(len(data)) + data
+
+            # Prepend UART TYPE and length
+            out = p8(hci.HCI.HCI_CMD) + p16(len(payload)) + payload
+            log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
+            self.s_inject.send(out)
+
+            while not self.exit_requested:
+                # Receive response
+                packet = self.recvPacket(timeout=0.5)
+                if packet == None:
+                    continue
+                hcipkt, orig_len, inc_len, flags, drops, recvtime = packet
+
+                if isinstance(hcipkt, hci.HCI_Event):
+                    if hcipkt.event_code == 0x0e: # Cmd Complete event
+                        if hcipkt.data[1:3] == p16(opcode):
+                            queue.put(hcipkt.data)
+                            break
+
+        log.debug("Send Thread terminated.")
+
+    def _monitorThreadFunc(self):
         log.debug("monitorThread: started!")
 
         HOOK_BASE_ADDRESS = 0xd7600
@@ -295,7 +329,7 @@ class BrcmBt():
 
                 mov r0, 0
                 pop  {r4,pc}
-""" % (DATA_BASE_ADDRESS, DATA_BASE_ADDRESS)
+            """ % (DATA_BASE_ADDRESS, DATA_BASE_ADDRESS)
 
         # Injecting hooks
         hooks_code = asm(INJECTED_CODE, vma=HOOK_BASE_ADDRESS)
@@ -455,13 +489,18 @@ class BrcmBt():
         self.recvThread.setDaemon(True)
         self.recvThread.start()
 
-        self.hci_tx = hci.HCI_TX(self.s_inject)
+        # start send thread
+        self.sendThread = context.Thread(target=self._sendThreadFunc)
+        self.sendThread.setDaemon(True)
+        self.sendThread.start()
+
         self.running = True
         return True
 
     def shutdown(self):
         self.exit_requested = True
         self.recvThread.join()
+        self.sendThread.join()
         self._teardownSockets()
         if(self.write_btsnooplog):
             self.btsnooplog_file.close()
@@ -478,7 +517,7 @@ class BrcmBt():
 
         self.monitor_exit_requested = False
         self.monitorCallback = callback
-        self.monitorThread = context.Thread(target=self._monitorThread)
+        self.monitorThread = context.Thread(target=self._monitorThreadFunc)
         self.monitorThread.setDaemon(True)
         self.monitorThread.start()
         return True
@@ -493,13 +532,25 @@ class BrcmBt():
         self.monitorThread = None
         log.debug("stopMonitor: Monitor Thread terminated.")
 
+    def sendHciCommand(self, opcode, data, timeout=None):
+        queue = Queue.Queue(1)
+        try:
+            self.sendQueue.put((opcode, data, queue), timeout=timeout)
+            return queue.get(timeout=timeout)
+        except Queue.Empty:
+            log.debug("sendHciCommand: waiting for response timed out!")
+            return None
+        except Queue.Full:
+            log.warn("sendHciCommand: send queue is full!")
+            return None
+
     def recvPacket(self, timeout=None):
         if not self.check_running():
             return None
 
         try:
-            if self.monitorThread != None and self.monitorThread == threading.currentThread():
-                return self.monitorRecvQueue.get(timeout=timeout)
+            if self.sendThread == threading.currentThread():
+                return self.sendThreadrecvQueue.get(timeout=timeout)
             else:
                 return self.recvQueue.get(timeout=timeout)
         except Queue.Empty:
@@ -522,32 +573,20 @@ class BrcmBt():
             if blocksize > 251:
                 blocksize = 251
 
-            self.hci_tx.sendReadRamCmd(read_addr, blocksize)
+            response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
 
-            while(True):
-                # Receive response
-                packet = self.recvPacket(timeout=0.5)
-                if packet == None:
-                    if self.exit_requested or not self.running:
-                        return None
-                    continue
-                hcipkt, orig_len, inc_len, flags, drops, recvtime = packet
-
-                if isinstance(hcipkt, hci.HCI_Event):
-                    if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                        if(hcipkt.data[0:3] == '\x01\x4d\xfc'):
-                            memory_type = data = ord(hcipkt.data[3])
-                            if memory_type != 0:
-                                log.warning("readMem: [TODO] Got memory type != 0 : 0x%02X" % memory_type)
-                            data = hcipkt.data[4:]
-                            outbuffer += data
-                            read_addr += len(data)
-                            byte_counter += len(data)
-                            if(progress_log != None):
-                                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, bytes_total, (bytes_done+byte_counter)*100/bytes_total)
-                                progress_log.status(msg)
-                            break
-        return outbuffer  # TODO: return memory_type
+            status = ord(response[3])
+            if status != 0:
+                log.warning("readMem: [TODO] Got status != 0 : 0x%02X" % status)
+            data = response[4:]
+            outbuffer += data
+            read_addr += len(data)
+            byte_counter += len(data)
+            if(progress_log != None):
+                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
+                        bytes_total, (bytes_done+byte_counter)*100/bytes_total)
+                progress_log.status(msg)
+        return outbuffer
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
         if not self.check_running():
@@ -564,51 +603,24 @@ class BrcmBt():
             if blocksize > 251:
                 blocksize = 251
 
-            self.hci_tx.sendWriteRamCmd(write_addr, data[byte_counter:byte_counter+blocksize])
-
-            while(True):
-                # Receive response
-                packet = self.recvPacket(timeout=0.5)
-                if packet == None:
-                    if self.exit_requested or not self.running:
-                        return False
-                    continue
-                hcipkt, orig_len, inc_len, flags, drops, recvtime = packet
-
-                if isinstance(hcipkt, hci.HCI_Event):
-                    if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                        if(hcipkt.data[0:3] == '\x01\x4c\xfc'):
-                            if(hcipkt.data[3] != '\x00'):
-                                log.warn("Got error code %x in command complete event." % hcipkt.data[3])
-                                return False
-                            write_addr += blocksize
-                            byte_counter += blocksize
-                            if(progress_log != None):
-                                msg = "sending data... %d / %d Bytes" % (bytes_done+byte_counter, bytes_total)
-                                progress_log.status(msg)
-                            break
+            response = self.sendHciCommand(0xfc4c, p32(write_addr) + data[byte_counter:byte_counter+blocksize])
+            if(response[3] != '\x00'):
+                log.warn("Got error code %x in command complete event." % response[3])
+                return False
+            write_addr += blocksize
+            byte_counter += blocksize
+            if(progress_log != None):
+                msg = "sending data... %d / %d Bytes" % (bytes_done+byte_counter, bytes_total)
+                progress_log.status(msg)
         return True
 
 
     def launchRam(self, address):
-        self.hci_tx.sendLaunchRamCmd(address)
+        response = self.sendHciCommand(0xfc4e, p32(address))
 
-        while(True):
-            # Receive response
-            packet = self.recvPacket(timeout=1.5) # TODO
-            if packet == None:
-                if self.exit_requested or not self.running:
-                    return False
-                continue
-            hcipkt, orig_len, inc_len, flags, drops, recvtime = packet
-
-            if isinstance(hcipkt, hci.HCI_Event):
-                if(hcipkt.event_code == 0x0e): # Cmd Complete event
-                    if(hcipkt.data[0:3] == '\x01\x4e\xfc'):
-                        if(hcipkt.data[3] != '\x00'):
-                            log.warn("Got error code %x in command complete event." % hcipkt.data[3])
-                            return False
-                        break
+        if(response[3] != '\x00'):
+            log.warn("Got error code %x in command complete event." % response[3])
+            return False
         return True
 
     def patchRom(self, address, patch):
