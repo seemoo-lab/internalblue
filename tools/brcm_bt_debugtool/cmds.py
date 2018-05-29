@@ -37,6 +37,8 @@ import textwrap
 import struct
 import time
 
+from brcm_bt.brcm_bt import fw
+
 def getCmdList():
     # List of available commands:
     return [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
@@ -330,8 +332,8 @@ class CmdMonitor(Cmd):
             def getStatus(self):
                 return self.running
 
-            def _callback(self, lmp_packet, sendByOwnDevice):
-                eth_header = "\x00"*12 + "\xff\xf0"
+            def _callback(self, lmp_packet, sendByOwnDevice, src, dest):
+                eth_header = dest + src + "\xff\xf0"
                 meta_data  = "\x00"*6 if sendByOwnDevice else "\x01\x00\x00\x00\x00\x00"
                 packet_header = "\x19\x00\x00" + p8(len(lmp_packet)<<3 | 7)
 
@@ -942,15 +944,11 @@ class CmdInfo(Cmd):
                         help="Type of information.")
 
     def infoConnections(self):
-        CONNECTION_ARRAY_ADDRESS = 0x002038E8
-        CONNECTION_ARRAY_SIZE    = 11
-        CONNECTION_STRUCT_LENGTH = 0x14C
+        data = self.readMem(fw.CONNECTION_ARRAY_ADDRESS, fw.CONNECTION_ARRAY_SIZE*fw.CONNECTION_STRUCT_LENGTH)
+        for i in range(fw.CONNECTION_ARRAY_SIZE):
+            connection = data[i*fw.CONNECTION_STRUCT_LENGTH: (i+1)*fw.CONNECTION_STRUCT_LENGTH]
 
-        data = self.readMem(CONNECTION_ARRAY_ADDRESS, CONNECTION_ARRAY_SIZE*CONNECTION_STRUCT_LENGTH)
-        for i in range(CONNECTION_ARRAY_SIZE):
-            connection = data[i*CONNECTION_STRUCT_LENGTH: (i+1)*CONNECTION_STRUCT_LENGTH]
-
-            if connection == b'\x00'*CONNECTION_STRUCT_LENGTH:
+            if connection == b'\x00'*fw.CONNECTION_STRUCT_LENGTH:
                 continue
             
             connection_number   = u32(connection[:4])

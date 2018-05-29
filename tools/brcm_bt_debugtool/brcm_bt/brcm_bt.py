@@ -34,13 +34,10 @@ import socket
 import time
 import datetime
 import Queue
+import random
 
 import hci
-
-LMP_SEND_PACKET_HOOK = 0x200d38
-LMP_LENGTHS = [0, 2, 17, 2, 3, 1, 3, 2, 17, 17, 17, 17, 5, 17, 17, 2, 2, 17, 1, 5, 7, 7, 0, 10, 1, 17, 0, 6, 13, 9, 15, 2, 2, 1, 1, 1, 2, 6, 6, 9, 9, 4, 4, 7, 3, 2, 2, 1, 3, 1, 1, 1, 9, 3, 3, 3, 1, 10, 1, 3, 16, 4, 17, 17, 17, 17, 17, 0]
-LMP_ESC_LENGTHS = [0, 6, 6, 1, 6, 0, 0, 0, 0, 0, 0, 1, 25, 57, 0, 0, 0, 0, 0, 0, 0, 1, 2, 17, 17, 17, 2, 0, 0, 0, 0, 0, 0]
-
+import fw
 
 class BrcmBt():
 
@@ -48,6 +45,7 @@ class BrcmBt():
         context.log_level = log_level
         context.log_file = '_brcm_bt.log'
         context.arch = "thumb"
+        self.hciport = None
         self.s_inject = None
         self.s_snoop = None
         if btsnooplog_filename != None:
@@ -296,10 +294,10 @@ class BrcmBt():
                 b    0x3F3F8
 
             hook_send_lmp:
-                push {r4,lr}
+                push {r4,r5,lr}
 
                 // save parameters
-                mov  r3, r0 // conn struct
+                mov  r5, r0 // conn struct
                 mov  r4, r1 // buffer
 
                 // inc counter
@@ -318,17 +316,19 @@ class BrcmBt():
                 add  r0, r2
                 str  r1, [r0]
 
+                // get connection number
+                add  r0, 6
+                ldr  r2, [r5]
+                strb r2, [r0]
+                add  r0, 2
                 // read data
-                add  r0, 4
-                // todo: maybe store some data here
-                add  r0, 4
                 add  r1, r4, 0xC    // start of LMP packet
 
                 mov  r2, 24
                 bl   0x2e03c+1  // memcpy
 
                 mov r0, 0
-                pop  {r4,pc}
+                pop  {r4,r5,pc}
             """ % (DATA_BASE_ADDRESS, DATA_BASE_ADDRESS)
 
         # Injecting hooks
@@ -339,10 +339,13 @@ class BrcmBt():
         log.debug("monitorThread: injecting hook functions...")
         self.writeMem(HOOK_BASE_ADDRESS, hooks_code)
         log.debug("monitorThread: inserting lmp send hook ...")
-        self.writeMem(LMP_SEND_PACKET_HOOK, p32(HOOK_BASE_ADDRESS + 1))
+        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(HOOK_BASE_ADDRESS + 1))
         log.debug("monitorThread: inserting lmp recv hook ...")
         recv_patch_handle = self.patchRom(0x3f3f4, asm("b 0x%x" % (HOOK_BASE_ADDRESS + 5), vma=0x3f3f4))
         log.debug("monitorThread: monitor mode activated.")
+
+        # Get device's BT address
+        deviceAddress = self.readMem(fw.BD_ADDR, 6)
 
         # Poll data
         lastCapturedIndex = 0
@@ -375,32 +378,41 @@ class BrcmBt():
                         (lastCapturedPosition+1)*32,
                         (31-lastCapturedPosition)*32)
                 data = self.readMem(DATA_BASE_ADDRESS+4,
-                        currentCapturedPosition*32) + tmp
+                        (currentCapturedPosition+1)*32) + tmp
 
             entries = [(u32(data[i:i+4]), data[i+4:i+32]) for i in range(0, len(data), 32)]
             entries.sort(key=lambda x: x[0] & 0x7FFFFFFF)
-            #log.info("lastCapturedIndex=%d, currentCapturedIndex=%d, entries=%s" % (lastCapturedIndex, currentCapturedIndex, str(entries)))
+            log.info("lastCapturedIndex=%d, currentCapturedIndex=%d, entries=%s" % (lastCapturedIndex, currentCapturedIndex, str(entries)))
             #log.hexdump(self.readMem(DATA_BASE_ADDRESS, DATA_LENGTH))
+            connection_numbers = set([ord(entry[1][2]) for entry in entries])
+            connection_addresses = {}
+            for number in connection_numbers:
+                connection_addresses[number] = self.readMem(fw.CONNECTION_ARRAY_ADDRESS + 
+                        (number-1)*fw.CONNECTION_STRUCT_LENGTH + 0x28, 6)
+            log.info("connection_addresses = " + str(connection_addresses))
             for entry in entries:
                 sendFromDevice = entry[0] & 0x80000000 > 0
+                connection_number = ord(entry[1][2])
                 index = entry[0] & 0x7FFFFFFF
                 lmp_opcode = u8(entry[1][4]) >> 1
                 if lmp_opcode >= 0x7C:
                     lmp_opcode = u8(entry[1][5])
-                    lmp_len = LMP_ESC_LENGTHS[lmp_opcode]
+                    lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
                 else:
-                    lmp_len = LMP_LENGTHS[lmp_opcode]
+                    lmp_len = fw.LMP_LENGTHS[lmp_opcode]
                 lmp_packet = entry[1][4:4+lmp_len]
                 if index > lastCapturedIndex + 1:
                     log.warn("monitorThread: Dropped %d packets!" % (index-lastCapturedIndex-1))
                 if index <= lastCapturedIndex:
                     log.warn("monitorThread: Error, got an old packet (index=%d but we are at %d)" % (index, lastCapturedIndex))
-                self.monitorCallback(lmp_packet, sendFromDevice)
+                src_addr = deviceAddress if sendFromDevice else connection_addresses[connection_number]
+                dest_addr = deviceAddress if not sendFromDevice else connection_addresses[connection_number]
+                self.monitorCallback(lmp_packet, sendFromDevice, src_addr, dest_addr)
                 lastCapturedIndex = index
 
         # Removing hooks
         log.debug("monitorThread: removing lmp send hook ...")
-        self.writeMem(LMP_SEND_PACKET_HOOK, p32(0))
+        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
         log.debug("monitorThread: removing lmp recv hook ...")
         self.disableRomPatch(recv_patch_handle)
         log.debug("monitorThread: Restoring saved data...")
@@ -411,11 +423,14 @@ class BrcmBt():
 
 
     def _setupSockets(self):
+        self.hciport = random.randint(60000, 65535)     # select a random port (and hope that it is not in use)
+        log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport+1))
+
         saved_loglevel = context.log_level
         context.log_level = 'warn'
         try:
-            adb.forward(8872)
-            adb.forward(8873)
+            adb.adb(["forward", "tcp:%d"%(self.hciport),   "tcp:8872"])
+            adb.adb(["forward", "tcp:%d"%(self.hciport+1), "tcp:8873"])
         except PwnlibException as e:
             log.warn("Setup adb port forwarding failed: " + str(e))
             return False
@@ -424,12 +439,12 @@ class BrcmBt():
         
         # Connect to hci injection port
         self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s_inject.connect(('127.0.0.1', 8873))
+        self.s_inject.connect(('127.0.0.1', self.hciport+1))
         self.s_inject.settimeout(0.5)
 
         # Connect to hci snoop log port
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s_snoop.connect(('127.0.0.1', 8872))
+        self.s_snoop.connect(('127.0.0.1', self.hciport))
         self.s_snoop.settimeout(0.5)
 
         # Read btsnoop header
@@ -438,6 +453,8 @@ class BrcmBt():
             self.s_inject.close()
             self.s_snoop.close()
             self.s_inject = self.s_snoop = None
+            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport)])
+            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport+1)])
             return False
         return True
 
@@ -448,6 +465,17 @@ class BrcmBt():
         if(self.s_snoop != None):
             self.s_snoop.close()
             self.s_snoop = None
+
+        saved_loglevel = context.log_level
+        context.log_level = 'warn'
+        try:
+            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport)])
+            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport+1)])
+        except PwnlibException as e:
+            log.warn("Removing adb port forwarding failed: " + str(e))
+            return False
+        finally:
+            context.log_level = saved_loglevel
 
     def check_running(self):
         if self.exit_requested:
