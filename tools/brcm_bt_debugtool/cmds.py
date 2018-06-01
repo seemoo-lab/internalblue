@@ -33,6 +33,7 @@ import Queue
 import inspect
 import argparse
 import subprocess
+from threading import Timer
 import textwrap
 import struct
 import time
@@ -56,6 +57,10 @@ def findCmd(keyword):
 
 def auto_int(x):
     return int(x, 0)
+
+def bt_addr_to_str(bt_addr):
+    return ":".join([b.encode("hex") for b in bt_addr])
+
 
 class MemorySection:
     def __init__(self, start_addr, end_addr, is_rom, is_ram):
@@ -265,6 +270,7 @@ class CmdMonitor(Cmd):
                 self.brcmbt = brcmbt
                 self.running = False
                 self.wireshark_process = None
+                self.poll_timer = None
             
             def getInstance(brcmbt):
                 if MonitorController.instance == None:
@@ -297,6 +303,21 @@ class CmdMonitor(Cmd):
 
                 self.wireshark_process.stdin.write(pcap_header)
 
+                self.poll_timer = Timer(3, self._pollTimer, ())
+                self.poll_timer.start()
+
+            def _pollTimer(self):
+                if self.running and self.wireshark_process != None:
+                    if self.wireshark_process.poll() == 0:
+                        # Process has ended
+                        log.debug("_pollTimer: Wireshark has terminated")
+                        self.stopMonitor()
+                        self.wireshark_process = None
+                    else:
+                        # schedule new timer
+                        self.poll_timer = Timer(3, self._pollTimer, ())
+                        self.poll_timer.start()
+
             def startMonitor(self):
                 if self.running:
                     log.warn("Monitor already running!")
@@ -322,6 +343,9 @@ class CmdMonitor(Cmd):
             def killMonitor(self):
                 if self.running:
                     self.stopMonitor()
+                if self.poll_timer != None:
+                    self.poll_timer.cancel()
+                    self.poll_timer = None
                 if self.wireshark_process != None:
                     log.info("Killing Wireshark process...")
                     self.wireshark_process.terminate()
@@ -933,6 +957,62 @@ class CmdPatchRom(Cmd):
         self.writeMem(0x310204 + target_dword*4, p32(self.slot_dwords[target_dword]))
         return True
 
+class CmdSendLmp(Cmd):
+    keywords = ['sendlmp']
+    description = "Send LMP packet to another device."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--conn_number", "-n", type=auto_int,
+                        help="Number of the connection associated with the other device.") 
+    parser.add_argument("--extended", "-e", action="store_true",
+                        help="Use extended opcodes (prepend opcode with 0x7F)")
+    parser.add_argument("opcode", type=auto_int,
+                        help="Number of the LMP opcode") 
+    parser.add_argument("data",
+                        help="Payload as hexstring.")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        connection_number = args.conn_number
+        connection = None
+        if connection_number == None:
+            found_multiple_active = False
+            log.info("Reading connection information to find active connection number...")
+            for i in range(fw.CONNECTION_ARRAY_SIZE):
+                tmp_connection = self.brcmbt.readConnectionInformation(i+1)
+                if tmp_connection != None and tmp_connection["remote_address"] != "\x00"*6:
+                    log.info("Found active connection with number %d (%s)." %
+                            (i+1, bt_addr_to_str(tmp_connection["remote_address"])))
+                    if connection != None:
+                        found_multiple_active = True
+                    connection = tmp_connection
+
+            if connection == None:
+                log.warn("No active connection found!")
+                return False
+            if found_multiple_active:
+                log.warn("Multiple active connections detected. Please specify connection number with -n!")
+                return False
+
+            connection_number = connection["connection_number"]
+        else:
+            connection = self.brcmbt.readConnectionInformation(connection_number+1)
+
+        try:
+            data = args.data.decode('hex')
+            log.info("Sending op=%d data=%s to connection nr=%d (%s)" %
+                    (args.opcode, data.encode("hex"), connection_number, 
+                        bt_addr_to_str(connection["remote_address"])))
+            return self.brcmbt.sendLmpPacket(connection_number, args.opcode,
+                            data, extended_op=args.extended)
+        except TypeError as e:
+            log.warn("Data string cannot be converted to hexstring: " + str(e))
+            return False
+
 
 class CmdInfo(Cmd):
     keywords = ['info', 'show', 'i']
@@ -944,30 +1024,44 @@ class CmdInfo(Cmd):
                         help="Type of information.")
 
     def infoConnections(self):
-        data = self.readMem(fw.CONNECTION_ARRAY_ADDRESS, fw.CONNECTION_ARRAY_SIZE*fw.CONNECTION_STRUCT_LENGTH)
         for i in range(fw.CONNECTION_ARRAY_SIZE):
-            connection = data[i*fw.CONNECTION_STRUCT_LENGTH: (i+1)*fw.CONNECTION_STRUCT_LENGTH]
-
-            if connection == b'\x00'*fw.CONNECTION_STRUCT_LENGTH:
+            connection = self.brcmbt.readConnectionInformation(i+1)
+            if connection == None:
                 continue
-            
-            connection_number   = u32(connection[:4])
-            remote_address      = ":".join([b.encode("hex") for b in connection[0x28:0x2E][::-1]])
-            remote_name_address = u32(connection[0x4C:0x50])
 
             log.info("### | Connection ---%02d--- ###" % i)
-            log.info("    - Number: %d" % connection_number)
-            log.info("    - Remote BT address: %s" % remote_address)
-            log.info("    - Remote BT name: %08X" % remote_name_address)
+            log.info("    - Number:            %d"     % connection["connection_number"])
+            log.info("    - Remote BT address: %s"     % bt_addr_to_str(connection["remote_address"]))
+            log.info("    - Remote BT name:    %08X"   % connection["remote_name_address"])
+            log.info("    - Master of Conn.    %s"     % str(connection["master_of_connection"]))
         print
+
+    def infoDevice(self):
+        bt_addr      = self.readMem(fw.BD_ADDR, 6)
+        bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
+        device_name  = self.readMem(fw.DEVICE_NAME, 258)
+        device_name  = device_name[2:u8(device_name[1])+3]
+        adb_serial   = context.device
+
+        log.info("### | Device ###")
+        log.info("    - Name:       %s" % device_name)
+        log.info("    - ADB Serial: %s" % adb_serial)
+        log.info("    - Address:    %s" % bt_addr_str)
 
     def work(self):
         args = self.getArgs()
         if args == None:
             return True
 
-        if args.type == 'connections':
-            self.infoConnections()
+        subcommands = {}
+        subcommands["connections"] = self.infoConnections
+        subcommands["device"] = self.infoDevice
+
+        if args.type in subcommands:
+            subcommands[args.type]()
+        else:
+            log.warn("Unkown type: %s\nKnown types: %s" % (args.type, subcommands.keys()))
+            return False
         return True
 
 

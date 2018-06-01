@@ -220,6 +220,14 @@ class BrcmBt():
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
 
+            # flushing recv queue to prevent it from filling up...
+            try:
+                while True:
+                    self.sendThreadrecvQueue.get(block=False)
+            except Queue.Empty:
+                pass
+
+            # Wait for packet in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
             except Queue.Empty:
@@ -388,7 +396,7 @@ class BrcmBt():
             connection_addresses = {}
             for number in connection_numbers:
                 connection_addresses[number] = self.readMem(fw.CONNECTION_ARRAY_ADDRESS + 
-                        (number-1)*fw.CONNECTION_STRUCT_LENGTH + 0x28, 6)
+                        (number-1)*fw.CONNECTION_STRUCT_LENGTH + 0x28, 6)[::-1]
             log.info("connection_addresses = " + str(connection_addresses))
             for entry in entries:
                 sendFromDevice = entry[0] & 0x80000000 > 0
@@ -560,13 +568,13 @@ class BrcmBt():
         self.monitorThread = None
         log.debug("stopMonitor: Monitor Thread terminated.")
 
-    def sendHciCommand(self, opcode, data, timeout=None):
+    def sendHciCommand(self, opcode, data, timeout=2):
         queue = Queue.Queue(1)
         try:
             self.sendQueue.put((opcode, data, queue), timeout=timeout)
             return queue.get(timeout=timeout)
         except Queue.Empty:
-            log.debug("sendHciCommand: waiting for response timed out!")
+            log.warn("sendHciCommand: waiting for response timed out!")
             return None
         except Queue.Full:
             log.warn("sendHciCommand: send queue is full!")
@@ -642,7 +650,6 @@ class BrcmBt():
                 progress_log.status(msg)
         return True
 
-
     def launchRam(self, address):
         response = self.sendHciCommand(0xfc4e, p32(address))
 
@@ -684,3 +691,67 @@ class BrcmBt():
     def disableRomPatch(self, patchIndex):
         #TODO
         pass
+
+    def readConnectionInformation(self, conn_number):
+        if conn_number < 1 or conn_number > fw.CONNECTION_ARRAY_SIZE:
+            log.warn("readConnectionInformation: connection number out of bounds: %d" % conn_number)
+            return None
+
+        connection = self.readMem(fw.CONNECTION_ARRAY_ADDRESS +
+                            fw.CONNECTION_STRUCT_LENGTH*(conn_number-1),
+                            fw.CONNECTION_STRUCT_LENGTH)
+
+        if connection == b'\x00'*fw.CONNECTION_STRUCT_LENGTH:
+            return None
+
+        conn_dict = {}
+        conn_dict["connection_number"]   = u32(connection[:4])
+        conn_dict["remote_address"]      = connection[0x28:0x2E][::-1]
+        conn_dict["remote_name_address"] = u32(connection[0x4C:0x50])
+        conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 != 0
+        return conn_dict
+
+    def sendLmpPacket(self, conn_nr, opcode, payload, extended_op=False):
+        if conn_nr < 1 or conn_nr > fw.CONNECTION_ARRAY_SIZE:
+            log.warn("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
+            return False
+
+        connection = self.readConnectionInformation(conn_nr)
+        tid = 1 if connection["master_of_connection"] else 0
+        opcode_data = p8(opcode<<1 | tid) if not args.ext else p8(0x7F<<1|tid) + p8(opcode)
+        data = opcode_data + payload
+
+        CODE_BASE_ADDRESS = 0xd7500
+        DATA_BASE_ADDRESS = 0xd7580
+        ASM_CODE = """
+                push {r4,lr}
+
+                // malloc buffer
+                bl 0x3F17E      // malloc_0x20_bloc_buffer_memzero
+                mov r4, r0
+
+                // fill buffer
+                add r0, 0xC
+                ldr r1, =0x%x
+                mov r2, 20
+                bl  0x2e03c     // memcpy
+
+                // load conn struct pointer
+                mov r0, %d
+                bl 0x42c04      // find connection struct from conn nr
+
+                mov r1, r4
+                pop {r4,lr}
+                b 0xf81a        // send_LMP_packet
+                """ % (DATA_BASE_ADDRESS, conn_nr)
+
+        code = asm(ASM_CODE, vma=CODE_BASE_ADDRESS)
+        self.writeMem(CODE_BASE_ADDRESS, code)
+        self.writeMem(DATA_BASE_ADDRESS, data.ljust(20, "\x00"))
+
+        if self.launchRam(CODE_BASE_ADDRESS):
+            return True
+        else:
+            log.warn("sendLmpPacket: launchRam failed!")
+            return False
+
