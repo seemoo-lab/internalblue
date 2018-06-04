@@ -518,6 +518,7 @@ class BrcmBt():
         # setup sockets
         if not self._setupSockets():
             log.critical("No connection to target device.")
+            log.info("Check if:\n -> Bluetooth is active\n -> Bluetooth Stack has Debug Enabled\n -> BT HCI snoop log is activated\n")
             return False
 
         # start receive thread
