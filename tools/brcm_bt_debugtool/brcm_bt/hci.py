@@ -475,10 +475,13 @@ class StackDumpReceiver:
         if hcipkt.data[0:4] != p32(0x039200f7):
             return
 
+        checksum_correct = sum([ord(x) for x in hcipkt.data[5:]]) % 0x100 == 0
+
         if hcipkt.data[4] == '\x2c':
             data = hcipkt.data[6:]
             values = [u32(data[i:i+4]) for i in range(0, 64, 4)]
-            log.debug("Stack Dump (0x%x):\n" % u8(hcipkt.data[5]) + '\n'.join([hex(x) for x in values]))
+            log.debug("Stack Dump (%s):\n%s" % ("checksum correct" if checksum_correct else "checksum NOT correct",
+                '\n'.join([hex(x) for x in values])))
             if data[0] == '\x02':
                 # This is the second stack dump event (contains register values)
                 log.warn("Received Stack-Dump Event (contains %d registers):" % (u8(data[1])))
