@@ -98,7 +98,7 @@ class BrcmBt():
             log.debug("installing workaround for pwnlib.asm.which_binutils() ...")
             return True
         except PwnlibException:
-            log.warn("pwntools cannot find binutils for arm architecture. Disassembing will not work!")
+            log.warn("pwntools cannot find binutils for arm architecture. Disassembling will not work!")
             return False
 
     def _read_btsnoop_hdr(self):
@@ -107,8 +107,9 @@ class BrcmBt():
             return None
         if(self.write_btsnooplog):
             self.btsnooplog_file.write(data)
+            self.btsnooplog_file.flush()
 
-        btsnoop_hdr = (data[:8], u32(data[8:12]),u32(data[12:16]))
+        btsnoop_hdr = (data[:8], u32(data[8:12],endian="big"),u32(data[12:16],endian="big"))
         log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
         return btsnoop_hdr
 
@@ -154,6 +155,7 @@ class BrcmBt():
 
             if(self.write_btsnooplog):
                 self.btsnooplog_file.write(record_hdr)
+                self.btsnooplog_file.flush()
 
             orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
 
@@ -177,6 +179,7 @@ class BrcmBt():
             
             if(self.write_btsnooplog):
                 self.btsnooplog_file.write(record_data)
+                self.btsnooplog_file.flush()
 
             try:
                 parsed_time = self._parse_time(time64)
@@ -611,6 +614,10 @@ class BrcmBt():
                 blocksize = 251
 
             response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
+
+            if response == None:
+                log.warn("readMem: No response to readRAM HCI command!")
+                return None
 
             status = ord(response[3])
             if status != 0:

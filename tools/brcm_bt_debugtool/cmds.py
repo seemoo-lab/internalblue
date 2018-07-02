@@ -286,7 +286,8 @@ class CmdMonitor(Cmd):
                 PCAP_LOCAL_CORECTIN = 0
                 PCAP_ACCUR_TIMSTAMP = 0
                 PCAP_MAX_LENGTH_CAP = 65535
-                PCAP_DATA_LINK_TYPE = 1
+                PCAP_DATA_LINK_TYPE = 1         # TODO: Use the proper LINK TYPE 255 "BLUETOOTH_BREDR_BB"
+                                                # https://github.com/greatscottgadgets/ubertooth/wiki/Bluetooth-Captures-in-PCAP#linktype_bluetooth_bredr_bb
 
                 pcap_header = struct.pack('@ I H H i I I I ',
                         PCAP_MAGICAL_NUMBER,
