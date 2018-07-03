@@ -58,13 +58,14 @@ class BrcmBt():
         self.sendQueue = Queue.Queue(queue_size)
         self.recvThread = None
         self.sendThread = None
-        self.monitorThread = None
-        self.monitorCallback = None
+        self.monitorState = None
+        self.registeredHciCallbacks = []
         self.exit_requested = False
         self.monitor_exit_requested = False
         self.running = False
         self.log_level = log_level
         self.check_binutils(fix_binutils)
+        self.stackDumpReceiver = None
 
     def check_binutils(self, fix=True):
         # Test if arm binutils is in path so that asm and disasm work:
@@ -128,8 +129,6 @@ class BrcmBt():
 
     def _recvThreadFunc(self):
         log.debug("Receive Thread started.")
-
-        stackDumpReceiver = hci.StackDumpReceiver()
 
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
@@ -210,10 +209,14 @@ class BrcmBt():
                     except Queue.Full:
                         log.warn("recvThreadFunc: sendThread recv queue is full. dropping packets..")
 
-                if stackDumpReceiver.recvPacket(record[0]):
+                for callback in self.registeredHciCallbacks:
+                    callback(record)
+
+                if self.stackDumpReceiver.stack_dump_has_happend:
                     # A stack dump has happend!
                     log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
                     self.exit_requested = True
+
 
         log.debug("Receive Thread terminated.")
 
@@ -258,180 +261,6 @@ class BrcmBt():
                             break
 
         log.debug("Send Thread terminated.")
-
-    def _monitorThreadFunc(self):
-        log.debug("monitorThread: started!")
-
-        HOOK_BASE_ADDRESS = 0xd7600
-        DATA_BASE_ADDRESS = 0xd7700
-        DATA_LENGTH = 32*32+4
-        MAX_WAITTIME = 0.5
-        INJECTED_CODE = """
-            b hook_send_lmp
-            b hook_recv_lmp
-
-            hook_recv_lmp:
-                push {r2-r8,lr}
-                push {r0-r3,lr}
-
-                // inc counter
-                ldr  r0, =0x%x
-                ldr  r1, [r0]
-                add  r1, 1
-                str  r1, [r0]
-
-                // calc table offset = (cnt & 0b11111) << 5
-                and  r2, r1, 0x1F
-                lsl  r2, r2, 5
-                // store counter at table entry
-                add  r0, 4
-                add  r0, r2
-                str  r1, [r0]
-
-                // read data
-                add  r0, 4
-                ldr  r1, =0x200478
-                ldr  r2, [r1]
-                str  r2, [r0]
-                add  r0, 4
-                add  r1, 4
-                ldr  r1, [r1]
-                add  r1, 0xC    // start of LMP packet
-
-                mov  r2, 24
-                bl   0x2e03c+1  // memcpy
-
-                pop  {r0-r3,lr}
-                b    0x3F3F8
-
-            hook_send_lmp:
-                push {r4,r5,lr}
-
-                // save parameters
-                mov  r5, r0 // conn struct
-                mov  r4, r1 // buffer
-
-                // inc counter
-                ldr  r0, =0x%x
-                ldr  r1, [r0]
-                add  r1, 1
-                str  r1, [r0]
-
-                // calc table offset = (cnt & 0b11111) << 5
-                and  r2, r1, 0x1F
-                lsl  r2, r2, 5
-                // store counter at table entry
-                mov  r3, 1
-                orr.w r1, r1, r3, LSL#31
-                add  r0, 4
-                add  r0, r2
-                str  r1, [r0]
-
-                // get connection number
-                add  r0, 6
-                ldr  r2, [r5]
-                strb r2, [r0]
-                add  r0, 2
-                // read data
-                add  r1, r4, 0xC    // start of LMP packet
-
-                mov  r2, 24
-                bl   0x2e03c+1  // memcpy
-
-                mov r0, 0
-                pop  {r4,r5,pc}
-            """ % (DATA_BASE_ADDRESS, DATA_BASE_ADDRESS)
-
-        # Injecting hooks
-        hooks_code = asm(INJECTED_CODE, vma=HOOK_BASE_ADDRESS)
-        saved_data_hooks = self.readMem(HOOK_BASE_ADDRESS, len(hooks_code))
-        saved_data_data  = self.readMem(DATA_BASE_ADDRESS, DATA_LENGTH)
-        self.writeMem(DATA_BASE_ADDRESS, p32(0))
-        log.debug("monitorThread: injecting hook functions...")
-        self.writeMem(HOOK_BASE_ADDRESS, hooks_code)
-        log.debug("monitorThread: inserting lmp send hook ...")
-        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(HOOK_BASE_ADDRESS + 1))
-        log.debug("monitorThread: inserting lmp recv hook ...")
-        recv_patch_handle = self.patchRom(0x3f3f4, asm("b 0x%x" % (HOOK_BASE_ADDRESS + 5), vma=0x3f3f4))
-        log.debug("monitorThread: monitor mode activated.")
-
-        # Get device's BT address
-        deviceAddress = self.readMem(fw.BD_ADDR, 6)
-
-        # Poll data
-        lastCapturedIndex = 0
-        waittime = MAX_WAITTIME
-        while not self.exit_requested and not self.monitor_exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-            currentCapturedIndex = u32(self.readMem(DATA_BASE_ADDRESS, 4)) & 0x7FFFFFFF
-            if currentCapturedIndex <= lastCapturedIndex:
-                time.sleep(waittime)
-                if waittime < MAX_WAITTIME:
-                    waittime += MAX_WAITTIME/10
-                continue
-            else:
-                waittime = 0
-
-            currentCapturedPosition = currentCapturedIndex & 0x1f
-            lastCapturedPosition = lastCapturedIndex & 0x1f
-            if currentCapturedIndex - lastCapturedIndex >= 32:
-                # all entries are new (maybe even dropped packets)
-                data = self.readMem(DATA_BASE_ADDRESS+4, 32*32)
-            elif lastCapturedPosition < currentCapturedPosition:
-                # no wrap around
-                data = self.readMem(DATA_BASE_ADDRESS+4+
-                        (lastCapturedPosition+1)*32,
-                        (currentCapturedPosition-lastCapturedPosition)*32)
-            else:
-                # wrap around
-                tmp = self.readMem(DATA_BASE_ADDRESS+4+
-                        (lastCapturedPosition+1)*32,
-                        (31-lastCapturedPosition)*32)
-                data = self.readMem(DATA_BASE_ADDRESS+4,
-                        (currentCapturedPosition+1)*32) + tmp
-
-            entries = [(u32(data[i:i+4]), data[i+4:i+32]) for i in range(0, len(data), 32)]
-            entries.sort(key=lambda x: x[0] & 0x7FFFFFFF)
-            log.info("lastCapturedIndex=%d, currentCapturedIndex=%d, entries=%s" % (lastCapturedIndex, currentCapturedIndex, str(entries)))
-            #log.hexdump(self.readMem(DATA_BASE_ADDRESS, DATA_LENGTH))
-            connection_numbers = set([ord(entry[1][2]) for entry in entries])
-            connection_addresses = {}
-            for number in connection_numbers:
-                connection_addresses[number] = self.readMem(fw.CONNECTION_ARRAY_ADDRESS + 
-                        (number-1)*fw.CONNECTION_STRUCT_LENGTH + 0x28, 6)[::-1]
-            log.info("connection_addresses = " + str(connection_addresses))
-            for entry in entries:
-                sendFromDevice = entry[0] & 0x80000000 > 0
-                connection_number = ord(entry[1][2])
-                index = entry[0] & 0x7FFFFFFF
-                lmp_opcode = u8(entry[1][4]) >> 1
-                if lmp_opcode >= 0x7C:
-                    lmp_opcode = u8(entry[1][5])
-                    lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
-                else:
-                    lmp_len = fw.LMP_LENGTHS[lmp_opcode]
-                lmp_packet = entry[1][4:4+lmp_len]
-                if index > lastCapturedIndex + 1:
-                    log.warn("monitorThread: Dropped %d packets!" % (index-lastCapturedIndex-1))
-                if index <= lastCapturedIndex:
-                    log.warn("monitorThread: Error, got an old packet (index=%d but we are at %d)" % (index, lastCapturedIndex))
-                src_addr = deviceAddress if sendFromDevice else connection_addresses[connection_number]
-                dest_addr = deviceAddress if not sendFromDevice else connection_addresses[connection_number]
-                self.monitorCallback(lmp_packet, sendFromDevice, src_addr, dest_addr)
-                lastCapturedIndex = index
-
-        # Removing hooks
-        log.debug("monitorThread: removing lmp send hook ...")
-        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
-        log.debug("monitorThread: removing lmp recv hook ...")
-        self.disableRomPatch(recv_patch_handle)
-        log.debug("monitorThread: Restoring saved data...")
-        self.writeMem(HOOK_BASE_ADDRESS, saved_data_hooks)
-        self.writeMem(DATA_BASE_ADDRESS, saved_data_data)
-
-        log.debug("monitorThread: terminated!")
-
 
     def _setupSockets(self):
         self.hciport = random.randint(60000, 65535)     # select a random port (and hope that it is not in use)
@@ -534,11 +363,21 @@ class BrcmBt():
         self.sendThread.setDaemon(True)
         self.sendThread.start()
 
+        # register stackDumpReceiver callback:
+        self.stackDumpReceiver = hci.StackDumpReceiver()
+        self.registerHciCallback(self.stackDumpReceiver.recvPacket)
+
         self.running = True
         return True
 
     def shutdown(self):
         self.exit_requested = True
+
+        # unregister stackDumpReceiver callback:
+        if self.stackDumpReceiver != None:
+            self.unregisterHciCallback(self.stackDumpReceiver.recvPacket)
+            self.stackDumpReceiver = None
+
         self.recvThread.join()
         self.sendThread.join()
         self._teardownSockets()
@@ -548,29 +387,214 @@ class BrcmBt():
         self.exit_requested = False
         log.info("Shutdown complete.")
 
+    def registerHciCallback(self, callback):
+        if callback in self.registeredHciCallbacks:
+            log.warn("registerHciCallback: callback already registered!")
+            return
+        self.registeredHciCallbacks.append(callback)
+
+    def unregisterHciCallback(self, callback):
+        if callback in self.registeredHciCallbacks:
+            self.registeredHciCallbacks.remove(callback)
+            return
+        log.warn("registerHciCallback: no such callback is registered!")
+
     def startMonitor(self, callback):
+        # patch the firmware to issue hci events for each received/sent
+        # LMP packet. Format of the HCI Event:
+        # custom_event  len  magic  remote_bt_addr           lmp_data
+        # FF            2A   _LMP_  XX:XX:XX:XX:XX:XX:00:00  ...
         if not self.check_running():
             return False
-        if self.monitorThread != None:
-            log.warning("startMonitor: monitor thread does already exist")
+        if self.monitorState != None:
+            log.warning("startMonitor: monitor is already running")
             return False
 
-        self.monitor_exit_requested = False
-        self.monitorCallback = callback
-        self.monitorThread = context.Thread(target=self._monitorThreadFunc)
-        self.monitorThread.setDaemon(True)
-        self.monitorThread.start()
+        HOOK_BASE_ADDRESS = 0xd7600
+        BUFFER_BASE_ADDRESS = 0xd7700
+        BUFFER_LEN = 0x80
+        INJECTED_CODE = """
+            b hook_send_lmp
+            b hook_recv_lmp
+
+            hook_recv_lmp:
+                push {r2-r8,lr}
+                push {r0-r4,lr}
+
+                // write hci event header
+                ldr  r0, =0x%x
+                mov  r4, r0
+                mov  r3, r0
+                ldr  r1, =0x2cff      // len: 0x2c   event code: 0xff
+                strh r1, [r0]
+                add  r0, 2
+                ldr  r1, =0x504d4c5f  // '_LMP'
+                str  r1, [r0]
+                add  r0, 4
+                ldr  r1, =0x015f  // '_\x01' 01 for 'lmp recv'
+                strh r1, [r0]
+                add  r0, 2
+
+                // read remote bt addr
+                ldr  r1, =0x20047a
+                ldrb r2, [r1]       // connection number
+                sub  r2, 1
+                mov  r1, 0x14C
+                mul  r2, r1
+                ldr  r1, =0x2038E8  // connection array
+                add  r1, r2
+                add  r1, 0x28
+                mov  r2, 6
+                bl   0x2e03c+1  // memcpy
+                // memcpy returns end of dst buffer (8 byte aligned)
+
+                // read data
+                ldr  r1, =0x200478
+                ldr  r2, [r1]
+                str  r2, [r0]
+                add  r0, 4
+                add  r1, 4
+                ldr  r1, [r1]
+                add  r1, 0xC    // start of LMP packet
+                mov  r2, 24     // size for memcpy
+                bl   0x2e03c+1  // memcpy
+
+                // send via hci
+                mov  r0, r4
+                bl   0x398c1 // send_hci_event_without_free()
+
+                pop  {r0-r4,lr}
+                b    0x3F3F8
+
+            hook_send_lmp:
+                push {r4,r5,r6,lr}
+
+                // save parameters
+                mov  r5, r0 // conn struct
+                mov  r4, r1 // buffer
+
+                // write hci event header
+                ldr  r0, =0x%x
+                mov  r6, r0
+                ldr  r1, =0x2cff      // len: 0x2c   event code: 0xff
+                strh r1, [r0]
+                add  r0, 2
+                ldr  r1, =0x504d4c5f  // '_LMP'
+                str  r1, [r0]
+                add  r0, 4
+                ldr  r1, =0x005f  // '_\x00' 00 for 'lmp recv'
+                strh r1, [r0]
+                add  r0, 2
+
+                // get bt addr
+                mov  r1, r5
+                add  r1, 0x28
+                mov  r2, 6
+                bl   0x2e03c+1  // memcpy
+                // memcpy returns end of dst buffer (8 byte aligned)
+
+                // get connection number
+                mov  r1, 0
+                str  r1, [r0]
+                add  r0, 2
+                ldr  r2, [r5]
+                strb r2, [r0]
+                add  r0, 2
+
+                // read data
+                add  r1, r4, 0xC    // start of LMP packet
+
+                mov  r2, 24
+                bl   0x2e03c+1  // memcpy
+
+                // send via hci
+                mov  r0, r6
+                bl   0x398c1 // send_hci_event_without_free()
+
+                mov r0, 0
+                pop  {r4,r5,r6,pc}
+            """ % (BUFFER_BASE_ADDRESS, BUFFER_BASE_ADDRESS+0x40)
+
+        # Injecting hooks
+        hooks_code = asm(INJECTED_CODE, vma=HOOK_BASE_ADDRESS)
+        saved_data_hooks = self.readMem(HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_data  = self.readMem(BUFFER_BASE_ADDRESS, BUFFER_LEN)
+        self.writeMem(BUFFER_BASE_ADDRESS, p32(0))
+        log.debug("startMonitor: injecting hook functions...")
+        self.writeMem(HOOK_BASE_ADDRESS, hooks_code)
+        log.debug("startMonitor: inserting lmp send hook ...")
+        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(HOOK_BASE_ADDRESS + 1))
+        log.debug("startMonitor: inserting lmp recv hook ...")
+        recv_patch_handle = self.patchRom(0x3f3f4, asm("b 0x%x" % (HOOK_BASE_ADDRESS + 5), vma=0x3f3f4))
+        log.debug("startMonitor: monitor mode activated.")
+
+        # Get device's BT address
+        deviceAddress = self.readMem(fw.BD_ADDR, 6)[::-1]
+
+        def hciCallbackFunction(record):
+            hcipkt = record[0]
+            timestamp = record[5]
+            if not issubclass(hcipkt.__class__, hci.HCI_Event):
+                return
+            if hcipkt.event_code != 0xff:
+                return
+            if hcipkt.data[0:5] != "_LMP_":
+                return
+
+            sendFromDevice = hcipkt.data[5] == '\x00' # 0 for sendlmp;  1 for recvlmp
+            lmpData = hcipkt.data[6:]
+
+            connection_address = lmpData[0:6][::-1]
+            connection_number = u8(lmpData[10])
+
+            lmp_opcode = u8(lmpData[12]) >> 1
+            if lmp_opcode >= 0x7C:
+                lmp_opcode = u8(lmpData[13])
+                lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
+            else:
+                lmp_len = fw.LMP_LENGTHS[lmp_opcode]
+            lmpPacket = lmpData[12:12+lmp_len]
+
+            src_addr = deviceAddress if sendFromDevice else connection_address
+            dest_addr = deviceAddress if not sendFromDevice else connection_address
+            callback(lmpPacket, sendFromDevice, src_addr, dest_addr, timestamp)
+
+
+        self.registerHciCallback(hciCallbackFunction)
+        self.monitorState = (
+                HOOK_BASE_ADDRESS,
+                BUFFER_BASE_ADDRESS,
+                saved_data_hooks,
+                saved_data_data,
+                recv_patch_handle,
+                hciCallbackFunction)
+
         return True
 
     def stopMonitor(self):
-        self.monitor_exit_requested = True
-        if threading.currentThread() != self.monitorThread:
-            log.debug("stopMonitor: Waiting on Monitor Thread to terminate...")
-            self.monitorThread.join()
-        else:
-            log.debug("stopMonitor: Called from monitor thread. skip joining.")
-        self.monitorThread = None
-        log.debug("stopMonitor: Monitor Thread terminated.")
+        if self.monitorState == None:
+            log.warning("stopMonitor: monitor is not running!")
+            return False
+
+        (HOOK_BASE_ADDRESS,
+        BUFFER_BASE_ADDRESS,
+        saved_data_hooks,
+        saved_data_data,
+        recv_patch_handle,
+        hciCallbackFunction) = self.monitorState
+        self.monitorState = None
+
+        self.unregisterHciCallback(hciCallbackFunction)
+
+        # Removing hooks
+        log.debug("stopMonitor: removing lmp send hook ...")
+        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
+        log.debug("stopMonitor: removing lmp recv hook ...")
+        self.disableRomPatch(recv_patch_handle)
+        log.debug("stopMonitor: Restoring saved data...")
+        self.writeMem(HOOK_BASE_ADDRESS, saved_data_hooks)
+        self.writeMem(BUFFER_BASE_ADDRESS, saved_data_data)
+        return True
 
     def sendHciCommand(self, opcode, data, timeout=2):
         queue = Queue.Queue(1)

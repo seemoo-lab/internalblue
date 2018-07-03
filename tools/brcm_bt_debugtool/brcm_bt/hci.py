@@ -29,7 +29,7 @@ from pwn import *
 
 HCI_UART_TYPE_CLASS = {}
 
-class HCI:
+class HCI(object):
 
     """
     HCI Packet types for UART Transport layer
@@ -54,6 +54,9 @@ class HCI:
 
     def __init__(self, uart_type):
         self.uart_type = uart_type
+
+    def getRaw(self):
+        return p8(self.uart_type)
 
     def __str__(self):
         return self.HCI_UART_TYPE_STR[self.uart_type]
@@ -316,6 +319,9 @@ class HCI_Cmd(HCI):
         self.length = length
         self.data = data
 
+    def getRaw(self):
+        return super(HCI_Cmd, self).getRaw() + p16(self.opcode) + p8(self.length) + self.data
+
     def __str__(self):
         parent = HCI.__str__(self)
         cmdname = "unknown"
@@ -328,9 +334,15 @@ class HCI_Acl(HCI):
     @staticmethod
     def from_data(data):
         handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16,'0')))
-        pb = u8(unbits(bits_str(data[1:2])[4:6].rjust(8,'0')))
+        bp = u8(unbits(bits_str(data[1:2])[4:6].rjust(8,'0')))
         bc = u8(unbits(bits_str(data[1:2])[6:8].rjust(8,'0')))
-        return HCI_Acl(handle, pb, bc, u16(data[2:4]), data[4:])
+        return HCI_Acl(handle, bp, bc, u16(data[2:4]), data[4:])
+
+    def getRaw(self):
+        raw = bits(p16(self.handle))[4:]
+        raw.extend(bits(p8(self.bp))[6:])
+        raw.extend(bits(p8(self.bc))[6:])
+        return unbits(raw)
 
     def __init__(self, handle, bp, bc, length, data):
         HCI.__init__(self, HCI.ACL_DATA)
@@ -347,6 +359,12 @@ class HCI_Sco(HCI):
         handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16,'0')))
         ps = u8(unbits(bits_str(data[1:2])[4:6].rjust(8,'0')))
         return HCI_Sco(handle, ps, u16(data[2]), data[3:])
+
+    def getRaw(self):
+        raw = bits(p16(self.handle))[4:]
+        raw.extend(bits(p8(self.ps))[6:])
+        raw.extend(bits(p8(0))[6:])
+        return unbits(raw)
 
     def __init__(self, handle, ps, length, data):
         HCI.__init__(self, HCI.SCO_DATA)
@@ -445,6 +463,9 @@ class HCI_Event(HCI):
         self.length = length
         self.data = data
 
+    def getRaw(self):
+        return super(HCI_Event, self).getRaw() + p8(self.event_code) + p8(self.length) + self.data
+
     def __str__(self):
         parent = HCI.__str__(self)
         eventname = "unknown"
@@ -466,8 +487,10 @@ def parse_hci_packet(data):
 class StackDumpReceiver:
     memdump_addr = None
     memdumps = {}
+    stack_dump_has_happend = False
 
-    def recvPacket(self, hcipkt):
+    def recvPacket(self, record):
+        hcipkt = record[0]
         if not issubclass(hcipkt.__class__, HCI_Event):
             return
         if hcipkt.event_code != 0xff:

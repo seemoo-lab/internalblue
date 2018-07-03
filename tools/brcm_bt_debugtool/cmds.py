@@ -259,24 +259,45 @@ class CmdMonitor(Cmd):
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("type", 
+                        help="One of: hci, lmp")
     parser.add_argument("command", 
                         help="One of: start, status, stop, kill")
 
     class MonitorController:
-        instance = None
+        hciInstance = None
+        lmpInstance = None
+
+        @staticmethod
+        def getMonitorController(name, brcmbt):
+            if name == "hci":
+                if CmdMonitor.MonitorController.hciInstance == None:
+                    #Encapsulation type: Bluetooth H4 with linux header (99) None:
+                    CmdMonitor.MonitorController.hciInstance = CmdMonitor.MonitorController.__MonitorController(brcmbt, 0xC9)
+                    CmdMonitor.MonitorController.hciInstance.startMonitor = CmdMonitor.MonitorController.hciInstance.startHciMonitor
+                    CmdMonitor.MonitorController.hciInstance.stopMonitor  = CmdMonitor.MonitorController.hciInstance.stopHciMonitor
+                    CmdMonitor.MonitorController.hciInstance._callback    = CmdMonitor.MonitorController.hciInstance.hciCallback
+                return CmdMonitor.MonitorController.hciInstance
+            elif name == "lmp":
+                if CmdMonitor.MonitorController.lmpInstance == None:
+                    # TODO: pcap data link type should be 255
+                    # see: https://github.com/greatscottgadgets/ubertooth/wiki/Bluetooth-Captures-in-PCAP#linktype_bluetooth_bredr_bb
+                    CmdMonitor.MonitorController.lmpInstance = CmdMonitor.MonitorController.__MonitorController(brcmbt, 0x01)
+                    CmdMonitor.MonitorController.lmpInstance.startMonitor = CmdMonitor.MonitorController.lmpInstance.startLmpMonitor
+                    CmdMonitor.MonitorController.lmpInstance.stopMonitor  = CmdMonitor.MonitorController.lmpInstance.stopLmpMonitor
+                    CmdMonitor.MonitorController.lmpInstance._callback    = CmdMonitor.MonitorController.lmpInstance.lmpCallback
+                return CmdMonitor.MonitorController.lmpInstance
+            else:
+                return None
 
         class __MonitorController:
-            def __init__(self, brcmbt):
+            def __init__(self, brcmbt, pcap_data_link_type):
                 self.brcmbt = brcmbt
                 self.running = False
                 self.wireshark_process = None
                 self.poll_timer = None
+                self.pcap_data_link_type = pcap_data_link_type
             
-            def getInstance(brcmbt):
-                if MonitorController.instance == None:
-                    MonitorController.instance = MonitorController(brcmbt)
-                return MonitorController.instance
-
             def _spawnWireshark(self):
                 # Global Header Values
                 PCAP_GLOBAL_HEADER_FMT = '@ I H H i I I I '
@@ -286,8 +307,7 @@ class CmdMonitor(Cmd):
                 PCAP_LOCAL_CORECTIN = 0
                 PCAP_ACCUR_TIMSTAMP = 0
                 PCAP_MAX_LENGTH_CAP = 65535
-                PCAP_DATA_LINK_TYPE = 1         # TODO: Use the proper LINK TYPE 255 "BLUETOOTH_BREDR_BB"
-                                                # https://github.com/greatscottgadgets/ubertooth/wiki/Bluetooth-Captures-in-PCAP#linktype_bluetooth_bredr_bb
+                PCAP_DATA_LINK_TYPE = self.pcap_data_link_type
 
                 pcap_header = struct.pack('@ I H H i I I I ',
                         PCAP_MAGICAL_NUMBER,
@@ -319,9 +339,31 @@ class CmdMonitor(Cmd):
                         self.poll_timer = Timer(3, self._pollTimer, ())
                         self.poll_timer.start()
 
-            def startMonitor(self):
+            def startHciMonitor(self):
                 if self.running:
-                    log.warn("Monitor already running!")
+                    log.warn("HCI Monitor already running!")
+                    return False
+
+                self.running = True
+                if self.wireshark_process == None:
+                    self._spawnWireshark()
+
+                self.brcmbt.registerHciCallback(self._callback)
+                log.info("HCI Monitor started.")
+                return True
+
+            def stopHciMonitor(self):
+                if not self.running:
+                    log.warn("HCI Monitor is not running!")
+                    return False
+                self.brcmbt.unregisterHciCallback(self._callback)
+                self.running = False
+                log.info("HCI Monitor stopped.")
+                return True
+
+            def startLmpMonitor(self):
+                if self.running:
+                    log.warn("LMP Monitor already running!")
                     return False
 
                 self.running = True
@@ -332,9 +374,9 @@ class CmdMonitor(Cmd):
                 log.info("LMP Monitor started.")
                 return True
 
-            def stopMonitor(self):
+            def stopLmpMonitor(self):
                 if not self.running:
-                    log.warn("Monitor is not running!")
+                    log.warn("LMP Monitor is not running!")
                     return False
                 self.brcmbt.stopMonitor()
                 self.running = False
@@ -353,11 +395,28 @@ class CmdMonitor(Cmd):
                     self.wireshark_process.wait()
                     self.wireshark_process = None
 
-
             def getStatus(self):
                 return self.running
 
-            def _callback(self, lmp_packet, sendByOwnDevice, src, dest):
+            def hciCallback(self, record):
+                hcipkt, orig_len, inc_len, flags, drops, recvtime = record
+
+                dummy = "\x00\x00\x00"      # TODO: Figure out purpose of these fields
+                direction = p8(flags & 0x01)
+                packet = dummy + direction + hcipkt.getRaw()
+                length = len(packet)
+                ts_sec =  recvtime.second
+                ts_usec = recvtime.microsecond
+                pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
+                try:
+                    self.wireshark_process.stdin.write(pcap_packet)
+                    self.wireshark_process.stdin.flush()
+                    log.debug("HciMonitorController._callback: done")
+                except IOError as e:
+                    log.warn("HciMonitorController._callback: broken pipe. terminate.")
+                    self.killMonitor()
+
+            def lmpCallback(self, lmp_packet, sendByOwnDevice, src, dest, timestamp):
                 eth_header = dest + src + "\xff\xf0"
                 meta_data  = "\x00"*6 if sendByOwnDevice else "\x01\x00\x00\x00\x00\x00"
                 packet_header = "\x19\x00\x00" + p8(len(lmp_packet)<<3 | 7)
@@ -365,30 +424,28 @@ class CmdMonitor(Cmd):
                 packet = eth_header + meta_data + packet_header + lmp_packet
                 packet += "\x00\x00" # CRC
                 length = len(packet)
-                ts_sec, ts_usec = map(int, str(time.time()).split('.'))
+                ts_sec =  timestamp.second
+                ts_usec = timestamp.microsecond
                 pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
                 try:
                     self.wireshark_process.stdin.write(pcap_packet)
                     self.wireshark_process.stdin.flush()
-                    log.debug("MonitorController._callback: done")
+                    log.debug("LmpMonitorController._callback: done")
                 except IOError as e:
-                    log.warn("MonitorController._callback: broken pipe. terminate.")
+                    log.warn("LmpMonitorController._callback: broken pipe. terminate.")
                     self.killMonitor()
 
-        def __init__(self, brcmbt):
-            if not CmdMonitor.MonitorController.instance:
-                CmdMonitor.MonitorController.instance = CmdMonitor.MonitorController.__MonitorController(brcmbt)
-            else:
-                CmdMonitor.MonitorController.instance.brcmbt = brcmbt
-        def __getattr__(self, name):
-            return getattr(self.instance, name)
 
     def work(self):
         args = self.getArgs()
         if args==None:
             return True
 
-        monitorController = CmdMonitor.MonitorController(self.brcmbt)
+        monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.brcmbt)
+        if monitorController == None:
+            log.warn("Unknown monitor type: " + args.type)
+            return False
+
         if args.command == "start":
             monitorController.startMonitor()
         elif args.command == "status":
