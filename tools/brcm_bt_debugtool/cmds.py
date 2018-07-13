@@ -37,6 +37,7 @@ from threading import Timer
 import textwrap
 import struct
 import time
+import select
 
 from brcm_bt.brcm_bt import fw
 
@@ -391,9 +392,13 @@ class CmdMonitor(Cmd):
                     self.poll_timer = None
                 if self.wireshark_process != None:
                     log.info("Killing Wireshark process...")
-                    self.wireshark_process.terminate()
-                    self.wireshark_process.wait()
+                    try:
+                        self.wireshark_process.terminate()
+                        self.wireshark_process.wait()
+                    except OSError:
+                        log.warn("Error during wireshark process termination")
                     self.wireshark_process = None
+                    
 
             def getStatus(self):
                 return self.running
@@ -405,7 +410,7 @@ class CmdMonitor(Cmd):
                 direction = p8(flags & 0x01)
                 packet = dummy + direction + hcipkt.getRaw()
                 length = len(packet)
-                ts_sec =  recvtime.second
+                ts_sec =  recvtime.second + timestamp.minute*60 + timestamp.hour*60*60
                 ts_usec = recvtime.microsecond
                 pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
                 try:
@@ -424,7 +429,7 @@ class CmdMonitor(Cmd):
                 packet = eth_header + meta_data + packet_header + lmp_packet
                 packet += "\x00\x00" # CRC
                 length = len(packet)
-                ts_sec =  timestamp.second
+                ts_sec =  timestamp.second + timestamp.minute*60 + timestamp.hour*60*60
                 ts_usec = timestamp.microsecond
                 pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
                 try:
@@ -494,6 +499,11 @@ class CmdRepeat(Cmd):
             # Empty recv queue:
             while self.brcmbt.recvPacket(timeout=0.1) != None:
                 pass
+
+            # Check for keypresses by user:
+            if select.select([sys.stdin],[],[],0.0)[0]:
+                log.info("Repeat aborted by user!")
+                return True
 
             # instanciate and run cmd
             cmd_instance = cmdclass(repcmdline, self.brcmbt)
@@ -930,7 +940,7 @@ class CmdSendHciCmd(Cmd):
             else:
                 data += data_part.decode('hex')
 
-        self.brcmbt.hci_tx.sendCmd(args.cmdcode, data)
+        self.brcmbt.sendHciCommand(args.cmdcode, data)
 
         return True
 
@@ -951,7 +961,7 @@ class CmdPatchRom(Cmd):
     parser.add_argument("address", type=auto_int,
                         help="Destination address") 
     parser.add_argument("data", nargs="*",
-                        help="Data as string (or hexstring/integer, see --hex, --int)")
+                        help="Data as string (or hexstring/integer/instruction, see --hex, --int, --asm)")
 
     # Not so nice hack to keep track of used slots:
     # TODO: This can be better by reading in the bitfields from the IO
@@ -1023,6 +1033,8 @@ class CmdSendLmp(Cmd):
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("--conn_number", "-n", type=auto_int,
                         help="Number of the connection associated with the other device.") 
+    parser.add_argument("--nocheck", action="store_true",
+                        help="Do not verify that connection number is valid (fast but unsafe)")
     parser.add_argument("--extended", "-e", action="store_true",
                         help="Use extended opcodes (prepend opcode with 0x7F)")
     parser.add_argument("opcode", type=auto_int,
@@ -1036,8 +1048,9 @@ class CmdSendLmp(Cmd):
             return True
 
         connection_number = args.conn_number
-        connection = None
+        remote_addr = None
         if connection_number == None:
+            connection = None
             found_multiple_active = False
             log.info("Reading connection information to find active connection number...")
             for i in range(fw.CONNECTION_ARRAY_SIZE):
@@ -1057,19 +1070,29 @@ class CmdSendLmp(Cmd):
                 return False
 
             connection_number = connection["connection_number"]
+            remote_addr = bt_addr_to_str(connection["remote_address"])
         else:
-            connection = self.brcmbt.readConnectionInformation(connection_number+1)
+            if args.nocheck:
+                remote_addr = "?"
+            else:
+                connection = self.brcmbt.readConnectionInformation(connection_number)
+                if connection == None:
+                    log.warn("Connection entry at number %d is empty!" % connection_number)
+                    return False
+                else:
+                    remote_addr = bt_addr_to_str(connection["remote_address"])
 
+        data = None
         try:
             data = args.data.decode('hex')
-            log.info("Sending op=%d data=%s to connection nr=%d (%s)" %
-                    (args.opcode, data.encode("hex"), connection_number, 
-                        bt_addr_to_str(connection["remote_address"])))
-            return self.brcmbt.sendLmpPacket(connection_number, args.opcode,
-                            data, extended_op=args.extended)
         except TypeError as e:
             log.warn("Data string cannot be converted to hexstring: " + str(e))
             return False
+
+        log.info("Sending op=%d data=%s to connection nr=%d (%s)" %
+                (args.opcode, data.encode("hex"), connection_number, remote_addr))
+        return self.brcmbt.sendLmpPacket(connection_number, args.opcode,
+                        data, extended_op=args.extended)
 
 
 class CmdInfo(Cmd):
@@ -1091,14 +1114,20 @@ class CmdInfo(Cmd):
             log.info("    - Number:            %d"     % connection["connection_number"])
             log.info("    - Remote BT address: %s"     % bt_addr_to_str(connection["remote_address"]))
             log.info("    - Remote BT name:    %08X"   % connection["remote_name_address"])
-            log.info("    - Master of Conn.    %s"     % str(connection["master_of_connection"]))
+            log.info("    - Master of Conn.:   %s"     % str(connection["master_of_connection"]))
+            log.info("    - Conn. Handle:      0x%X"   % connection["connection_handle"])
+            log.info("    - Public RAND:       %s"     % connection["public_rand"].encode('hex'))
+            #log.info("    - PIN:               %s"     % connection["pin"].encode('hex'))
+            #log.info("    - BT addr for key:   %s"     % bt_addr_to_str(connection["bt_addr_for_key"]))
+            log.info("    - Effective Key Len: %d byte (%d bit)" % (connection["effective_key_len"], 8*connection["effective_key_len"]))
         print
 
     def infoDevice(self):
-        bt_addr      = self.readMem(fw.BD_ADDR, 6)
+        bt_addr      = self.readMem(fw.BD_ADDR, 6)[::-1]
         bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
         device_name  = self.readMem(fw.DEVICE_NAME, 258)
-        device_name  = device_name[2:u8(device_name[1])+3]
+        device_name_len = u8(device_name[0])-1
+        device_name  = device_name[2:2+device_name_len]
         adb_serial   = context.device
 
         log.info("### | Device ###")

@@ -698,6 +698,7 @@ class BrcmBt():
         # Not so nice hack to keep track of used slots:
         # TODO: This can be better by reading in the bitfields from the IO
         # This needs a patch as readRAM crashes if it reads from IO (must read 4 byte chunks)
+        # It should also read back if the address is already patched. if so, reuse that exact slot!
         slot_dwords = [0xffffffff, 0xffffffff, 0xffffffff, 0x0000ffff, 0x00000000]
         slot = 113
 
@@ -737,10 +738,15 @@ class BrcmBt():
             return None
 
         conn_dict = {}
-        conn_dict["connection_number"]   = u32(connection[:4])
-        conn_dict["remote_address"]      = connection[0x28:0x2E][::-1]
-        conn_dict["remote_name_address"] = u32(connection[0x4C:0x50])
+        conn_dict["connection_number"]    = u32(connection[:4])
+        conn_dict["remote_address"]       = connection[0x28:0x2E][::-1]
+        conn_dict["remote_name_address"]  = u32(connection[0x4C:0x50])
         conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 != 0
+        conn_dict["connection_handle"]    = u16(connection[0x64:0x66])
+        conn_dict["public_rand"]          = connection[0x78:0x88]
+        #conn_dict["pin"]                  = connection[0x8C:0x92]
+        #conn_dict["bt_addr_for_key"]      = connection[0x92:0x98][::-1]
+        conn_dict["effective_key_len"]    = u8(connection[0xa7:0xa8])
         return conn_dict
 
     def sendLmpPacket(self, conn_nr, opcode, payload, extended_op=False):
@@ -748,13 +754,11 @@ class BrcmBt():
             log.warn("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
             return False
 
-        connection = self.readConnectionInformation(conn_nr)
-        tid = 1 if connection["master_of_connection"] else 0
-        opcode_data = p8(opcode<<1 | tid) if not args.ext else p8(0x7F<<1|tid) + p8(opcode)
+        # The TID bit will later be set in the assembler code
+        opcode_data = p8(opcode<<1) if not args.ext else p8(0x7F<<1) + p8(opcode)
         data = opcode_data + payload
 
         CODE_BASE_ADDRESS = 0xd7500
-        DATA_BASE_ADDRESS = 0xd7580
         ASM_CODE = """
                 push {r4,lr}
 
@@ -764,7 +768,7 @@ class BrcmBt():
 
                 // fill buffer
                 add r0, 0xC
-                ldr r1, =0x%x
+                ldr r1, =payload
                 mov r2, 20
                 bl  0x2e03c     // memcpy
 
@@ -772,14 +776,27 @@ class BrcmBt():
                 mov r0, %d
                 bl 0x42c04      // find connection struct from conn nr
 
+                // set tid bit if we are the slave
+                ldr r1, [r0, 0x1c]  // tid bit is at position 15 of this bitfield
+                lsr r1, 15
+                eor r1, 0x1         // invert the bit
+                and r1, 0x1
+                ldr r2, [r4, 0xC]
+                orr r2, r1
+                str r2, [r4, 0xC]
+
                 mov r1, r4
                 pop {r4,lr}
                 b 0xf81a        // send_LMP_packet
-                """ % (DATA_BASE_ADDRESS, conn_nr)
 
-        code = asm(ASM_CODE, vma=CODE_BASE_ADDRESS)
+                .align
+                payload:
+                """ % (conn_nr)
+
+        asm_code_with_data = ASM_CODE + ''.join([".byte 0x%02x\n" % ord(x) 
+                for x in data.ljust(20, "\x00")])
+        code = asm(asm_code_with_data, vma=CODE_BASE_ADDRESS)
         self.writeMem(CODE_BASE_ADDRESS, code)
-        self.writeMem(DATA_BASE_ADDRESS, data.ljust(20, "\x00"))
 
         if self.launchRam(CODE_BASE_ADDRESS):
             return True
