@@ -2,7 +2,7 @@
 
 # hci.py
 #
-# This is a submodule of brcm_bt.py
+# This is a submodule of internalblue
 # It contains code for parsing and crafting HCI packets.
 #
 # HCI code was partially taken from https://github.com/joekickass/python-btsnoop

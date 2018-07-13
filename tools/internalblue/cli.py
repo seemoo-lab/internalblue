@@ -1,6 +1,6 @@
 #!/usr/bin/python2
 
-# brcm_bt_debugtool.py
+# cli.py
 #
 # This is a helper tool for debuging and reversing Broadcom Bluetooth chips.
 # It requires a smartphone with compatible BCM chip and patched bluetooth stack
@@ -35,17 +35,19 @@ import signal
 import time
 import traceback
 
-import brcm_bt.brcm_bt
+import core
 import cmds
 
+LOGFILE  = '_internalblue.log'
+HISTFILE = "_internalblue.hist"
 
 def print_banner():
     banner = """\
-   ___                     ___ ______    ___      __             __            __
-  / _ )__________ _       / _ )_  __/   / _ \___ / /  __ _____ _/ /____  ___  / /
- / _  / __/ __/  ' \     / _  |/ /     / // / -_) _ \/ // / _ `/ __/ _ \/ _ \/ /
-/____/_/  \__/_/_/_/    /____//_/     /____/\__/_.__/\_,_/\_, /\__/\___/\___/_/
-                                                         /___/
+   ____     __                    _____  __
+  /  _/__  / /____ _______  ___ _/ / _ )/ /_ _____
+ _/ // _ \/ __/ -_) __/ _ \/ _ `/ / _  / / // / -_)
+/___/_//_/\__/\__/_/ /_//_/\_,_/_/____/_/\_,_/\__/
+
 by Dennis Mantz.
 
 type <help> for usage information!\n\n"""
@@ -53,7 +55,7 @@ type <help> for usage information!\n\n"""
         term.output(text.yellow(line))
 
 def commandLoop():
-    while brcmbt.running and not brcmbt.exit_requested:
+    while internalblue.running and not internalblue.exit_requested:
         cmd_instance = None
         try:
             cmdline = term.readline.readline(prompt='> ').strip()
@@ -65,10 +67,10 @@ def commandLoop():
             if matching_cmd == None:
                 log.warn("Command unknown: " + cmdline)
                 continue
-            cmd_instance = matching_cmd(cmdline, brcmbt)
+            cmd_instance = matching_cmd(cmdline, internalblue)
 
             # Empty queue:
-            while brcmbt.recvPacket(timeout=0.1) != None:
+            while internalblue.recvPacket(timeout=0.1) != None:
                 pass
 
             if(not cmd_instance.work()):
@@ -81,59 +83,52 @@ def commandLoop():
                 cmd_instance.abort_cmd()
             else:
                 log.info("Got Ctrl-C; exiting...")
-                brcmbt.exit_requested = True
+                internalblue.exit_requested = True
                 break
         except Exception as e:
-            brcmbt.exit_requested = True      # Make sure all threads terminate
+            internalblue.exit_requested = True      # Make sure all threads terminate
             log.critical("Uncaught exception (%s). Abort." % str(e))
             print(traceback.format_exc())
             break
         cmd_instance = None
-            
 
 
 #
 # Main Program Start
 #
+if __name__ == "__main__":
+    print_banner()
+    internalblue = core.InternalBlue()
 
-print_banner()
+    # Restore readline history:
+    if os.path.exists(HISTFILE):
+        readline_history = read(HISTFILE)
+        term.readline.history = readline_history.split('\n')
 
-# settings
-context.log_level = 'info'
-context.log_file = '_brcm_bt_debugtool.log'
-context.arch = "thumb"
+    # Readline Completions
+    cmd_keywords = []
+    for cmd in cmds.getCmdList():
+        for keyword in cmd.keywords:
+            cmd_keywords.append(keyword)
+    readline_completer = term.completer.LongestPrefixCompleter(words=cmd_keywords)
+    term.readline.set_completer(readline_completer)
 
-brcmbt = brcm_bt.brcm_bt.BrcmBt()
+    # setup sockets
+    if not internalblue.connect():
+        log.critical("No connection to target device.")
+        exit(-1)
 
-# Restore readline history:
-if os.path.exists("_brcm_bt_debugtool.hist"):
-    readline_history = read("_brcm_bt_debugtool.hist")
-    term.readline.history = readline_history.split('\n')
+    # Enter command loop (runs until user quits)
+    commandLoop()
 
-# Readline Completions
-cmd_keywords = []
-for cmd in cmds.getCmdList():
-    for keyword in cmd.keywords:
-        cmd_keywords.append(keyword)
-readline_completer = term.completer.LongestPrefixCompleter(words=cmd_keywords)
-term.readline.set_completer(readline_completer)
+    # shutdown connection
+    internalblue.shutdown()
 
-# setup sockets
-if not brcmbt.connect():
-    log.critical("No connection to target device.")
-    exit(-1)
+    # Save readline history:
+    f = open(HISTFILE, "w")
+    f.write("\n".join(term.readline.history))
+    f.close()
 
-# Enter command loop (runs until user quits)
-commandLoop()
-
-# shutdown connection
-brcmbt.shutdown()
-
-# Save readline history:
-f = open("_brcm_bt_debugtool.hist", "w")
-f.write("\n".join(term.readline.history))
-f.close()
-
-# Cleanup
-log.info("Goodbye")
+    # Cleanup
+    log.info("Goodbye")
 

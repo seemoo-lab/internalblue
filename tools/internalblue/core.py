@@ -1,6 +1,6 @@
 #!/usr/bin/python2
 
-# brcm_bt.py
+# core.py
 #
 # This is a helper module for debugging and reversing Broadcom Bluetooth chips.
 # It requires a smartphone with compatible BCM chip and patched bluetooth stack
@@ -39,11 +39,11 @@ import random
 import hci
 import fw
 
-class BrcmBt():
+class InternalBlue():
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True'):
         context.log_level = log_level
-        context.log_file = '_brcm_bt.log'
+        context.log_file = '_internalblue.log'
         context.arch = "thumb"
         self.hciport = None
         self.s_inject = None

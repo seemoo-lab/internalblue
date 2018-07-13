@@ -39,7 +39,7 @@ import struct
 import time
 import select
 
-from brcm_bt.brcm_bt import fw
+import fw
 
 def getCmdList():
     # List of available commands:
@@ -96,9 +96,9 @@ class Cmd:
     memory_image = None
     memory_image_template_filename = "_memdump_template.bin"
 
-    def __init__(self, cmdline, brcmbt):
+    def __init__(self, cmdline, internalblue):
         self.cmdline = cmdline
-        self.brcmbt = brcmbt
+        self.internalblue = internalblue
 
     def __str__(self):
         return self.cmdline
@@ -130,10 +130,10 @@ class Cmd:
         return False
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
-        return self.brcmbt.readMem(address, length, progress_log, bytes_done, bytes_total)
+        return self.internalblue.readMem(address, length, progress_log, bytes_done, bytes_total)
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
-        return self.brcmbt.writeMem(address, data, progress_log, bytes_done, bytes_total)
+        return self.internalblue.writeMem(address, data, progress_log, bytes_done, bytes_total)
 
     def initMemoryImage(self):
         bytes_done = 0
@@ -174,7 +174,7 @@ class Cmd:
         return Cmd.memory_image
 
     def launchRam(self, address):
-        return self.brcmbt.launchRam(address)
+        return self.internalblue.launchRam(address)
 
 
 
@@ -211,7 +211,7 @@ class CmdExit(Cmd):
     description = "Exit the program."
 
     def work(self):
-        self.brcmbt.exit_requested = True
+        self.internalblue.exit_requested = True
         return True
 
 class CmdLogLevel(Cmd):
@@ -231,7 +231,7 @@ class CmdLogLevel(Cmd):
         loglevel = args.level
         if(loglevel.upper() in self.log_levels):
             context.log_level = loglevel
-            self.brcmbt.log_level = loglevel
+            self.internalblue.log_level = loglevel
             log.info("New log level: " + str(context.log_level))
             return True
         else:
@@ -244,15 +244,15 @@ class CmdListen(Cmd):
 
     def work(self):
         self.progress_log = log.progress("Listening... (stop with Ctrl-C)")
-        self.saved_loglevel = self.brcmbt.log_level
-        self.brcmbt.log_level = 'debug'
+        self.saved_loglevel = self.internalblue.log_level
+        self.internalblue.log_level = 'debug'
         while True:
             # Empty the receive queue
-            self.brcmbt.recvPacket(timeout=0.5)
+            self.internalblue.recvPacket(timeout=0.5)
 
     def abort_cmd(self):
         Cmd.abort_cmd(self)
-        self.brcmbt.log_level = self.saved_loglevel
+        self.internalblue.log_level = self.saved_loglevel
 
 class CmdMonitor(Cmd):
     keywords = ['monitor']
@@ -270,11 +270,11 @@ class CmdMonitor(Cmd):
         lmpInstance = None
 
         @staticmethod
-        def getMonitorController(name, brcmbt):
+        def getMonitorController(name, internalblue):
             if name == "hci":
                 if CmdMonitor.MonitorController.hciInstance == None:
                     #Encapsulation type: Bluetooth H4 with linux header (99) None:
-                    CmdMonitor.MonitorController.hciInstance = CmdMonitor.MonitorController.__MonitorController(brcmbt, 0xC9)
+                    CmdMonitor.MonitorController.hciInstance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0xC9)
                     CmdMonitor.MonitorController.hciInstance.startMonitor = CmdMonitor.MonitorController.hciInstance.startHciMonitor
                     CmdMonitor.MonitorController.hciInstance.stopMonitor  = CmdMonitor.MonitorController.hciInstance.stopHciMonitor
                     CmdMonitor.MonitorController.hciInstance._callback    = CmdMonitor.MonitorController.hciInstance.hciCallback
@@ -283,7 +283,7 @@ class CmdMonitor(Cmd):
                 if CmdMonitor.MonitorController.lmpInstance == None:
                     # TODO: pcap data link type should be 255
                     # see: https://github.com/greatscottgadgets/ubertooth/wiki/Bluetooth-Captures-in-PCAP#linktype_bluetooth_bredr_bb
-                    CmdMonitor.MonitorController.lmpInstance = CmdMonitor.MonitorController.__MonitorController(brcmbt, 0x01)
+                    CmdMonitor.MonitorController.lmpInstance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0x01)
                     CmdMonitor.MonitorController.lmpInstance.startMonitor = CmdMonitor.MonitorController.lmpInstance.startLmpMonitor
                     CmdMonitor.MonitorController.lmpInstance.stopMonitor  = CmdMonitor.MonitorController.lmpInstance.stopLmpMonitor
                     CmdMonitor.MonitorController.lmpInstance._callback    = CmdMonitor.MonitorController.lmpInstance.lmpCallback
@@ -292,8 +292,8 @@ class CmdMonitor(Cmd):
                 return None
 
         class __MonitorController:
-            def __init__(self, brcmbt, pcap_data_link_type):
-                self.brcmbt = brcmbt
+            def __init__(self, internalblue, pcap_data_link_type):
+                self.internalblue = internalblue
                 self.running = False
                 self.wireshark_process = None
                 self.poll_timer = None
@@ -349,7 +349,7 @@ class CmdMonitor(Cmd):
                 if self.wireshark_process == None:
                     self._spawnWireshark()
 
-                self.brcmbt.registerHciCallback(self._callback)
+                self.internalblue.registerHciCallback(self._callback)
                 log.info("HCI Monitor started.")
                 return True
 
@@ -357,7 +357,7 @@ class CmdMonitor(Cmd):
                 if not self.running:
                     log.warn("HCI Monitor is not running!")
                     return False
-                self.brcmbt.unregisterHciCallback(self._callback)
+                self.internalblue.unregisterHciCallback(self._callback)
                 self.running = False
                 log.info("HCI Monitor stopped.")
                 return True
@@ -371,7 +371,7 @@ class CmdMonitor(Cmd):
                 if self.wireshark_process == None:
                     self._spawnWireshark()
 
-                self.brcmbt.startMonitor(self._callback)
+                self.internalblue.startMonitor(self._callback)
                 log.info("LMP Monitor started.")
                 return True
 
@@ -379,7 +379,7 @@ class CmdMonitor(Cmd):
                 if not self.running:
                     log.warn("LMP Monitor is not running!")
                     return False
-                self.brcmbt.stopMonitor()
+                self.internalblue.stopMonitor()
                 self.running = False
                 log.info("LMP Monitor stopped.")
                 return True
@@ -446,7 +446,7 @@ class CmdMonitor(Cmd):
         if args==None:
             return True
 
-        monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.brcmbt)
+        monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.internalblue)
         if monitorController == None:
             log.warn("Unknown monitor type: " + args.type)
             return False
@@ -497,7 +497,7 @@ class CmdRepeat(Cmd):
 
         while True:
             # Empty recv queue:
-            while self.brcmbt.recvPacket(timeout=0.1) != None:
+            while self.internalblue.recvPacket(timeout=0.1) != None:
                 pass
 
             # Check for keypresses by user:
@@ -506,7 +506,7 @@ class CmdRepeat(Cmd):
                 return True
 
             # instanciate and run cmd
-            cmd_instance = cmdclass(repcmdline, self.brcmbt)
+            cmd_instance = cmdclass(repcmdline, self.internalblue)
             if(not cmd_instance.work()):
                 log.warn("Command failed: " + str(cmd_instance))
                 return False
@@ -940,7 +940,7 @@ class CmdSendHciCmd(Cmd):
             else:
                 data += data_part.decode('hex')
 
-        self.brcmbt.sendHciCommand(args.cmdcode, data)
+        self.internalblue.sendHciCommand(args.cmdcode, data)
 
         return True
 
@@ -1054,7 +1054,7 @@ class CmdSendLmp(Cmd):
             found_multiple_active = False
             log.info("Reading connection information to find active connection number...")
             for i in range(fw.CONNECTION_ARRAY_SIZE):
-                tmp_connection = self.brcmbt.readConnectionInformation(i+1)
+                tmp_connection = self.internalblue.readConnectionInformation(i+1)
                 if tmp_connection != None and tmp_connection["remote_address"] != "\x00"*6:
                     log.info("Found active connection with number %d (%s)." %
                             (i+1, bt_addr_to_str(tmp_connection["remote_address"])))
@@ -1075,7 +1075,7 @@ class CmdSendLmp(Cmd):
             if args.nocheck:
                 remote_addr = "?"
             else:
-                connection = self.brcmbt.readConnectionInformation(connection_number)
+                connection = self.internalblue.readConnectionInformation(connection_number)
                 if connection == None:
                     log.warn("Connection entry at number %d is empty!" % connection_number)
                     return False
@@ -1091,7 +1091,7 @@ class CmdSendLmp(Cmd):
 
         log.info("Sending op=%d data=%s to connection nr=%d (%s)" %
                 (args.opcode, data.encode("hex"), connection_number, remote_addr))
-        return self.brcmbt.sendLmpPacket(connection_number, args.opcode,
+        return self.internalblue.sendLmpPacket(connection_number, args.opcode,
                         data, extended_op=args.extended)
 
 
@@ -1106,7 +1106,7 @@ class CmdInfo(Cmd):
 
     def infoConnections(self):
         for i in range(fw.CONNECTION_ARRAY_SIZE):
-            connection = self.brcmbt.readConnectionInformation(i+1)
+            connection = self.internalblue.readConnectionInformation(i+1)
             if connection == None:
                 continue
 
