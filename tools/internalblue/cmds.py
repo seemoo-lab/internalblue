@@ -2,13 +2,10 @@
 
 # cmds.py
 #
-# This is a submodule of brcm_bt_debugtool.py
-# It contains all implemented commands. New commands can be added by defining
-# a new subclass of Cmd. The new subclass must have the attributes 'keywords'
-# and 'description' and should overwrite the method 'work' in order to accomplish
-# the desired behavior.
+# All available CLI commands are defined in this file by
+# creating subclasses of the Cmd class.
 #
-# Copyright (c) 2017 Dennis Mantz. (MIT License)
+# Copyright (c) 2018 Dennis Mantz. (MIT License)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in

@@ -2,15 +2,14 @@
 
 # cli.py
 #
-# This is a helper tool for debuging and reversing Broadcom Bluetooth chips.
-# It requires a smartphone with compatible BCM chip and patched bluetooth stack
-# which is connected via adb. Also pwntools must be installed.
-# Features include dumping and manipulating memory in various ways.
+# This file is meant to be executed by the user in order to start
+# an interactive CLI. It creates an instance of the framework and
+# enters a command loop which is implemented with the readline
+# interface. Commands entered by the user are matched to the
+# corresponding Cmd subclass in the cmds.py file and dispatched
+# accordingly.
 #
-# The tool is modular and allows adding new commands in a simple way (see cmds.py)
-# HCI code was partially taken from https://github.com/joekickass/python-btsnoop
-#
-# Copyright (c) 2017 Dennis Mantz. (MIT License)
+# Copyright (c) 2018 Dennis Mantz. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in

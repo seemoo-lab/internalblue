@@ -2,15 +2,12 @@
 
 # core.py
 #
-# This is a helper module for debugging and reversing Broadcom Bluetooth chips.
-# It requires a smartphone with compatible BCM chip and patched bluetooth stack
-# which is connected via adb. Also pwntools must be installed.
-# Features include dumping and manipulating memory in various ways.
+# This file contains the main class of the framework which
+# includes the thread functions for the receive and send thread.
+# It also implements methods to setup the TCP connection to the
+# Android Bluetooth stack via ADB port forwarding
 #
-# The tool is modular and allows adding new commands in a simple way (see cmds.py)
-# HCI code was partially taken from https://github.com/joekickass/python-btsnoop
-#
-# Copyright (c) 2017 Dennis Mantz. (MIT License)
+# Copyright (c) 2018 Dennis Mantz. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
