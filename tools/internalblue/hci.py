@@ -2,12 +2,12 @@
 
 # hci.py
 #
-# This is a submodule of internalblue
-# It contains code for parsing and crafting HCI packets.
+# The hci.py file contains classes and functions to parse and
+# craft HCI packets.
 #
 # HCI code was partially taken from https://github.com/joekickass/python-btsnoop
 # 
-# Copyright (c) 2017 Dennis Mantz. (MIT License)
+# Copyright (c) 2018 Dennis Mantz. (MIT License)
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
