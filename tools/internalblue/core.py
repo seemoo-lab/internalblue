@@ -653,6 +653,108 @@ class InternalBlue():
                 progress_log.status(msg)
         return outbuffer
 
+    def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        if not self.check_running():
+            return None
+
+        if length % 4 != 0:
+            log.warn("readMemAligned: length must be multiple of 4!")
+            return None
+
+        if address % 4 != 0:
+            log.warn("readMemAligned: address must be 4-byte aligned!")
+            return None
+
+        ASM_LOCATION = 0xd7900
+        ASM_SNIPPET = """
+            push {r4, lr}
+
+            mov  r0, 0xff
+            mov  r1, %d      // size of the hci event payload
+            add  r1, 6       // + type and length + 'READ'
+            bl   0x7AFC      // malloc_hci_event_buffer
+            mov  r4, r0
+            add  r0, 2
+            ldr  r1, =0x44414552  // 'READ'
+            str  r1, [r0]
+            add  r0, 4
+
+            // copy to buffer
+            ldr  r1, =0x%x
+            mov  r2, %d
+        loop:
+            ldr  r3, [r1]
+            str  r3, [r0]
+            add  r0, 4
+            add  r1, 4
+            subs r2, 1
+            bne  loop
+
+            // send buffer
+            mov r0, r4
+            bl  0x398c1 // send_hci_event_without_free()
+
+            // free buffer
+            mov r0, r4
+            bl  0x3FA36  // free_bloc_buffer_aligned
+
+            pop {r4, pc}
+        """
+
+        recvQueue = Queue.Queue(1)
+        def hciCallback(record):
+            hcipkt = record[0]
+            if not issubclass(hcipkt.__class__, hci.HCI_Event):
+                return
+            if hcipkt.event_code != 0xff:
+                return
+            if hcipkt.data[0:4] != "READ":
+                return
+            try:
+                recvQueue.put(hcipkt.data[4:], timeout=0.5)
+            except Queue.Full:
+                log.warn("readMemAligned: queue is blocked. Dropping packets...")
+
+        self.registerHciCallback(hciCallback)
+
+        read_addr = address
+        byte_counter = 0
+        outbuffer = ''
+        memory_type = None
+        if bytes_total == 0:
+            bytes_total = length
+        while(read_addr < address+length):
+            bytes_left = length - byte_counter
+            blocksize = bytes_left
+            if blocksize > 244:
+                blocksize = 244
+
+            code = asm(ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=ASM_LOCATION)
+            self.writeMem(ASM_LOCATION, code)
+
+            if not self.launchRam(ASM_LOCATION):
+                log.error("readMemAligned: launching assembler snippet failed!")
+                return None
+
+            response = None
+            try:
+                response = recvQueue.get(timeout=1)
+            except Queue.Empty:
+                log.warn("readMemAligned: No response from assembler snippet.")
+                return None
+
+            data = response
+            outbuffer += data
+            read_addr += len(data)
+            byte_counter += len(data)
+            if(progress_log != None):
+                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
+                        bytes_total, (bytes_done+byte_counter)*100/bytes_total)
+                progress_log.status(msg)
+
+        self.unregisterHciCallback(hciCallback)
+        return outbuffer
+
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
         if not self.check_running():
             return None
@@ -687,26 +789,55 @@ class InternalBlue():
             return False
         return True
 
-    def patchRom(self, address, patch):
+    def getPatchramState(self):
+        slot_dump       = self.readMemAligned(0x310204, 128/4)
+        table_addr_dump = self.readMemAligned(0x310000, 128*4)
+        table_val_dump  = self.readMem(0xd0000, 128*4)
+        table_addresses = []
+        table_values = []
+        slot_bits = bits(slot_dump)
+        for i in range(128):
+            if slot_bits[i]:
+                table_addresses.append(u32(table_addr_dump[i*4:i*4+4])<<2)
+                table_values.append(table_val_dump[i*4:i*4+4])
+            else:
+                table_addresses.append(None)
+                table_values.append(None)
+        return (table_addresses, table_values, slot_bits)
+
+    def patchRom(self, address, patch, slot=None):
         if len(patch) != 4:
             log.warn("patchRom: patch must be a 32-bit dword!")
             return False
 
-        # Not so nice hack to keep track of used slots:
-        # TODO: This can be better by reading in the bitfields from the IO
-        # This needs a patch as readRAM crashes if it reads from IO (must read 4 byte chunks)
-        # It should also read back if the address is already patched. if so, reuse that exact slot!
-        slot_dwords = [0xffffffff, 0xffffffff, 0xffffffff, 0x0000ffff, 0x00000000]
-        slot = 113
+        if address % 4 != 0:
+            log.warn("patchRom: Address must be 4-byte aligned!")
+            return False
 
-        # We need to enable the slot by setting a bit in a multi-dword bitfield
-        target_dword = int(slot / 32)
-        target_bit = slot % 32
+        table_addresses, table_values, table_slots = self.getPatchramState()
 
-        if slot_dwords[target_dword] & (0b1 << target_bit):
-            log.warn("Slot %d is already in use. Overwriting..." % slot)
+        # Check whether the address is already patched:
+        for i in range(128):
+            if table_addresses[i] == address:
+                slot = i
+                log.info("Reusing slot for address 0x%x: %d" % (address,slot))
+                # Write new value to patchram value table at 0xd0000
+                self.writeMem(0xd0000 + slot*4, patch)
+                return True
 
-        slot_dwords[target_dword] |= 0b1 << target_bit
+        if slot == None:
+            # Find free slot:
+            for i in range(128):
+                if table_addresses[i] == None:
+                    slot = i
+                    log.info("Choosing next free slot: %d" % slot)
+                    break
+            if slot == None:
+                log.warn("All slots are in use!")
+                return False
+        else:
+            if table_values[slot] == 1:
+                log.warn("Slot %d is already in use. Overwriting..." % slot)
 
         # Write new value to patchram value table at 0xd0000
         self.writeMem(0xd0000 + slot*4, patch)
@@ -715,12 +846,39 @@ class InternalBlue():
         self.writeMem(0x310000 + slot*4, p32(address >> 2))
 
         # Enable patchram slot (enable bitfield starts at 0x310204)
-        self.writeMem(0x310204 + target_dword*4, p32(slot_dwords[target_dword]))
+        # (We need to enable the slot by setting a bit in a multi-dword bitfield)
+        target_dword = int(slot / 32)
+        table_slots[slot] = 1
+        slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32])
+        self.writeMem(0x310204 + target_dword*4, slot_dword)
         return True
 
-    def disableRomPatch(self, patchIndex):
-        #TODO
-        pass
+    def disableRomPatch(self, address, slot=None):
+        table_addresses, table_values, table_slots = self.getPatchramState()
+
+        if slot == None:
+            if address == None:
+                log.warn("disableRomPatch: address is None.")
+                return False
+            for i in range(128):
+                if table_addresses[i] == address:
+                    slot = i
+                    log.info("Slot for address 0x%x is: %d" % (address,slot))
+                    break
+            if slot == None:
+                log.warn("No slot contains address: 0x%x" % address)
+                return False
+
+        # Disable patchram slot (enable bitfield starts at 0x310204)
+        # (We need to disable the slot by clearing a bit in a multi-dword bitfield)
+        target_dword = int(slot / 32)
+        table_slots[slot] = 0
+        slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32])
+        self.writeMem(0x310204 + target_dword*4, slot_dword)
+
+        # Write 0xFFFFC to patchram target table at 0x31000
+        self.writeMem(0x310000 + slot*4, p32(0xFFFFC>>2))
+        return True
 
     def readConnectionInformation(self, conn_number):
         if conn_number < 1 or conn_number > fw.CONNECTION_ARRAY_SIZE:
