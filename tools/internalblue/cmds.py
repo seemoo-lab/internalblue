@@ -407,7 +407,7 @@ class CmdMonitor(Cmd):
                 direction = p8(flags & 0x01)
                 packet = dummy + direction + hcipkt.getRaw()
                 length = len(packet)
-                ts_sec =  recvtime.second + timestamp.minute*60 + timestamp.hour*60*60
+                ts_sec =  recvtime.second #+ timestamp.minute*60 + timestamp.hour*60*60 #FIXME timestamp not set
                 ts_usec = recvtime.microsecond
                 pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
                 try:

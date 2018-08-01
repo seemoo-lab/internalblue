@@ -407,122 +407,17 @@ class InternalBlue():
             log.warning("startMonitor: monitor is already running")
             return False
 
-        HOOK_BASE_ADDRESS = 0xd7600
-        BUFFER_BASE_ADDRESS = 0xd7700
-        BUFFER_LEN = 0x80
-        INJECTED_CODE = """
-            b hook_send_lmp
-            b hook_recv_lmp
-
-            hook_recv_lmp:
-                push {r2-r8,lr}
-                push {r0-r4,lr}
-
-                // write hci event header
-                ldr  r0, =0x%x
-                mov  r4, r0
-                mov  r3, r0
-                ldr  r1, =0x2cff      // len: 0x2c   event code: 0xff
-                strh r1, [r0]
-                add  r0, 2
-                ldr  r1, =0x504d4c5f  // '_LMP'
-                str  r1, [r0]
-                add  r0, 4
-                ldr  r1, =0x015f  // '_\x01' 01 for 'lmp recv'
-                strh r1, [r0]
-                add  r0, 2
-
-                // read remote bt addr
-                ldr  r1, =0x20047a
-                ldrb r2, [r1]       // connection number
-                sub  r2, 1
-                mov  r1, 0x14C
-                mul  r2, r1
-                ldr  r1, =0x2038E8  // connection array
-                add  r1, r2
-                add  r1, 0x28
-                mov  r2, 6
-                bl   0x2e03c+1  // memcpy
-                // memcpy returns end of dst buffer (8 byte aligned)
-
-                // read data
-                ldr  r1, =0x200478
-                ldr  r2, [r1]
-                str  r2, [r0]
-                add  r0, 4
-                add  r1, 4
-                ldr  r1, [r1]
-                add  r1, 0xC    // start of LMP packet
-                mov  r2, 24     // size for memcpy
-                bl   0x2e03c+1  // memcpy
-
-                // send via hci
-                mov  r0, r4
-                bl   0x398c1 // send_hci_event_without_free()
-
-                pop  {r0-r4,lr}
-                b    0x3F3F8
-
-            hook_send_lmp:
-                push {r4,r5,r6,lr}
-
-                // save parameters
-                mov  r5, r0 // conn struct
-                mov  r4, r1 // buffer
-
-                // write hci event header
-                ldr  r0, =0x%x
-                mov  r6, r0
-                ldr  r1, =0x2cff      // len: 0x2c   event code: 0xff
-                strh r1, [r0]
-                add  r0, 2
-                ldr  r1, =0x504d4c5f  // '_LMP'
-                str  r1, [r0]
-                add  r0, 4
-                ldr  r1, =0x005f  // '_\x00' 00 for 'lmp recv'
-                strh r1, [r0]
-                add  r0, 2
-
-                // get bt addr
-                mov  r1, r5
-                add  r1, 0x28
-                mov  r2, 6
-                bl   0x2e03c+1  // memcpy
-                // memcpy returns end of dst buffer (8 byte aligned)
-
-                // get connection number
-                mov  r1, 0
-                str  r1, [r0]
-                add  r0, 2
-                ldr  r2, [r5]
-                strb r2, [r0]
-                add  r0, 2
-
-                // read data
-                add  r1, r4, 0xC    // start of LMP packet
-
-                mov  r2, 24
-                bl   0x2e03c+1  // memcpy
-
-                // send via hci
-                mov  r0, r6
-                bl   0x398c1 // send_hci_event_without_free()
-
-                mov r0, 0
-                pop  {r4,r5,r6,pc}
-            """ % (BUFFER_BASE_ADDRESS, BUFFER_BASE_ADDRESS+0x40)
-
         # Injecting hooks
-        hooks_code = asm(INJECTED_CODE, vma=HOOK_BASE_ADDRESS)
-        saved_data_hooks = self.readMem(HOOK_BASE_ADDRESS, len(hooks_code))
-        saved_data_data  = self.readMem(BUFFER_BASE_ADDRESS, BUFFER_LEN)
-        self.writeMem(BUFFER_BASE_ADDRESS, p32(0))
+        hooks_code = asm(fw.INJECTED_CODE, vma=fw.HOOK_BASE_ADDRESS)
+        saved_data_hooks = self.readMem(fw.HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_data  = self.readMem(fw.BUFFER_BASE_ADDRESS, fw.BUFFER_LEN)
+        self.writeMem(fw.BUFFER_BASE_ADDRESS, p32(0))
         log.debug("startMonitor: injecting hook functions...")
-        self.writeMem(HOOK_BASE_ADDRESS, hooks_code)
+        self.writeMem(fw.HOOK_BASE_ADDRESS, hooks_code)
         log.debug("startMonitor: inserting lmp send hook ...")
-        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(HOOK_BASE_ADDRESS + 1))
+        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.HOOK_BASE_ADDRESS + 1))
         log.debug("startMonitor: inserting lmp recv hook ...")
-        recv_patch_handle = self.patchRom(0x3f3f4, asm("b 0x%x" % (HOOK_BASE_ADDRESS + 5), vma=0x3f3f4))
+        recv_patch_handle = self.patchRom(fw.LMP_HANDLER, asm("b 0x%x" % (fw.HOOK_BASE_ADDRESS + 5), vma=fw.LMP_HANDLER))
         log.debug("startMonitor: monitor mode activated.")
 
         # Get device's BT address
