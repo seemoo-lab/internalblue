@@ -454,8 +454,8 @@ class InternalBlue():
 
         self.registerHciCallback(hciCallbackFunction)
         self.monitorState = (
-                HOOK_BASE_ADDRESS,
-                BUFFER_BASE_ADDRESS,
+                fw.HOOK_BASE_ADDRESS,
+                fw.BUFFER_BASE_ADDRESS,
                 saved_data_hooks,
                 saved_data_data,
                 recv_patch_handle,
@@ -468,8 +468,8 @@ class InternalBlue():
             log.warning("stopMonitor: monitor is not running!")
             return False
 
-        (HOOK_BASE_ADDRESS,
-        BUFFER_BASE_ADDRESS,
+        (fw.HOOK_BASE_ADDRESS,
+        fw.BUFFER_BASE_ADDRESS,
         saved_data_hooks,
         saved_data_data,
         recv_patch_handle,
@@ -553,11 +553,11 @@ class InternalBlue():
             return None
 
         if length % 4 != 0:
-            log.warn("readMemAligned: length must be multiple of 4!")
+            log.warn("readMemAligned: length (0x%x) must be multiple of 4!" % length)
             return None
 
         if address % 4 != 0:
-            log.warn("readMemAligned: address must be 4-byte aligned!")
+            log.warn("readMemAligned: address (0x%x) must be 4-byte aligned!" % address)
             return None
 
         ASM_LOCATION = 0xd7900
@@ -702,11 +702,11 @@ class InternalBlue():
 
     def patchRom(self, address, patch, slot=None):
         if len(patch) != 4:
-            log.warn("patchRom: patch must be a 32-bit dword!")
+            log.warn("patchRom: patch (0x%x) must be a 32-bit dword!" % patch)
             return False
 
         if address % 4 != 0:
-            log.warn("patchRom: Address must be 4-byte aligned!")
+            log.warn("patchRom: Address (0x%x) must be 4-byte aligned!" % patch)
             return False
 
         table_addresses, table_values, table_slots = self.getPatchramState()
