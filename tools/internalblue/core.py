@@ -417,7 +417,9 @@ class InternalBlue():
         log.debug("startMonitor: inserting lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.HOOK_BASE_ADDRESS + 1))
         log.debug("startMonitor: inserting lmp recv hook ...")
-        recv_patch_handle = self.patchRom(fw.LMP_HANDLER, asm("b 0x%x" % (fw.HOOK_BASE_ADDRESS + 5), vma=fw.LMP_HANDLER))
+        if not self.patchRom(fw.LMP_HANDLER, asm("b 0x%x" % (fw.HOOK_BASE_ADDRESS + 5), vma=fw.LMP_HANDLER)):
+            log.warn("startMonitor: couldn't insert patch!")
+            return False
         log.debug("startMonitor: monitor mode activated.")
 
         # Get device's BT address
@@ -454,11 +456,10 @@ class InternalBlue():
 
         self.registerHciCallback(hciCallbackFunction)
         self.monitorState = (
-                HOOK_BASE_ADDRESS,
-                BUFFER_BASE_ADDRESS,
+                fw.HOOK_BASE_ADDRESS,
+                fw.BUFFER_BASE_ADDRESS,
                 saved_data_hooks,
                 saved_data_data,
-                recv_patch_handle,
                 hciCallbackFunction)
 
         return True
@@ -472,7 +473,6 @@ class InternalBlue():
         BUFFER_BASE_ADDRESS,
         saved_data_hooks,
         saved_data_data,
-        recv_patch_handle,
         hciCallbackFunction) = self.monitorState
         self.monitorState = None
 
@@ -482,7 +482,7 @@ class InternalBlue():
         log.debug("stopMonitor: removing lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
         log.debug("stopMonitor: removing lmp recv hook ...")
-        self.disableRomPatch(recv_patch_handle)
+        self.disableRomPatch(fw.LMP_HANDLER)
         log.debug("stopMonitor: Restoring saved data...")
         self.writeMem(HOOK_BASE_ADDRESS, saved_data_hooks)
         self.writeMem(BUFFER_BASE_ADDRESS, saved_data_data)
@@ -689,8 +689,14 @@ class InternalBlue():
         table_addr_dump = self.readMemAligned(0x310000, 128*4)
         table_val_dump  = self.readMem(0xd0000, 128*4)
         table_addresses = []
-        table_values = []
-        slot_bits = bits(slot_dump)
+        table_values    = []
+        slot_dwords     = []
+        slot_bits       = []
+        for dword in range(128/32):
+            slot_dwords.append(slot_dump[dword*32:(dword+1)*32])
+
+        for dword in slot_dwords:
+            slot_bits.extend(bits(dword[::-1])[::-1])
         for i in range(128):
             if slot_bits[i]:
                 table_addresses.append(u32(table_addr_dump[i*4:i*4+4])<<2)
@@ -706,7 +712,7 @@ class InternalBlue():
             return False
 
         if address % 4 != 0:
-            log.warn("patchRom: Address must be 4-byte aligned!")
+            log.warn("patchRom: Address 0x%x is not 4-byte aligned!" % address)
             return False
 
         table_addresses, table_values, table_slots = self.getPatchramState()
@@ -744,7 +750,7 @@ class InternalBlue():
         # (We need to enable the slot by setting a bit in a multi-dword bitfield)
         target_dword = int(slot / 32)
         table_slots[slot] = 1
-        slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32])
+        slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
         self.writeMem(0x310204 + target_dword*4, slot_dword)
         return True
 

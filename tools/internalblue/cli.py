@@ -51,7 +51,7 @@ by Dennis Mantz.
 
 type <help> for usage information!\n\n"""
     for line in banner:
-        term.output(text.yellow(line))
+        term.output(text.blue(line))
 
 def commandLoop():
     while internalblue.running and not internalblue.exit_requested:

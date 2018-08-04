@@ -528,8 +528,8 @@ class StackDumpReceiver:
 
             # This is the last pkt ouput:
             dump = fit(self.memdumps)
-            log.warn("Stack dump @0x%08x written to brcm_stackdump.bin!" % self.memdump_addr)
-            f = open("brcm_stackdump.bin", "wb")
+            log.warn("Stack dump @0x%08x written to internalblue_stackdump.bin!" % self.memdump_addr)
+            f = open("internalblue_stackdump.bin", "wb")
             f.write(dump)
             f.close()
 
