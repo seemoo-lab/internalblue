@@ -1119,6 +1119,7 @@ class CmdInfo(Cmd):
             #log.info("    - PIN:               %s"     % connection["pin"].encode('hex'))
             #log.info("    - BT addr for key:   %s"     % bt_addr_to_str(connection["bt_addr_for_key"]))
             log.info("    - Effective Key Len: %d byte (%d bit)" % (connection["effective_key_len"], 8*connection["effective_key_len"]))
+            log.info("    - Link Key:          %s"     % connection["link_key"].encode('hex'))
         print
 
     def infoDevice(self):

@@ -721,7 +721,7 @@ class InternalBlue():
         for i in range(128):
             if table_addresses[i] == address:
                 slot = i
-                log.info("Reusing slot for address 0x%x: %d" % (address,slot))
+                log.info("patchRom: Reusing slot for address 0x%x: %d" % (address,slot))
                 # Write new value to patchram value table at 0xd0000
                 self.writeMem(0xd0000 + slot*4, patch)
                 return True
@@ -731,14 +731,14 @@ class InternalBlue():
             for i in range(128):
                 if table_addresses[i] == None:
                     slot = i
-                    log.info("Choosing next free slot: %d" % slot)
+                    log.info("patchRom: Choosing next free slot: %d" % slot)
                     break
             if slot == None:
-                log.warn("All slots are in use!")
+                log.warn("patchRom: All slots are in use!")
                 return False
         else:
             if table_values[slot] == 1:
-                log.warn("Slot %d is already in use. Overwriting..." % slot)
+                log.warn("patchRom: Slot %d is already in use. Overwriting..." % slot)
 
         # Write new value to patchram value table at 0xd0000
         self.writeMem(0xd0000 + slot*4, patch)
@@ -802,7 +802,9 @@ class InternalBlue():
         conn_dict["public_rand"]          = connection[0x78:0x88]
         #conn_dict["pin"]                  = connection[0x8C:0x92]
         #conn_dict["bt_addr_for_key"]      = connection[0x92:0x98][::-1]
-        conn_dict["effective_key_len"]    = u8(connection[0xa7:0xa8])
+        effective_key_len                 = u8(connection[0xa7:0xa8])
+        conn_dict["effective_key_len"]    = effective_key_len
+        conn_dict["link_key"]             = connection[0x68:0x68+effective_key_len]
         return conn_dict
 
     def sendLmpPacket(self, conn_nr, opcode, payload, extended_op=False):
