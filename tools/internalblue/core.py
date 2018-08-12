@@ -407,15 +407,23 @@ class InternalBlue():
             log.warning("startMonitor: monitor is already running")
             return False
 
-        # Injecting hooks
+        ### Injecting hooks ###
+        # compile assembler snippet containing the hook code:
         hooks_code = asm(fw.INJECTED_CODE, vma=fw.HOOK_BASE_ADDRESS)
+        # save memory content at the addresses where we place the snippet and the temp. buffer
         saved_data_hooks = self.readMem(fw.HOOK_BASE_ADDRESS, len(hooks_code))
         saved_data_data  = self.readMem(fw.BUFFER_BASE_ADDRESS, fw.BUFFER_LEN)
-        self.writeMem(fw.BUFFER_BASE_ADDRESS, p32(0))
+
+        self.writeMem(fw.BUFFER_BASE_ADDRESS, p32(0)) # TODO: unnecessary, maybe remove?
+
         log.debug("startMonitor: injecting hook functions...")
         self.writeMem(fw.HOOK_BASE_ADDRESS, hooks_code)
+
+        # The LMP_send_packet function has the option to define a hook in RAM
         log.debug("startMonitor: inserting lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.HOOK_BASE_ADDRESS + 1))
+
+        # The LMP_dispatcher function needs a ROM patch for inserting a hook
         log.debug("startMonitor: inserting lmp recv hook ...")
         if not self.patchRom(fw.LMP_HANDLER, asm("b 0x%x" % (fw.HOOK_BASE_ADDRESS + 5), vma=fw.LMP_HANDLER)):
             log.warn("startMonitor: couldn't insert patch!")
@@ -425,36 +433,54 @@ class InternalBlue():
         # Get device's BT address
         deviceAddress = self.readMem(fw.BD_ADDR, 6)[::-1]
 
+        # define a callback function that gets called every time a HCI event is received.
+        # It checks whether the event contains a LMP packet, extracts the LMP packet and 
+        # calls the callback function which was supplied to startMonitor()
         def hciCallbackFunction(record):
-            hcipkt = record[0]
-            timestamp = record[5]
+            hcipkt = record[0]      # get HCI Event packet
+            timestamp = record[5]   # get timestamp
+
+            # Check if event contains a LMP packet
             if not issubclass(hcipkt.__class__, hci.HCI_Event):
                 return
-            if hcipkt.event_code != 0xff:
+            if hcipkt.event_code != 0xff:   # must be custom event (0xff)
                 return
-            if hcipkt.data[0:5] != "_LMP_":
+            if hcipkt.data[0:5] != "_LMP_": # My custom header (see hook code)
                 return
 
-            sendFromDevice = hcipkt.data[5] == '\x00' # 0 for sendlmp;  1 for recvlmp
-            lmpData = hcipkt.data[6:]
+            # My custom header contains a field that indicates whether the packet
+            # was intercepted from LMP_dispatcher or LMP_send_packet
+            sendFromDevice = hcipkt.data[5] == '\x00'   # 0 for send;  1 for recv
+            lmpData = hcipkt.data[6:]                   # grab the data which comes after my header
 
-            connection_address = lmpData[0:6][::-1]
-            connection_number = u8(lmpData[10])
+            connection_address = lmpData[0:6][::-1]     # The BT address of the remote device
+                                                        # stored in little endian byte order
+            connection_number = u8(lmpData[10])         # not used, but may be useful..
 
-            lmp_opcode = u8(lmpData[12]) >> 1
+            lmp_opcode = u8(lmpData[12]) >> 1           # LSB of this byte is the TID (transaction ID)
+                                                        # The rest is the LMP opcode
             if lmp_opcode >= 0x7C:
+                # This is a escape opcode. The actual opcode is stored in the next byte
                 lmp_opcode = u8(lmpData[13])
                 lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
             else:
                 lmp_len = fw.LMP_LENGTHS[lmp_opcode]
-            lmpPacket = lmpData[12:12+lmp_len]
+            lmpPacket = lmpData[12:12+lmp_len]          # Extract the LMP packet (incuding the opcode)
 
+            # set src and dest address based on whether the packet was sent to a remote device or
+            # received from a remote device
             src_addr = deviceAddress if sendFromDevice else connection_address
             dest_addr = deviceAddress if not sendFromDevice else connection_address
+
+            # pass the information to the callback function
             callback(lmpPacket, sendFromDevice, src_addr, dest_addr, timestamp)
 
 
+        # register our HCI callback function so it gets called by the receive thread every time a
+        # HCI packet is received
         self.registerHciCallback(hciCallbackFunction)
+
+        # store some information which is used inside stopMonitor()
         self.monitorState = (
                 fw.HOOK_BASE_ADDRESS,
                 fw.BUFFER_BASE_ADDRESS,
@@ -469,6 +495,7 @@ class InternalBlue():
             log.warning("stopMonitor: monitor is not running!")
             return False
 
+        # Retrive stored information (was stored at the end of startMonitor()
         (fw.HOOK_BASE_ADDRESS,
         fw.BUFFER_BASE_ADDRESS,
         saved_data_hooks,
@@ -476,6 +503,7 @@ class InternalBlue():
         hciCallbackFunction) = self.monitorState
         self.monitorState = None
 
+        # stop processing HCI packets for the monitor
         self.unregisterHciCallback(hciCallbackFunction)
 
         # Removing hooks
@@ -483,6 +511,8 @@ class InternalBlue():
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
         log.debug("stopMonitor: removing lmp recv hook ...")
         self.disableRomPatch(fw.LMP_HANDLER)
+
+        # Restoring the memory content of the area where we stored the patch code and temp. buffers
         log.debug("stopMonitor: Restoring saved data...")
         self.writeMem(HOOK_BASE_ADDRESS, saved_data_hooks)
         self.writeMem(BUFFER_BASE_ADDRESS, saved_data_data)
