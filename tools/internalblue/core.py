@@ -350,7 +350,7 @@ class InternalBlue():
             import fw_5 as fw
         elif adb.current_device().model == 'Nexus 6P':
             log.info("Importing fw for Nexus 6P")
-            import fw_6 as fw
+            import fw_6p as fw
         else:
             log.critical("Device not supported")
             return False
