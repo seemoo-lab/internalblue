@@ -35,112 +35,136 @@ CONNECTION_STRUCT_LENGTH = 0x14C
 
 #LMP options
 
-LMP_SEND_PACKET_HOOK = 0x200d38
+LMP_SEND_PACKET_HOOK = 0x200d38     # This address contains the hook function for LMP_send_packet
+                                    # It is NULL by default. If we set it to a function address,
+                                    # the function will be called by LMP_send_packet.
+
+# These arrays contain the sizes for LMP packets (including the opcode) depending
+# on the LMP opcode or escaped LMP opcode. The values can be obtained from the BT
+# specification or from the LMP handler table in the firmware.
 LMP_LENGTHS = [0, 2, 17, 2, 3, 1, 3, 2, 17, 17, 17, 17, 5, 17, 17, 2, 2, 17, 1, 5, 7, 7, 0, 10, 1, 17, 0, 6, 13, 9, 15, 2, 2, 1, 1, 1, 2, 6, 6, 9, 9, 4, 4, 7, 3, 2, 2, 1, 3, 1, 1, 1, 9, 3, 3, 3, 1, 10, 1, 3, 16, 4, 17, 17, 17, 17, 17, 0]
 LMP_ESC_LENGTHS = [0, 4, 5, 12, 12, 12, 8, 3, 0, 0, 0, 3, 16, 4, 0, 0, 7, 12, 0, 0, 0, 9, 9, 2, 2, 5, 5, 2, 2, 2, 3, 3, 3]
 
-HOOK_BASE_ADDRESS = 0xd7600
-BUFFER_BASE_ADDRESS = 0xd7700
-BUFFER_LEN = 0x80
-LMP_HANDLER = 0x3f3f4  #maybe_invoke_LMP_handler_3F3F4 
+# Hooks for the LMP Monitor Mode
+HOOK_BASE_ADDRESS = 0xd7600         # Start address for the INJECTED_CODE
+BUFFER_BASE_ADDRESS = 0xd7700       # Address of the temporary buffer for the HCI event
+BUFFER_LEN = 0x80                   # Length of the temporary BUFFER
+LMP_HANDLER = 0x3f3f4               # maybe_invoke_LMP_handler_3F3F4 (aka 'LMP_Dispatcher')
 INJECTED_CODE = """
+    // Jump Table
+    // bl BUFFER_BASE_ADDRESS+1 executes hook_send_lmp
+    // bl BUFFER_BASE_ADDRESS+1+4 executes hook_recv_lmp
     b hook_send_lmp
     b hook_recv_lmp
 
+    // Hook for the LMP receive path (intercepts incomming LMP packets
+    // and sends them to the host via HCI)
+    // hook_recv_lmp uses BUFFER_BASE_ADDRESS as temp. buffer for the HCI event
     hook_recv_lmp:
-        push {r2-r8,lr}
-        push {r0-r4,lr}
+        push {r2-r8,lr}     // this is the original push from the hooked function
+                            // (we have to do it here as we overwrote if with the hook patch)
+        push {r0-r4,lr}     // this is to save the registers so we can overwrite
+                            // them in this function
 
-        // write hci event header
-        ldr  r0, =0x%x
-        mov  r4, r0
-        mov  r3, r0
-        ldr  r1, =0x2cff      // len: 0x2c   event code: 0xff
-        strh r1, [r0]
-        add  r0, 2
-        ldr  r1, =0x504d4c5f  // '_LMP'
+        // write hci event header to beginning of the temp. buffer
+        ldr  r0, =0x%x      // adr of buffer in r0
+                            // (r0 will be increased as we write to the buffer)
+        mov  r4, r0         // and also backup the address in r4
+        mov  r3, r0         // TODO: this is unused. remove?
+        ldr  r1, =0x2cff    // HCI header: len=0x2c   event code=0xff
+        strh r1, [r0]       // write HCI header to buffer
+        add  r0, 2          // advance pointer
+        ldr  r1, =0x504d4c5f  // Beginning of my custom header: '_LMP'
         str  r1, [r0]
         add  r0, 4
-        ldr  r1, =0x015f  // '_\x01' 01 for 'lmp recv'
-        strh r1, [r0]
-        add  r0, 2
+        ldr  r1, =0x015f    // continuation of custom header: '_\x01'; 01 for 'lmp recv'
+        strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
+        add  r0, 2          //                                           0x01 for lmp recv
 
-        // read remote bt addr
-        ldr  r1, =0x20047a
-        ldrb r2, [r1]       // connection number
-        sub  r2, 1
-        mov  r1, 0x14C
-        mul  r2, r1
-        ldr  r1, =0x2038E8  // connection array
-        add  r1, r2
-        add  r1, 0x28
-        mov  r2, 6
-        bl   0x2e03c+1  // memcpy
+        // read remote bt addr from connection struct
+        ldr  r1, =0x20047a  // adr inside rx_info_data_200478 at which the conn. number is stored
+        ldrb r2, [r1]       // store connection number in r2
+        sub  r2, 1          // connection nr minus 1 results in the connection array index
+        mov  r1, 0x14C      // size r1 = size of connection struct
+        mul  r2, r1         // calculate offset of connection struct entry inside the array
+        ldr  r1, =0x2038E8  // address of connection array start
+        add  r1, r2         // store address of connection struct in r1
+        add  r1, 0x28       // at offset 0x28 is the remote BT address located
+        mov  r2, 6          // memcpy the BT address into the temp. buffer
+        bl   0x2e03c+1      // memcpy
         // memcpy returns end of dst buffer (8 byte aligned)
+        // that means r0 now points after the BT address inside the temp. buffer
 
-        // read data
-        ldr  r1, =0x200478
-        ldr  r2, [r1]
-        str  r2, [r0]
+        // read LMP payload data and store it inside the temp. buffer
+        ldr  r1, =0x200478  // r1 = rx_info_data_200478 
+        ldr  r2, [r1]       // first 4 byte of rx_info_data contains connection number
+        str  r2, [r0]       // copy the complete 4 bytes to the temp. buffer (we have space :))
         add  r0, 4
-        add  r1, 4
-        ldr  r1, [r1]
-        add  r1, 0xC    // start of LMP packet
-        mov  r2, 24     // size for memcpy
-        bl   0x2e03c+1  // memcpy
+        add  r1, 4          // r1 = rx_info_data_200478 + 4 which contains the ptr to the data
+        ldr  r1, [r1]       // r1 = ptr to the data.
+        add  r1, 0xC        // The actual LMP payload starts at offset 0xC
+        mov  r2, 24         // size for memcpy (max size of LMP should be 19 bytes; just to be safe do 24)
+        bl   0x2e03c+1      // memcpy
 
-        // send via hci
-        mov  r0, r4
-        bl   0x398c1 // send_hci_event_without_free()
+        // send HCI event packet (aka our temp. buffer)
+        mov  r0, r4         // r4 still contains the start address of the temp. buffer
+        bl   0x398c1        // send_hci_event_without_free()
 
-        pop  {r0-r4,lr}
-        b    0x3F3F8
+        pop  {r0-r4,lr}     // restore the registers we saved
+        b    0x3F3F8        // branch back into LMP_Dispatcher
 
+
+    // Hook for the LMP send path (intercepts outgoing LMP packets
+    // and sends them to the host via HCI)
+    // hook_recv_lmp uses BUFFER_BASE_ADDRESS+40 as temp. buffer for the HCI event
     hook_send_lmp:
-        push {r4,r5,r6,lr}
+        push {r4,r5,r6,lr}  // save some registers we want to use
 
-        // save parameters
-        mov  r5, r0 // conn struct
-        mov  r4, r1 // buffer
+        // save function parameters of the LMP_send_packet function
+        mov  r5, r0         // pointer to connection struct for the packet
+        mov  r4, r1         // buffer (LMP payload)
 
-        // write hci event header
-        ldr  r0, =0x%x
-        mov  r6, r0
-        ldr  r1, =0x2cff      // len: 0x2c   event code: 0xff
-        strh r1, [r0]
+        // write hci event header to temp. buffer
+        ldr  r0, =0x%x      // this is BUFFER_BASE_ADDRESS+40 (out temp. buffer)
+        mov  r6, r0         // save start address of temp. buffer in r6
+        ldr  r1, =0x2cff    // HCI header: len=0x2c   event code=0xff
+        strh r1, [r0]       // write HCI header to temp. buffer
         add  r0, 2
-        ldr  r1, =0x504d4c5f  // '_LMP'
+        ldr  r1, =0x504d4c5f // Beginning of my custom header: '_LMP'
         str  r1, [r0]
         add  r0, 4
-        ldr  r1, =0x005f  // '_\x00' 00 for 'lmp recv'
-        strh r1, [r0]
-        add  r0, 2
+        ldr  r1, =0x005f    // continuation of custom header: '_\x00'; 01 for 'lmp send'
+        strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
+        add  r0, 2          //                                           0x01 for lmp recv
 
-        // get bt addr
-        mov  r1, r5
-        add  r1, 0x28
+        // get bt addr of remote device from connection struct
+        mov  r1, r5         // r5 is ptr to connection struct
+        add  r1, 0x28       // BT address is at offset 0x28
         mov  r2, 6
-        bl   0x2e03c+1  // memcpy
+        bl   0x2e03c+1      // memcpy
         // memcpy returns end of dst buffer (8 byte aligned)
+        // that means r0 now points after the BT address inside the temp. buffer
 
-        // get connection number
-        mov  r1, 0
+        // get connection number (we send it to the host to be consistent with the
+        // receive path; actually it is not used)
+        mov  r1, 0          // first write 4 zero-bytes
         str  r1, [r0]
-        add  r0, 2
-        ldr  r2, [r5]
+        add  r0, 2          // then write the conn. number in the middle of the bytes
+        ldr  r2, [r5]       // conn. number is at offset 0x0 of the conn. struct
         strb r2, [r0]
         add  r0, 2
 
-        // read data
-        add  r1, r4, 0xC    // start of LMP packet
+        // read LMP data and store the LMP payload into the temp. buffer
+        add  r1, r4, 0xC    // start of LMP packet is at offset 0xC of rx_info_data_200478
+        mov  r2, 24         // size for memcpy (max size of LMP should be 19 bytes; just to be safe do 24)
+        bl   0x2e03c+1      // memcpy
 
-        mov  r2, 24
-        bl   0x2e03c+1  // memcpy
+        // send HCI event packet (aka our temp. buffer)
+        mov  r0, r6         // r6 contains start address of the temp. buffer
+        bl   0x398c1        // send_hci_event_without_free()
 
-        // send via hci
-        mov  r0, r6
-        bl   0x398c1 // send_hci_event_without_free()
-
-        mov r0, 0
-        pop  {r4,r5,r6,pc}
+        mov r0, 0           // we need to return 0 to indicate to the hook code
+                            // that the original LMP_send_packet function should
+                            // continue to be executed
+        pop  {r4,r5,r6,pc}  // restore saved registers and return
     """ % (BUFFER_BASE_ADDRESS, BUFFER_BASE_ADDRESS+0x40)
