@@ -34,7 +34,7 @@ import Queue
 import random
 
 import hci
-import fw
+
 
 class InternalBlue():
 
@@ -458,6 +458,17 @@ class InternalBlue():
         else:
             log.info("Using adb device: %s (%s)" % (adb_devices[0].serial, adb_devices[0].model))
             context.device = adb_devices[0].serial
+
+        # Import fw depending on device
+        if adb.current_device().model == 'Nexus 5':
+            log.info("Importing fw for Nexus 5")
+            import fw_5 as fw
+        elif adb.current_device().model == 'Nexus 6P':
+            log.info("Importing fw for Nexus 6P")
+            import fw_6p as fw
+        else:
+            log.critical("Device not supported")
+            return False
 
         # setup sockets
         if not self._setupSockets():
