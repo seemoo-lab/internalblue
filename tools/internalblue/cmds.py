@@ -73,6 +73,7 @@ class MemorySection:
 class Cmd:
     keywords = []
 
+    # TODO: move this into fw.py??
     #                          start,    end,      is_rom? is_ram?
     sections = [ MemorySection(0x0,      0x90000,  True , False),
                  MemorySection(0xd0000,  0xd8000,  False, True ),
@@ -368,7 +369,7 @@ class CmdMonitor(Cmd):
                 if self.wireshark_process == None:
                     self._spawnWireshark()
 
-                self.internalblue.startMonitor(self._callback)
+                self.internalblue.startLmpMonitor(self._callback)
                 log.info("LMP Monitor started.")
                 return True
 
@@ -376,7 +377,7 @@ class CmdMonitor(Cmd):
                 if not self.running:
                     log.warn("LMP Monitor is not running!")
                     return False
-                self.internalblue.stopMonitor()
+                self.internalblue.stopLmpMonitor()
                 self.running = False
                 log.info("LMP Monitor stopped.")
                 return True

@@ -42,34 +42,77 @@ class InternalBlue():
         context.log_level = log_level
         context.log_file = '_internalblue.log'
         context.arch = "thumb"
-        self.hciport = None
-        self.s_inject = None
-        self.s_snoop = None
+        self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
+        self.s_inject = None    # This is the TCP socket to the HCI inject port
+        self.s_snoop = None     # This is the TCP socket to the HCI snoop port
+
+        # If btsnooplog_filename is set, write all incomming HCI packets to a file (can be viewed in wireshark for debugging)
         if btsnooplog_filename != None:
             self.write_btsnooplog = True
             self.btsnooplog_file = open(btsnooplog_filename, "wb")
         else:
             self.write_btsnooplog = False
+
+        # The recvQueue connects the receiveThread to the currently running CLI
+        # command or user script. That means all incomming HCI packets are
+        # pushed into the queue by the receiveThread. The currently running
+        # command can get the packets from the queue by calling recvPacket().
+        # The queue is emptied every time a new command starts (therefore a
+        # command will not receive outdated packets.
         self.recvQueue = Queue.Queue(queue_size)
+
+        # This queue connects the receiveThread to the sendThread. When the
+        # sendThread sends a HCI command to the firmware it waits for the
+        # answer by polling the sendThreadrecvQueue.
         self.sendThreadrecvQueue = Queue.Queue(queue_size)
+
+        # The sendQueue connects the core framework to the sendThread. With the
+        # function sendHciCommand, the core framework (or a CLI command / user script)
+        # can put a HCI Command into this queue. The queue entry should be a tuple:
+        # (opcode, data, response_queue)
+        #   - opcode: The HCI opcode (16 bit integer)
+        #   - data:   The HCI payload (byte string)
+        #   - response_queue: queue that is used for delivering the HCI response
+        #                     back to the entity that put the HCI command into the
+        #                     sendQueue.
+        # The sendThread polls the queue, gets the above mentioned tuple, sends the
+        # HCI command to the firmware and then waits for the response from the
+        # firmware. Once the response arrived, it puts the response into the
+        # response_queue from the tuple. See sendHciCommand().
         self.sendQueue = Queue.Queue(queue_size)
-        self.recvThread = None
-        self.sendThread = None
-        self.monitorState = None
+
+        self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
+        self.sendThread = None                  # The thread which is responsible for the HCI inject socket
+        self.lmpMonitorState = None             # A tuple which stores state information for the LMP monitor mode (see startLmpMonitor())
+
+        # The registeredHciCallbacks list holds callback functions which are being called by the
+        # recvThread once a HCI Event is being received. Use registerHciCallback() for registering
+        # a new callback (put it in the list) and unregisterHciCallback() for removing it again.
         self.registeredHciCallbacks = []
-        self.exit_requested = False
-        self.monitor_exit_requested = False
-        self.running = False
+
+        self.exit_requested = False             # Will be set to true when the framework wants to shut down (e.g. on error or user exit)
+        self.running = False                    # 'running' is True once the connection to the HCI sockets is established
+                                                # and the recvThread and sendThread are started (see connect() and shutdown())
         self.log_level = log_level
-        self.check_binutils(fix_binutils)
-        self.stackDumpReceiver = None
+
+        self.check_binutils(fix_binutils)       # Check if ARM binutils are installed (needed for asm() and disasm())
+                                                # If fix_binutils is True, the function tries to fix the error were
+                                                # the binutils are installed but not found by pwntools (e.g. under Arch Linux)
+
+        self.stackDumpReceiver = None           # This class will monitor the HCI Events and detect stack trace events.
 
     def check_binutils(self, fix=True):
-        # Test if arm binutils is in path so that asm and disasm work:
+        """
+        Test if ARM binutils is in path so that asm and disasm (provided by
+        pwntools) work correctly.
+        It may happen, that ARM binutils are installed but not found by pwntools.
+        If 'fix' is True, check_binutils will try to fix this.
+        """
+
         saved_loglevel = context.log_level
         context.log_level = 'critical'
         try:
-            pwnlib.asm.which_binutils('as')
+            pwnlib.asm.which_binutils('as')     # throws PwnlibException if as cannot be found
             context.log_level = saved_loglevel
             return True
         except PwnlibException:
@@ -100,6 +143,10 @@ class InternalBlue():
             return False
 
     def _read_btsnoop_hdr(self):
+        """
+        Read the btsnoop header (see RFC 1761) from the snoop socket (s_snoop).
+        """
+
         data = self.s_snoop.recv(16)
         if(len(data) < 16):
             return None
@@ -113,6 +160,8 @@ class InternalBlue():
 
     def _parse_time(self, time):
         """
+        Taken from: https://github.com/joekickass/python-btsnoop
+
         Record time is a 64-bit signed integer representing the time of packet arrival,
         in microseconds since midnight, January 1st, 0 AD nominal Gregorian.
 
@@ -125,12 +174,22 @@ class InternalBlue():
         return datetime.datetime(2000, 1, 1) + time_since_2000_epoch
 
     def _recvThreadFunc(self):
+        """
+        This is the run-function of the recvThread. It receives HCI events from the
+        s_snoop socket. The HCI packets are encapsulated in btsnoop records (see RFC 1761).
+        Received HCI packets are being put into the recvQueue, the sendThreadrecvQueue and
+        passed to the callback functions inside registeredHciCallbacks.
+        The thread stops when exit_requested is set to True. It will do that on its own
+        if it encounters a fatal error or the stackDumpReceiver reports that the chip crashed.
+        """
+
         log.debug("Receive Thread started.")
 
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
 
+            # Read the record header
             record_hdr = b''
             while(not self.exit_requested and len(record_hdr) < 24):
                 try:
@@ -155,6 +214,7 @@ class InternalBlue():
 
             orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
 
+            # Read the record data
             record_data = b''
             while(not self.exit_requested and len(record_data) < inc_len):
                 try:
@@ -182,75 +242,104 @@ class InternalBlue():
             except OverflowError:
                 parsed_time = None
 
+            # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
             record = (hci.parse_hci_packet(record_data), orig_len, inc_len, flags, drops, parsed_time)
 
             log.debug("Recv: [" + str(parsed_time) + "] " + str(record[0]))
 
-            if(record != None):
-                if self.recvQueue.full():
-                    log.debug("recvThreadFunc: recv queue is full. flushing..")
-                    try:
-                        while True:
-                            self.recvQueue.get(block=False)
-                    except Queue.Empty:
-                        pass
-
+            # Test if the recvQueue is full (the CLI / user script was too slow to read the packets from 
+            # the queue). If this happens we just empty the queue (expect that the CLI / user script) does
+            # not use it anyway).
+            if self.recvQueue.full():
+                log.debug("recvThreadFunc: recv queue is full. flushing..")
                 try:
-                    self.recvQueue.put(record, block=False)
+                    while True:
+                        self.recvQueue.get(block=False)
+                except Queue.Empty:
+                    pass
+
+            # Put the record into the recvQueue
+            try:
+                self.recvQueue.put(record, block=False)
+            except Queue.Full:
+                log.warn("recvThreadFunc: recv queue is full. dropping packets..")
+
+            # If the sendThread is still running, also put the record into the sendThreadrecvQueue
+            if self.sendThread != None and self.sendThread.isAlive():
+                try:
+                    self.sendThreadrecvQueue.put(record, block=False)
                 except Queue.Full:
-                    log.warn("recvThreadFunc: recv queue is full. dropping packets..")
+                    log.warn("recvThreadFunc: sendThread recv queue is full. dropping packets..")
 
-                if self.sendThread != None and self.sendThread.isAlive():
-                    try:
-                        self.sendThreadrecvQueue.put(record, block=False)
-                    except Queue.Full:
-                        log.warn("recvThreadFunc: sendThread recv queue is full. dropping packets..")
+            # Call all callback functions inside registeredHciCallbacks and pass the
+            # record as argument.
+            for callback in self.registeredHciCallbacks:
+                callback(record)
 
-                for callback in self.registeredHciCallbacks:
-                    callback(record)
-
-                if self.stackDumpReceiver.stack_dump_has_happend:
-                    # A stack dump has happend!
-                    log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
-                    self.exit_requested = True
-
+            # Check if the stackDumpReceiver has noticed that the chip crashed.
+            if self.stackDumpReceiver.stack_dump_has_happend:
+                # A stack dump has happend!
+                log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
+                self.exit_requested = True
 
         log.debug("Receive Thread terminated.")
 
     def _sendThreadFunc(self):
+        """
+        This is the run-function of the sendThread. It polls the sendQueue for new 'send tasks'
+        and executes them (sends HCI commands to the chip and returns the response).
+        The entries of the sendQueue are tuples representing a 'send task':
+         (opcode, data, response_queue)
+           - opcode: The HCI opcode (16 bit integer) to send
+           - data:   The HCI payload (byte string) to send
+           - response_queue: queue that is used for delivering the HCI response
+                             back to the entity that put the HCI command into the
+                             sendQueue.
+        Use sendHciCommand() to put 'send tasks' into the sendQueue!
+        The thread stops when exit_requested is set to True.
+        """
+
         log.debug("Send Thread started.")
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
 
-            # flushing recv queue to prevent it from filling up...
+            # flushing the sendThreadrecvQueue to prevent it from filling up.
             try:
                 while True:
                     self.sendThreadrecvQueue.get(block=False)
             except Queue.Empty:
                 pass
 
-            # Wait for packet in send queue
+            # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
             except Queue.Empty:
                 continue
 
+            # Extract the components of the task and build the HCI command
             opcode, data, queue = task
             payload = p16(opcode) + p8(len(data)) + data
 
             # Prepend UART TYPE and length
             out = p8(hci.HCI.HCI_CMD) + p16(len(payload)) + payload
+
+            # Send command to the chip using s_inject socket
             log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
             self.s_inject.send(out)
 
+            # Wait for the HCI event response by polling the sendThreadrecvQueue queue
+            # (done with recvPacket. recvPacket() will automatically choose the correct
+            # queue to read from)
             while not self.exit_requested:
-                # Receive response
+                # Receive HCI event
                 packet = self.recvPacket(timeout=0.5)
                 if packet == None:
                     continue
                 hcipkt, orig_len, inc_len, flags, drops, recvtime = packet
 
+                # Check if event is the response to our command. If yes, put the
+                # event into the response_queue from the 'send task'
                 if isinstance(hcipkt, hci.HCI_Event):
                     if hcipkt.event_code == 0x0e: # Cmd Complete event
                         if hcipkt.data[1:3] == p16(opcode):
@@ -260,9 +349,21 @@ class InternalBlue():
         log.debug("Send Thread terminated.")
 
     def _setupSockets(self):
-        self.hciport = random.randint(60000, 65535)     # select a random port (and hope that it is not in use)
+        """
+        Forward the HCI snoop and inject ports from the Android device to
+        the host (using adb). Open TCP sockets (s_snoop, s_inject) to connect
+        to the forwarded ports. Read the btsnoop header from the s_snoop
+        socket in order to verify that the connection actually works correctly.
+        """
+
+        # In order to support multiple parallel instances of InternalBlue
+        # (with multiple attached Android devices) we must not hard code the
+        # forwarded port numbers. Therefore we choose the port numbers
+        # randomly and hope that they are not already in use.
+        self.hciport = random.randint(60000, 65535)
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport+1))
 
+        # Forward ports 8872 and 8873. Ignore log.info() outputs by the adb function.
         saved_loglevel = context.log_level
         context.log_level = 'warn'
         try:
@@ -296,6 +397,10 @@ class InternalBlue():
         return True
 
     def _teardownSockets(self):
+        """
+        Close s_snoop and s_inject sockets. Remove port forwarding with adb.
+        """
+
         if(self.s_inject != None):
             self.s_inject.close()
             self.s_inject = None
@@ -315,6 +420,11 @@ class InternalBlue():
             context.log_level = saved_loglevel
 
     def check_running(self):
+        """
+        Check if the framework is running (i.e. the sockets are connected,
+        the recv and send threads are running and exit_requested is not True)
+        """
+
         if self.exit_requested:
             self.shutdown()
 
@@ -324,6 +434,11 @@ class InternalBlue():
         return True
 
     def connect(self):
+        """
+        Start the framework by connecting to the Bluetooth Stack of the Android
+        device via adb and the debugging TCP ports.
+        """
+
         if self.exit_requested:
             self.shutdown()
 
@@ -368,6 +483,13 @@ class InternalBlue():
         return True
 
     def shutdown(self):
+        """
+        Shutdown the framework by stopping the send and recv threads and disconnecting
+        the TCP sockets.
+        """
+
+        # Setting exit_requested to True will stop the send and recv threads at their
+        # next while loop iteration
         self.exit_requested = True
 
         # unregister stackDumpReceiver callback:
@@ -375,67 +497,111 @@ class InternalBlue():
             self.unregisterHciCallback(self.stackDumpReceiver.recvPacket)
             self.stackDumpReceiver = None
 
+        # Wait until both threads have actually finished
         self.recvThread.join()
         self.sendThread.join()
+
+        # Disconnect the TCP sockets
         self._teardownSockets()
+
         if(self.write_btsnooplog):
             self.btsnooplog_file.close()
+
         self.running = False
         self.exit_requested = False
         log.info("Shutdown complete.")
 
     def registerHciCallback(self, callback):
+        """
+        Add a new callback function to self.registeredHciCallbacks.
+        The function will be called every time the recvThread receives
+        a HCI packet. The packet will be passed to the callback function
+        as first argument. The format is a tuple containing:
+        - HCI packet (subclass of HCI, see hci.py)
+        - original length
+        - inc_len
+        - flags
+        - drops
+        - timestamp (python datetime object)
+        """
+
         if callback in self.registeredHciCallbacks:
             log.warn("registerHciCallback: callback already registered!")
             return
         self.registeredHciCallbacks.append(callback)
 
     def unregisterHciCallback(self, callback):
+        """
+        Remove a callback function from self.registeredHciCallbacks.
+        """
+
         if callback in self.registeredHciCallbacks:
             self.registeredHciCallbacks.remove(callback)
             return
         log.warn("registerHciCallback: no such callback is registered!")
 
-    def startMonitor(self, callback):
-        # patch the firmware to issue hci events for each received/sent
-        # LMP packet. Format of the HCI Event:
-        # custom_event  len  magic  remote_bt_addr           lmp_data
-        # FF            2A   _LMP_  XX:XX:XX:XX:XX:XX:00:00  ...
+    def startLmpMonitor(self, callback):
+        """
+        Start the LMP monitor. The callback function will be called for every
+        sent or received LMP packet. The following arguments are passed to
+        the callback function:
+        - lmpPacket (starting with the lmp opcode, byte-string)
+        - sendFromDevice (True if the LMP packet originated from the own device)
+        - src_addr (BT source address, byte-string of size 6)
+        - dest_addr (BT destination address, byte-string of size 6)
+        - timestamp (time of arrival for the HCI event, datetime object)
+
+        How it works:
+        It patches the firmware to issue HCI events for each received/sent
+        LMP packet. Format of this HCI Event (see also the patch code in fw.py):
+        custom_event  len  magic  remote_bt_addr           conn_nr      LMP packet
+        FF            2C   _LMP_  XX:XX:XX:XX:XX:XX:00:00  00:00:0X:00  <opcode>...
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['LMP_SEND_PACKET_HOOK', 'LMP_MONITOR_LMP_HANDLER_ADDRESS',
+                      'LMP_MONITOR_HOOK_BASE_ADDRESS', 'LMP_MONITOR_BUFFER_BASE_ADDRESS',
+                      'LMP_MONITOR_INJECTED_CODE', 'LMP_MONITOR_BUFFER_LEN']:
+            if const not in dir(fw):
+                log.warn("startLmpMonitor: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
         if not self.check_running():
             return False
-        if self.monitorState != None:
-            log.warning("startMonitor: monitor is already running")
+        if self.lmpMonitorState != None:
+            log.warning("startLmpMonitor: monitor is already running")
             return False
 
         ### Injecting hooks ###
         # compile assembler snippet containing the hook code:
-        hooks_code = asm(fw.INJECTED_CODE, vma=fw.HOOK_BASE_ADDRESS)
+        hooks_code = asm(fw.LMP_MONITOR_INJECTED_CODE, vma=fw.LMP_MONITOR_HOOK_BASE_ADDRESS)
         # save memory content at the addresses where we place the snippet and the temp. buffer
-        saved_data_hooks = self.readMem(fw.HOOK_BASE_ADDRESS, len(hooks_code))
-        saved_data_data  = self.readMem(fw.BUFFER_BASE_ADDRESS, fw.BUFFER_LEN)
+        saved_data_hooks = self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_data  = self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
 
-        self.writeMem(fw.BUFFER_BASE_ADDRESS, p32(0)) # TODO: unnecessary, maybe remove?
+        self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, p32(0)) # TODO: unnecessary, maybe remove?
 
-        log.debug("startMonitor: injecting hook functions...")
-        self.writeMem(fw.HOOK_BASE_ADDRESS, hooks_code)
+        log.debug("startLmpMonitor: injecting hook functions...")
+        self.writeMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, hooks_code)
 
         # The LMP_send_packet function has the option to define a hook in RAM
-        log.debug("startMonitor: inserting lmp send hook ...")
-        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.HOOK_BASE_ADDRESS + 1))
+        log.debug("startLmpMonitor: inserting lmp send hook ...")
+        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 1))
 
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
-        log.debug("startMonitor: inserting lmp recv hook ...")
-        if not self.patchRom(fw.LMP_HANDLER, asm("b 0x%x" % (fw.HOOK_BASE_ADDRESS + 5), vma=fw.LMP_HANDLER)):
-            log.warn("startMonitor: couldn't insert patch!")
+        log.debug("startLmpMonitor: inserting lmp recv hook ...")
+        patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
+        if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
+            log.warn("startLmpMonitor: couldn't insert patch!")
             return False
-        log.debug("startMonitor: monitor mode activated.")
+        log.debug("startLmpMonitor: monitor mode activated.")
 
         # Get device's BT address
         deviceAddress = self.readMem(fw.BD_ADDR, 6)[::-1]
 
         # define a callback function that gets called every time a HCI event is received.
         # It checks whether the event contains a LMP packet, extracts the LMP packet and 
-        # calls the callback function which was supplied to startMonitor()
+        # calls the callback function which was supplied to startLmpMonitor()
         def hciCallbackFunction(record):
             hcipkt = record[0]      # get HCI Event packet
             timestamp = record[5]   # get timestamp
@@ -480,45 +646,55 @@ class InternalBlue():
         # HCI packet is received
         self.registerHciCallback(hciCallbackFunction)
 
-        # store some information which is used inside stopMonitor()
-        self.monitorState = (
-                fw.HOOK_BASE_ADDRESS,
-                fw.BUFFER_BASE_ADDRESS,
-                saved_data_hooks,
-                saved_data_data,
-                hciCallbackFunction)
+        # store some information which is used inside stopLmpMonitor()
+        self.lmpMonitorState = (saved_data_hooks, saved_data_data, hciCallbackFunction)
 
         return True
 
-    def stopMonitor(self):
-        if self.monitorState == None:
-            log.warning("stopMonitor: monitor is not running!")
+    def stopLmpMonitor(self):
+        """
+        Stop the LMP monitor mode. This will undo all patches / hooks.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['LMP_SEND_PACKET_HOOK', 'LMP_MONITOR_LMP_HANDLER_ADDRESS',
+                      'LMP_MONITOR_HOOK_BASE_ADDRESS', 'LMP_MONITOR_BUFFER_BASE_ADDRESS']:
+            if const not in dir(fw):
+                log.warn("stopLmpMonitor: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        if self.lmpMonitorState == None:
+            log.warning("stopLmpMonitor: monitor is not running!")
             return False
 
-        # Retrive stored information (was stored at the end of startMonitor()
-        (fw.HOOK_BASE_ADDRESS,
-        fw.BUFFER_BASE_ADDRESS,
-        saved_data_hooks,
-        saved_data_data,
-        hciCallbackFunction) = self.monitorState
-        self.monitorState = None
+        # Retrive stored information (was stored at the end of startLmpMonitor()
+        (saved_data_hooks, saved_data_data, hciCallbackFunction) = self.lmpMonitorState
+        self.lmpMonitorState = None
 
         # stop processing HCI packets for the monitor
         self.unregisterHciCallback(hciCallbackFunction)
 
         # Removing hooks
-        log.debug("stopMonitor: removing lmp send hook ...")
+        log.debug("stopLmpMonitor: removing lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
-        log.debug("stopMonitor: removing lmp recv hook ...")
-        self.disableRomPatch(fw.LMP_HANDLER)
+        log.debug("stopLmpMonitor: removing lmp recv hook ...")
+        self.disableRomPatch(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
 
         # Restoring the memory content of the area where we stored the patch code and temp. buffers
-        log.debug("stopMonitor: Restoring saved data...")
-        self.writeMem(HOOK_BASE_ADDRESS, saved_data_hooks)
-        self.writeMem(BUFFER_BASE_ADDRESS, saved_data_data)
+        log.debug("stopLmpMonitor: Restoring saved data...")
+        self.writeMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, saved_data_hooks)
+        self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, saved_data_data)
         return True
 
     def sendHciCommand(self, opcode, data, timeout=2):
+        """
+        Send an arbitrary HCI packet by pushing a send-task into the
+        sendQueue. This function blocks until the response is received
+        or the timeout expires. The return value is the Payload of the
+        HCI Command Complete Event which was received in response to
+        the command or None if no response was received within the timeout.
+        """
+
         queue = Queue.Queue(1)
         try:
             self.sendQueue.put((opcode, data, queue), timeout=timeout)
@@ -531,6 +707,19 @@ class InternalBlue():
             return None
 
     def recvPacket(self, timeout=None):
+        """
+        This function polls the recvQueue for the next available HCI
+        packet and returns it. The function checks whether it is called
+        from the sendThread or any other thread and respectively chooses
+        either the sendThreadrecvQueue or the recvQueue.
+
+        The recvQueue is filled by the recvThread. If the queue fills up
+        the recvThread empties the queue (unprocessed packets are lost).
+        The recvPacket function is meant to receive raw HCI packets in
+        a blocking manner. Consider using the registerHciCallback()
+        functionality as an alternative which works asynchronously.
+        """
+
         if not self.check_running():
             return None
 
@@ -543,22 +732,34 @@ class InternalBlue():
             return None
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        """
+        Reads <length> bytes from the memory space of the firmware at the given
+        address. Reading from unmapped memory or certain memory-mapped-IO areas
+        which need aligned access crashes the chip.
+
+        Optional arguments for progress logs:
+        - progress_log: An instance of log.progress() which will be updated during the read.
+        - bytes_done:   Number of bytes that have already been read with earlier calls to
+                        readMem() and belonging to the same transaction which is covered by progress_log.
+        - bytes_total:  Total bytes that will be read within the transaction covered by progress_log.
+        """
+
         if not self.check_running():
             return None
 
-        read_addr = address
-        byte_counter = 0
-        outbuffer = ''
-        memory_type = None
-        if bytes_total == 0:
+        read_addr = address         # read_addr is the address of the next Read_RAM HCI command
+        byte_counter = 0            # tracks the number of received bytes
+        outbuffer = ''              # buffer which stores all accumulated data read from the chip
+        if bytes_total == 0:        # If no total bytes where given just use length
             bytes_total = length
-        while(read_addr < address+length):
+        while(read_addr < address+length):  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
             bytes_left = length - byte_counter
             blocksize = bytes_left
-            if blocksize > 251:
+            if blocksize > 251:     # The max. size of a Read_RAM payload is 251
                 blocksize = 251
 
+            # Send Read_RAM (0xfc4d) command
             response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
 
             if response == None:
@@ -567,8 +768,11 @@ class InternalBlue():
 
             status = ord(response[3])
             if status != 0:
+                # It is not yet reverse engineered what this byte means. For almost
+                # all memory addresses it will be 0. But for some it will be different,
+                # e.g. for address 0xff000000 (aka 'EEPROM') it is 0x12
                 log.warning("readMem: [TODO] Got status != 0 : 0x%02X" % status)
-            data = response[4:]
+            data = response[4:]         # start of the actual data is at offset 4
             outbuffer += data
             read_addr += len(data)
             byte_counter += len(data)
@@ -579,53 +783,48 @@ class InternalBlue():
         return outbuffer
 
     def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        """
+        This is an alternative to readMem() which enforces a strictly aligned access
+        to the memory that is read. This is needed for e.g. the memory-mapped-IO
+        section at 0x310000 (patchram) and possibly other sections as well.
+        The arguments are equivalent to readMem() except that the address and length
+        have to be 4-byte aligned.
+
+        The current implementation works like this (and obviously can be improved!):
+        - Work in chunks of max. 244 bytes (restricted by max. size of HCI event)
+        - For each chunk do:
+          - Write a code snippet to the firmware which copies the chunk of memory
+            into a custom HCI Event and sends it to the host (this uses aligned
+            ldr and str instructions)
+          - Register a hciCallbackFunction for receiving the custom event
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['READ_MEM_ALIGNED_ASM_LOCATION', 'READ_MEM_ALIGNED_ASM_SNIPPET']:
+            if const not in dir(fw):
+                log.warn("readMemAligned: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
         if not self.check_running():
             return None
 
+        # Force length to be multiple of 4 (needed for strict alignment)
         if length % 4 != 0:
             log.warn("readMemAligned: length (0x%x) must be multiple of 4!" % length)
             return None
 
+        # Force address to be multiple of 4 (needed for strict alignment)
         if address % 4 != 0:
             log.warn("readMemAligned: address (0x%x) must be 4-byte aligned!" % address)
             return None
 
-        ASM_LOCATION = 0xd7900
-        ASM_SNIPPET = """
-            push {r4, lr}
-
-            mov  r0, 0xff
-            mov  r1, %d      // size of the hci event payload
-            add  r1, 6       // + type and length + 'READ'
-            bl   0x7AFC      // malloc_hci_event_buffer
-            mov  r4, r0
-            add  r0, 2
-            ldr  r1, =0x44414552  // 'READ'
-            str  r1, [r0]
-            add  r0, 4
-
-            // copy to buffer
-            ldr  r1, =0x%x
-            mov  r2, %d
-        loop:
-            ldr  r3, [r1]
-            str  r3, [r0]
-            add  r0, 4
-            add  r1, 4
-            subs r2, 1
-            bne  loop
-
-            // send buffer
-            mov r0, r4
-            bl  0x398c1 // send_hci_event_without_free()
-
-            // free buffer
-            mov r0, r4
-            bl  0x3FA36  // free_bloc_buffer_aligned
-
-            pop {r4, pc}
-        """
-
+        # TODO: Workaround!
+        # To not use the recvQueue / recvPacket() (which might interfere with user
+        # commands / scripts we build our own blocking receive queue: Register a
+        # HCI callback which fills our own receive queue.
+        # TODO: change recvPacket mechanism:
+        # - remove default recvQueues.
+        # - add registerHciRecvQueue() function
         recvQueue = Queue.Queue(1)
         def hciCallback(record):
             hcipkt = record[0]
@@ -645,7 +844,6 @@ class InternalBlue():
         read_addr = address
         byte_counter = 0
         outbuffer = ''
-        memory_type = None
         if bytes_total == 0:
             bytes_total = length
         while(read_addr < address+length):
@@ -654,13 +852,18 @@ class InternalBlue():
             if blocksize > 244:
                 blocksize = 244
 
-            code = asm(ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=ASM_LOCATION)
-            self.writeMem(ASM_LOCATION, code)
+            # Customize the assembler snippet with the current read_addr and blocksize
+            code = asm(fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=fw.READ_MEM_ALIGNED_ASM_LOCATION)
 
-            if not self.launchRam(ASM_LOCATION):
+            # Write snippet to the RAM (TODO: maybe backup and restore content of this area?)
+            self.writeMem(fw.READ_MEM_ALIGNED_ASM_LOCATION, code)
+
+            # Run snippet
+            if not self.launchRam(fw.READ_MEM_ALIGNED_ASM_LOCATION):
                 log.error("readMemAligned: launching assembler snippet failed!")
                 return None
 
+            # wait for the custom HCI event sent by the snippet:
             response = None
             try:
                 response = recvQueue.get(timeout=1)
@@ -681,6 +884,17 @@ class InternalBlue():
         return outbuffer
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
+        """
+        Writes the <data> to the memory space of the firmware at the given
+        address.
+
+        Optional arguments for progress logs:
+        - progress_log: An instance of log.progress() which will be updated during the write.
+        - bytes_done:   Number of bytes that have already been written with earlier calls to
+                        writeMem() and belonging to the same transaction which is covered by progress_log.
+        - bytes_total:  Total bytes that will be written within the transaction covered by progress_log.
+        """
+
         if not self.check_running():
             return None
 
@@ -707,6 +921,13 @@ class InternalBlue():
         return True
 
     def launchRam(self, address):
+        """
+        Executes a function at the specified address in the context of the HCI
+        handler thread. The function has to comply with the calling convention.
+        As the function blocks the HCI handler thread, the chip will most likely
+        crash (or be resetted by Android) if the function takes too long.
+        """
+
         response = self.sendHciCommand(0xfc4e, p32(address))
 
         if(response[3] != '\x00'):
@@ -715,19 +936,35 @@ class InternalBlue():
         return True
 
     def getPatchramState(self):
-        slot_dump       = self.readMemAligned(0x310204, 128/4)
-        table_addr_dump = self.readMemAligned(0x310000, 128*4)
-        table_val_dump  = self.readMem(0xd0000, 128*4)
+        """
+        Retrieves the current state of the patchram unit. The return value
+        is a tuple containing 3 lists which are indexed by the slot number:
+        - target_addresses: The address which is patched by this slot (or None)
+        - new_values:       The new (patch) value (or None)
+        - enabled_bitmap:   1 if the slot is active, 0 if not (integer)
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS',
+                      'PATCHRAM_VALUE_TABLE_ADDRESS', 'PATCHRAM_NUMBER_OF_SLOTS']:
+            if const not in dir(fw):
+                log.warn("getPatchramState: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        slot_count      = fw.PATCHRAM_NUMBER_OF_SLOTS
+        slot_dump       = self.readMemAligned(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
+        table_addr_dump = self.readMemAligned(fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
+        table_val_dump  = self.readMem(fw.PATCHRAM_VALUE_TABLE_ADDRESS, slot_count*4)
         table_addresses = []
         table_values    = []
         slot_dwords     = []
         slot_bits       = []
-        for dword in range(128/32):
+        for dword in range(slot_count/32):
             slot_dwords.append(slot_dump[dword*32:(dword+1)*32])
 
         for dword in slot_dwords:
             slot_bits.extend(bits(dword[::-1])[::-1])
-        for i in range(128):
+        for i in range(slot_count):
             if slot_bits[i]:
                 table_addresses.append(u32(table_addr_dump[i*4:i*4+4])<<2)
                 table_values.append(table_val_dump[i*4:i*4+4])
@@ -737,6 +974,26 @@ class InternalBlue():
         return (table_addresses, table_values, slot_bits)
 
     def patchRom(self, address, patch, slot=None):
+        """
+        Patch a 4-byte value (DWORD) inside the ROM section of the firmware
+        (0x0 - 0x8FFFF) using the patchram mechanism. There are 128 available
+        slots for patches and patchRom() will automatically find the next free
+        slot if it is not forced through the 'slot' argument (see also
+        getPatchramState()).
+
+        address: The address at which the patch should be applied (must be 4-byte aligned)
+        patch:   The new value which should be placed at the address (byte string of length 4)
+
+        Returns True on success and False on failure.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS',
+                      'PATCHRAM_VALUE_TABLE_ADDRESS', 'PATCHRAM_NUMBER_OF_SLOTS']:
+            if const not in dir(fw):
+                log.warn("patchRom: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
         if len(patch) != 4:
             log.warn("patchRom: patch (0x%x) must be a 32-bit dword!" % patch)
             return False
@@ -748,7 +1005,7 @@ class InternalBlue():
         table_addresses, table_values, table_slots = self.getPatchramState()
 
         # Check whether the address is already patched:
-        for i in range(128):
+        for i in range(fw.PATCHRAM_NUMBER_OF_SLOTS):
             if table_addresses[i] == address:
                 slot = i
                 log.info("patchRom: Reusing slot for address 0x%x: %d" % (address,slot))
@@ -758,7 +1015,7 @@ class InternalBlue():
 
         if slot == None:
             # Find free slot:
-            for i in range(128):
+            for i in range(fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] == None:
                     slot = i
                     log.info("patchRom: Choosing next free slot: %d" % slot)
@@ -771,20 +1028,34 @@ class InternalBlue():
                 log.warn("patchRom: Slot %d is already in use. Overwriting..." % slot)
 
         # Write new value to patchram value table at 0xd0000
-        self.writeMem(0xd0000 + slot*4, patch)
+        self.writeMem(fw.PATCHRAM_VALUE_TABLE_ADDRESS + slot*4, patch)
 
-        # Write address to patchram target table at 0x31000
-        self.writeMem(0x310000 + slot*4, p32(address >> 2))
+        # Write address to patchram target table at 0x310000
+        self.writeMem(fw.PATCHRAM_TARGET_TABLE_ADDRESS + slot*4, p32(address >> 2))
 
         # Enable patchram slot (enable bitfield starts at 0x310204)
         # (We need to enable the slot by setting a bit in a multi-dword bitfield)
         target_dword = int(slot / 32)
         table_slots[slot] = 1
         slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
-        self.writeMem(0x310204 + target_dword*4, slot_dword)
+        self.writeMem(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
         return True
 
     def disableRomPatch(self, address, slot=None):
+        """
+        Disable a patchram slot (see also patchRom()). The slot can either be
+        specified by the target address (address that was patched) or by providing
+        the slot number directly (the address will be ignored in this case).
+
+        Returns True on success and False on failure.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS']:
+            if const not in dir(fw):
+                log.warn("disableRomPatch: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
         table_addresses, table_values, table_slots = self.getPatchramState()
 
         if slot == None:
@@ -805,13 +1076,35 @@ class InternalBlue():
         target_dword = int(slot / 32)
         table_slots[slot] = 0
         slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32])
-        self.writeMem(0x310204 + target_dword*4, slot_dword)
+        self.writeMem(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
 
-        # Write 0xFFFFC to patchram target table at 0x31000
-        self.writeMem(0x310000 + slot*4, p32(0xFFFFC>>2))
+        # Write 0xFFFFC to patchram target table at 0x310000
+        # (0xFFFFC seems to be the default value if the slot is inactive)
+        self.writeMem(fw.PATCHRAM_TARGET_TABLE_ADDRESS + slot*4, p32(0xFFFFC>>2))
         return True
 
     def readConnectionInformation(self, conn_number):
+        """
+        Reads and parses a connection struct based on the connection number.
+        Note: The connection number is different from the connection index!
+        The connection number starts counting at 1 and is stored in the first
+        field of the connection structure.
+        The connection index starts at 0 and is the index into the connection
+        table (table containing all connection structs).
+        In the Nexus 5 firmware all connection numbers are simply the connection
+        index increased by 1.
+
+        The return value is a dictionary containing all information that could
+        be parsed from the connection structure. If the connection struct at the
+        specified connection number is empty, the return value is None.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['CONNECTION_ARRAY_SIZE', 'CONNECTION_ARRAY_ADDRESS', 'CONNECTION_STRUCT_LENGTH']:
+            if const not in dir(fw):
+                log.warn("readConnectionInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return None
+
         if conn_number < 1 or conn_number > fw.CONNECTION_ARRAY_SIZE:
             log.warn("readConnectionInformation: connection number out of bounds: %d" % conn_number)
             return None
@@ -838,55 +1131,51 @@ class InternalBlue():
         return conn_dict
 
     def sendLmpPacket(self, conn_nr, opcode, payload, extended_op=False):
+        """
+        Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
+        to a remote device which is paired and connected with our local device).
+
+        conn_nr:     The connection number specifying the connection into which the
+                     packet will be injected.
+        opcode:      The LMP opcode of the LMP packet that will be injected.
+        payload:     The LMP payload of the LMP packet that will be injected.
+                     Note: The size of the payload is defined by its opcode.
+                     TODO: Go one step deeper in order to send arbitrary length
+                     LMP packets.
+        extended_op: Set to True if the opcode should be interpreted as extended / escaped
+                     LMP opcode.
+
+        Returns True on success and False on failure.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['CONNECTION_ARRAY_SIZE', 'SENDLMP_CODE_BASE_ADDRESS', 'SENDLMP_ASM_CODE']:
+            if const not in dir(fw):
+                log.warn("sendLmpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        # connection number bounds check
         if conn_nr < 1 or conn_nr > fw.CONNECTION_ARRAY_SIZE:
             log.warn("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
             return False
 
-        # The TID bit will later be set in the assembler code
+        # Build the LMP packet
+        # (The TID bit will later be set in the assembler code)
         opcode_data = p8(opcode<<1) if not args.ext else p8(0x7F<<1) + p8(opcode)
         data = opcode_data + payload
 
-        CODE_BASE_ADDRESS = 0xd7500
-        ASM_CODE = """
-                push {r4,lr}
-
-                // malloc buffer
-                bl 0x3F17E      // malloc_0x20_bloc_buffer_memzero
-                mov r4, r0
-
-                // fill buffer
-                add r0, 0xC
-                ldr r1, =payload
-                mov r2, 20
-                bl  0x2e03c     // memcpy
-
-                // load conn struct pointer
-                mov r0, %d
-                bl 0x42c04      // find connection struct from conn nr
-
-                // set tid bit if we are the slave
-                ldr r1, [r0, 0x1c]  // tid bit is at position 15 of this bitfield
-                lsr r1, 15
-                eor r1, 0x1         // invert the bit
-                and r1, 0x1
-                ldr r2, [r4, 0xC]
-                orr r2, r1
-                str r2, [r4, 0xC]
-
-                mov r1, r4
-                pop {r4,lr}
-                b 0xf81a        // send_LMP_packet
-
-                .align
-                payload:
-                """ % (conn_nr)
-
-        asm_code_with_data = ASM_CODE + ''.join([".byte 0x%02x\n" % ord(x) 
+        # Prepare the assembler snippet by injecting the connection number
+        # and appending the LMP packet data.
+        asm_code = fw.SENDLMP_ASM_CODE % (conn_nr)
+        asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x) 
                 for x in data.ljust(20, "\x00")])
-        code = asm(asm_code_with_data, vma=CODE_BASE_ADDRESS)
-        self.writeMem(CODE_BASE_ADDRESS, code)
 
-        if self.launchRam(CODE_BASE_ADDRESS):
+        # Assemble the snippet and write it to SENDLMP_CODE_BASE_ADDRESS
+        code = asm(asm_code_with_data, vma=fw.SENDLMP_CODE_BASE_ADDRESS)
+        self.writeMem(fw.SENDLMP_CODE_BASE_ADDRESS, code)
+
+        # Invoke the snippet
+        if self.launchRam(fw.SENDLMP_CODE_BASE_ADDRESS):
             return True
         else:
             log.warn("sendLmpPacket: launchRam failed!")
