@@ -36,8 +36,6 @@ import struct
 import time
 import select
 
-import fw
-
 def getCmdList():
     # List of available commands:
     return [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
@@ -1033,7 +1031,7 @@ class CmdSendLmp(Cmd):
             connection = None
             found_multiple_active = False
             log.info("Reading connection information to find active connection number...")
-            for i in range(fw.CONNECTION_ARRAY_SIZE):
+            for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
                 tmp_connection = self.internalblue.readConnectionInformation(i+1)
                 if tmp_connection != None and tmp_connection["remote_address"] != "\x00"*6:
                     log.info("Found active connection with number %d (%s)." %
@@ -1085,7 +1083,7 @@ class CmdInfo(Cmd):
                         help="Type of information.")
 
     def infoConnections(self):
-        for i in range(fw.CONNECTION_ARRAY_SIZE):
+        for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
             connection = self.internalblue.readConnectionInformation(i+1)
             if connection == None:
                 continue
@@ -1104,9 +1102,9 @@ class CmdInfo(Cmd):
         print
 
     def infoDevice(self):
-        bt_addr      = self.readMem(fw.BD_ADDR, 6)[::-1]
+        bt_addr      = self.readMem(self.internalblue.fw.BD_ADDR, 6)[::-1]
         bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
-        device_name  = self.readMem(fw.DEVICE_NAME, 258)
+        device_name  = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
         device_name_len = u8(device_name[0])-1
         device_name  = device_name[2:2+device_name_len]
         adb_serial   = context.device

@@ -454,6 +454,7 @@ class InternalBlue():
         else:
             log.critical("Device not supported")
             return False
+        self.fw = fw    # Other scripts (such as cmds.py) can use fw through a member variable
 
         # setup sockets
         if not self._setupSockets():
