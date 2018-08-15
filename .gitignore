@@ -8,3 +8,9 @@
 
 # ctags
 tags
+
+# internalblue
+_internalblue.hist
+_internalblue.log
+btsnoop.log
+

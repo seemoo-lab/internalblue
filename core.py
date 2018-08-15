@@ -1092,7 +1092,7 @@ class InternalBlue():
         # (We need to disable the slot by clearing a bit in a multi-dword bitfield)
         target_dword = int(slot / 32)
         table_slots[slot] = 0
-        slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32])
+        slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
         self.writeMem(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
 
         # Write 0xFFFFC to patchram target table at 0x310000
