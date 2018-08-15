@@ -53,19 +53,6 @@ class InternalBlue():
         else:
             self.write_btsnooplog = False
 
-        # The recvQueue connects the receiveThread to the currently running CLI
-        # command or user script. That means all incomming HCI packets are
-        # pushed into the queue by the receiveThread. The currently running
-        # command can get the packets from the queue by calling recvPacket().
-        # The queue is emptied every time a new command starts (therefore a
-        # command will not receive outdated packets.
-        self.recvQueue = Queue.Queue(queue_size)
-
-        # This queue connects the receiveThread to the sendThread. When the
-        # sendThread sends a HCI command to the firmware it waits for the
-        # answer by polling the sendThreadrecvQueue.
-        self.sendThreadrecvQueue = Queue.Queue(queue_size)
-
         # The sendQueue connects the core framework to the sendThread. With the
         # function sendHciCommand, the core framework (or a CLI command / user script)
         # can put a HCI Command into this queue. The queue entry should be a tuple:
@@ -89,6 +76,15 @@ class InternalBlue():
         # recvThread once a HCI Event is being received. Use registerHciCallback() for registering
         # a new callback (put it in the list) and unregisterHciCallback() for removing it again.
         self.registeredHciCallbacks = []
+
+        # The registeredHciRecvQueues list holds queues which are being filled by the
+        # recvThread once a HCI Event is being received. Use registerHciRecvQueue() for registering
+        # a new queue (put it in the list) and unregisterHciRecvQueue() for removing it again.
+        # Actually the registeredHciRecvQueues holds tuples with the format: (queue, filter_function)
+        # filter_function will be called for each packet that is received and only if it returns
+        # True, the packet will be put into the queue. The filter_function can be None in order
+        # to put all packets into the queue.
+        self.registeredHciRecvQueues = []
 
         self.exit_requested = False             # Will be set to true when the framework wants to shut down (e.g. on error or user exit)
         self.running = False                    # 'running' is True once the connection to the HCI sockets is established
@@ -177,7 +173,7 @@ class InternalBlue():
         """
         This is the run-function of the recvThread. It receives HCI events from the
         s_snoop socket. The HCI packets are encapsulated in btsnoop records (see RFC 1761).
-        Received HCI packets are being put into the recvQueue, the sendThreadrecvQueue and
+        Received HCI packets are being put into the queues inside registeredHciRecvQueues and
         passed to the callback functions inside registeredHciCallbacks.
         The thread stops when exit_requested is set to True. It will do that on its own
         if it encounters a fatal error or the stackDumpReceiver reports that the chip crashed.
@@ -247,29 +243,14 @@ class InternalBlue():
 
             log.debug("Recv: [" + str(parsed_time) + "] " + str(record[0]))
 
-            # Test if the recvQueue is full (the CLI / user script was too slow to read the packets from 
-            # the queue). If this happens we just empty the queue (expect that the CLI / user script) does
-            # not use it anyway).
-            if self.recvQueue.full():
-                log.debug("recvThreadFunc: recv queue is full. flushing..")
-                try:
-                    while True:
-                        self.recvQueue.get(block=False)
-                except Queue.Empty:
-                    pass
-
-            # Put the record into the recvQueue
-            try:
-                self.recvQueue.put(record, block=False)
-            except Queue.Full:
-                log.warn("recvThreadFunc: recv queue is full. dropping packets..")
-
-            # If the sendThread is still running, also put the record into the sendThreadrecvQueue
-            if self.sendThread != None and self.sendThread.isAlive():
-                try:
-                    self.sendThreadrecvQueue.put(record, block=False)
-                except Queue.Full:
-                    log.warn("recvThreadFunc: sendThread recv queue is full. dropping packets..")
+            # Put the record into all queues of registeredHciRecvQueues if their
+            # filter function matches.
+            for queue, filter_function in self.registeredHciRecvQueues:
+                if filter_function == None or filter_function(record):
+                    try:
+                        queue.put(record, block=False)
+                    except Queue.Full:
+                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
             # Call all callback functions inside registeredHciCallbacks and pass the
             # record as argument.
@@ -304,13 +285,6 @@ class InternalBlue():
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
 
-            # flushing the sendThreadrecvQueue to prevent it from filling up.
-            try:
-                while True:
-                    self.sendThreadrecvQueue.get(block=False)
-            except Queue.Empty:
-                pass
-
             # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
@@ -324,27 +298,37 @@ class InternalBlue():
             # Prepend UART TYPE and length
             out = p8(hci.HCI.HCI_CMD) + p16(len(payload)) + payload
 
+            # register queue to receive the response
+            recvQueue = Queue.Queue(1)
+            def recvFilterFunction(record):
+                hcipkt = record[0]
+
+                if not isinstance(hcipkt, hci.HCI_Event):
+                    return False
+                if hcipkt.event_code != 0x0e: # Cmd Complete event
+                    return False
+                if hcipkt.data[1:3] != p16(opcode):
+                    return False
+                return True
+
+            self.registerHciRecvQueue(recvQueue, recvFilterFunction)
+
             # Send command to the chip using s_inject socket
             log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
             self.s_inject.send(out)
 
-            # Wait for the HCI event response by polling the sendThreadrecvQueue queue
-            # (done with recvPacket. recvPacket() will automatically choose the correct
-            # queue to read from)
-            while not self.exit_requested:
-                # Receive HCI event
-                packet = self.recvPacket(timeout=0.5)
-                if packet == None:
-                    continue
-                hcipkt, orig_len, inc_len, flags, drops, recvtime = packet
+            # Wait for the HCI event response by polling the recvQueue
+            try:
+                record = recvQueue.get(timeout=2)
+                hcipkt = record[0]
+                data   = hcipkt.data
+            except Queue.Empty:
+                log.warn("_sendThreadFunc: No response from the firmware.")
+                data = None
+                continue
 
-                # Check if event is the response to our command. If yes, put the
-                # event into the response_queue from the 'send task'
-                if isinstance(hcipkt, hci.HCI_Event):
-                    if hcipkt.event_code == 0x0e: # Cmd Complete event
-                        if hcipkt.data[1:3] == p16(opcode):
-                            queue.put(hcipkt.data)
-                            break
+            queue.put(data)
+            self.unregisterHciRecvQueue(recvQueue)
 
         log.debug("Send Thread terminated.")
 
@@ -552,6 +536,39 @@ class InternalBlue():
             return
         log.warn("registerHciCallback: no such callback is registered!")
 
+    def registerHciRecvQueue(self, queue, filter_function=None):
+        """
+        Add a new queue to self.registeredHciRecvQueues.
+        The queue will be filled by the recvThread every time the thread receives
+        a HCI packet.  The format of the packet is a tuple containing:
+        - HCI packet (subclass of HCI, see hci.py)
+        - original length
+        - inc_len
+        - flags
+        - drops
+        - timestamp (python datetime object)
+
+        If filter_function is not None, the tuple will first be passed
+        to the function and only if the function returns True, the packet
+        is put into the queue.
+        """
+
+        if queue in self.registeredHciRecvQueues:
+            log.warn("registerHciRecvQueue: queue already registered!")
+            return
+        self.registeredHciRecvQueues.append((queue, filter_function))
+
+    def unregisterHciRecvQueue(self, queue):
+        """
+        Remove a queue from self.registeredHciRecvQueues.
+        """
+
+        for entry in self.registeredHciRecvQueues:
+            if entry[0] == queue:
+                self.registeredHciRecvQueues.remove(entry)
+                return
+        log.warn("registerHciRecvQueue: no such queue is registered!")
+
     def startLmpMonitor(self, callback):
         """
         Start the LMP monitor. The callback function will be called for every
@@ -736,10 +753,7 @@ class InternalBlue():
             return None
 
         try:
-            if self.sendThread == threading.currentThread():
-                return self.sendThreadrecvQueue.get(timeout=timeout)
-            else:
-                return self.recvQueue.get(timeout=timeout)
+            return self.recvQueue.get(timeout=timeout)
         except Queue.Empty:
             return None
 
@@ -830,28 +844,18 @@ class InternalBlue():
             log.warn("readMemAligned: address (0x%x) must be 4-byte aligned!" % address)
             return None
 
-        # TODO: Workaround!
-        # To not use the recvQueue / recvPacket() (which might interfere with user
-        # commands / scripts we build our own blocking receive queue: Register a
-        # HCI callback which fills our own receive queue.
-        # TODO: change recvPacket mechanism:
-        # - remove default recvQueues.
-        # - add registerHciRecvQueue() function
         recvQueue = Queue.Queue(1)
-        def hciCallback(record):
+        def hciFilterFunction(record):
             hcipkt = record[0]
             if not issubclass(hcipkt.__class__, hci.HCI_Event):
-                return
+                return False
             if hcipkt.event_code != 0xff:
-                return
+                return False
             if hcipkt.data[0:4] != "READ":
-                return
-            try:
-                recvQueue.put(hcipkt.data[4:], timeout=0.5)
-            except Queue.Full:
-                log.warn("readMemAligned: queue is blocked. Dropping packets...")
+                return False
+            return True
 
-        self.registerHciCallback(hciCallback)
+        self.registerHciRecvQueue(recvQueue, hciFilterFunction)
 
         read_addr = address
         byte_counter = 0
@@ -876,14 +880,14 @@ class InternalBlue():
                 return None
 
             # wait for the custom HCI event sent by the snippet:
-            response = None
             try:
-                response = recvQueue.get(timeout=1)
+                record = recvQueue.get(timeout=1)
             except Queue.Empty:
                 log.warn("readMemAligned: No response from assembler snippet.")
                 return None
 
-            data = response
+            hcipkt = record[0]
+            data = hcipkt.data[4:]
             outbuffer += data
             read_addr += len(data)
             byte_counter += len(data)
@@ -892,7 +896,7 @@ class InternalBlue():
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
 
-        self.unregisterHciCallback(hciCallback)
+        self.unregisterHciRecvQueue(recvQueue)
         return outbuffer
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):

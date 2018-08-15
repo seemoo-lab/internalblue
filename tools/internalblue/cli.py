@@ -68,10 +68,6 @@ def commandLoop():
                 continue
             cmd_instance = matching_cmd(cmdline, internalblue)
 
-            # Empty queue:
-            while internalblue.recvPacket(timeout=0.1) != None:
-                pass
-
             if(not cmd_instance.work()):
                 log.warn("Command failed: " + str(cmd_instance))
         except ValueError as e:

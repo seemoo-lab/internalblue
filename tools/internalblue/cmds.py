@@ -236,22 +236,6 @@ class CmdLogLevel(Cmd):
             log.warn("Not a valid log level: " + loglevel)
             return False
 
-class CmdListen(Cmd):
-    keywords = ['listen']
-    description = "Dump every received HCI packet on the screen."
-
-    def work(self):
-        self.progress_log = log.progress("Listening... (stop with Ctrl-C)")
-        self.saved_loglevel = self.internalblue.log_level
-        self.internalblue.log_level = 'debug'
-        while True:
-            # Empty the receive queue
-            self.internalblue.recvPacket(timeout=0.5)
-
-    def abort_cmd(self):
-        Cmd.abort_cmd(self)
-        self.internalblue.log_level = self.saved_loglevel
-
 class CmdMonitor(Cmd):
     keywords = ['monitor']
     description = "Controlling the LMP monitor."
@@ -494,10 +478,6 @@ class CmdRepeat(Cmd):
             return False
 
         while True:
-            # Empty recv queue:
-            while self.internalblue.recvPacket(timeout=0.1) != None:
-                pass
-
             # Check for keypresses by user:
             if select.select([sys.stdin],[],[],0.0)[0]:
                 log.info("Repeat aborted by user!")
