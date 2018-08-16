@@ -946,6 +946,9 @@ class InternalBlue():
         """
 
         response = self.sendHciCommand(0xfc4e, p32(address))
+        if (response == None):
+            log.warn("Empty HCI response, driver crashed?")
+            return False
 
         if(response[3] != '\x00'):
             log.warn("Got error code %x in command complete event." % response[3])
@@ -1145,6 +1148,11 @@ class InternalBlue():
         effective_key_len                 = u8(connection[0xa7:0xa8])
         conn_dict["effective_key_len"]    = effective_key_len
         conn_dict["link_key"]             = connection[0x68:0x68+effective_key_len]
+        #new fields - TODO verify
+        conn_dict["tx_pwr_lvl_dBm"]       = u8(connection[0x9c:0x9d]) - 127
+        conn_dict["extended_lmp_feat"]    = connection[0x30:0x38] #standard p. 527
+        conn_dict["host_supported_feat"]  = connection[0x38:0x40]
+        conn_dict["id"]                   = connection[0x0c:0x0d] #not sure if this is an id?
         return conn_dict
 
     def sendLmpPacket(self, conn_nr, opcode, payload, extended_op=False):

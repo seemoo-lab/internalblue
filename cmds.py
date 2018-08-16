@@ -35,7 +35,6 @@ import textwrap
 import struct
 import time
 import select
-import core #TODO we now need this to get the correct fw - not sure if best solution...
 
 def getCmdList():
     # List of available commands:
@@ -97,7 +96,7 @@ class Cmd:
             return None
 
     def isAddressInSections(self, address, length=0, sectiontype=""):
-        for section in core.fw.SECTIONS:
+        for section in self.internalblue.fw.SECTIONS:
             if (sectiontype.upper() == "ROM" and not section.is_rom) or (sectiontype.upper() == "RAM" and not section.is_ram):
                 continue
 
@@ -118,10 +117,10 @@ class Cmd:
         bytes_done = 0
         if(not os.path.exists(self.memory_image_template_filename)):
             log.info("No template found. Need to read ROM sections as well!")
-            bytes_total = sum([s.size() for s in core.fw.SECTIONS])
+            bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS])
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
-            for section in core.fw.SECTIONS:
+            for section in self.internalblue.fw.SECTIONS:
                 dumped_sections[section.start_addr] = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
@@ -136,9 +135,9 @@ class Cmd:
 
     def refreshMemoryImage(self):
         bytes_done = 0
-        bytes_total = sum([s.size() for s in core.fw.SECTIONS if not s.is_rom])
+        bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS if not s.is_rom])
         self.progress_log = log.progress("Refresh internal memory image")
-        for section in core.fw.SECTIONS:
+        for section in self.internalblue.fw.SECTIONS:
             if not section.is_rom:
                 sectiondump = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
@@ -1082,6 +1081,10 @@ class CmdInfo(Cmd):
             #log.info("    - BT addr for key:   %s"     % bt_addr_to_str(connection["bt_addr_for_key"]))
             log.info("    - Effective Key Len: %d byte (%d bit)" % (connection["effective_key_len"], 8*connection["effective_key_len"]))
             log.info("    - Link Key:          %s"     % connection["link_key"].encode('hex'))
+            log.info("    - LMP Features:      %s"     % connection["extended_lmp_feat"].encode('hex'))
+            log.info("    - Host Supported F:  %s"     % connection["host_supported_feat"].encode('hex'))
+            log.info("    - TX Power (dBm):    %d"     % connection["tx_pwr_lvl_dBm"])
+            log.info("    - Array Index:       %s"     % connection["id"].encode('hex'))
         print
 
     def infoDevice(self):

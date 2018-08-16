@@ -53,14 +53,18 @@ SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
 
 
 # Connection Struct and Table
-CONNECTION_ARRAY_ADDRESS = 0x201c20 #0x00208E55 # TODO ?? ... might also be around 00208E60, 0x201c2c seems to be wrong
-CONNECTION_ARRAY_SIZE    = 1 #is still 11 for Nexus 6P, but no longer hard-coded
+#CONNECTION_ARRAY_ADDRESS = 0x201c20 #0x00208E55 # TODO ?? ... might also be around 00208E60, 0x201c2c seems to be wrong
+#CONNECTION_ARRAY_ADDRESS  = 0x218EA8; # correct according to get_ptr_to_connection_struct_from_index
+CONNECTION_ARRAY_ADDRESS  = 0x218ed4; #seems to work for Eifon
+CONNECTION_ARRAY_SIZE    = 11 #is still 11 for Nexus 6P, but no longer hard-coded
 CONNECTION_STRUCT_LENGTH = 0x14C
 # hexdump 0x201c20 --length 0x14c
 # hexdump 0x201c48 --length 0x6 -> own BT_ADDR from first connection struct
 
 
-# Patchram
+
+
+# Patchram #TODO
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
 PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
 PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
@@ -121,7 +125,7 @@ LMP_MONITOR_INJECTED_CODE = """
         sub  r2, 1          // connection nr minus 1 results in the connection array index
         mov  r1, 0x14C      // size r1 = size of connection struct
         mul  r2, r1         // calculate offset of connection struct entry inside the array
-        ldr  r1, =0x2038E8  // address of connection array start                                  //TODO
+        ldr  r1, =0x218ed4  // address of connection array start                                  //DONE
         add  r1, r2         // store address of connection struct in r1
         add  r1, 0x28       // at offset 0x28 is the remote BT address located
         mov  r2, 6          // memcpy the BT address into the temp. buffer
@@ -212,7 +216,7 @@ SENDLMP_ASM_CODE = """
         push {r4,lr}
 
         // malloc buffer for LMP packet
-        bl 0x3F17E      // malloc_0x20_bloc_buffer_memzero                                      //TODO
+        bl 0x3AAA8      // malloc_0x20_bloc_buffer_memzero                                      //DONE
         mov r4, r0      // store buffer for LMP packet inside r4
 
         // fill buffer
@@ -226,7 +230,7 @@ SENDLMP_ASM_CODE = """
 
         // load conn struct pointer (needed for determine if we are master or slave)
         mov r0, %d      // connection number is injected by sendLmpPacket()
-        bl 0x42c04      // find connection struct from conn nr (r0 will hold pointer to conn struct)    //TODO
+        bl 0x473CC      // find connection struct from conn nr (r0 will hold pointer to conn struct)    //DONE
 
         // set tid bit if we are the slave
         ldr r1, [r0, 0x1c]  // Load a bitmap from the connection struct into r1.
@@ -244,7 +248,7 @@ SENDLMP_ASM_CODE = """
         mov r1, r4      // load the address of the LMP packet buffer into r1.
                         // r0 still contains the connection number.
         pop {r4,lr}     // restore r4 and the lr
-        b 0xf81a        // branch to send_LMP_packet. send_LMP_packet will do the return for us.    //TODO
+        b 0xAF4C        // branch to send_LMP_packet. send_LMP_packet will do the return for us.    //DONE
 
         .align          // The payload (LMP packet) must be 4-byte aligend (memcpy needs aligned addresses)
         payload:        // Note: the payload will be appended here by the sendLmpPacket() function
