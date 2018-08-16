@@ -25,10 +25,30 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from cmds import MemorySection
 
 # Device Infos
 DEVICE_NAME = 0x2178B4  # [type: 1byte] [len: 1byte] [name: len byte]
 BD_ADDR = 0x210C2C
+
+
+# Memory Sections
+#                          start,    end,      is_rom? is_ram?
+SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
+             MemorySection(0xd0000,  0xd8000,  False, True ),
+            #MemorySection(0xe0000,  0x1f0000, True , False),
+             MemorySection(0x200000, 0x228000, False, True ),
+             MemorySection(0x260000, 0x268000, True , False),
+            #MemorySection(0x280000, 0x2a0000, True , False),
+             MemorySection(0x318000, 0x320000, False, False),
+             MemorySection(0x324000, 0x360000, False, False),
+             MemorySection(0x362000, 0x362100, False, False),
+             MemorySection(0x363000, 0x363100, False, False),
+             MemorySection(0x600000, 0x600800, False, False),
+             MemorySection(0x640000, 0x640800, False, False),
+             MemorySection(0x650000, 0x650800, False, False),
+            #MemorySection(0x680000, 0x800000, False, False)
+            ]
 
 
 # Connection Structure and Table
@@ -59,7 +79,7 @@ LMP_SEND_PACKET_HOOK            = 0x200d38  # This address contains the hook fun
 LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd7600   # Start address for the INJECTED_CODE
 LMP_MONITOR_BUFFER_BASE_ADDRESS = 0xd7700   # Address of the temporary buffer for the HCI event
 LMP_MONITOR_BUFFER_LEN          = 0x80      # Length of the temporary BUFFER
-LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3f3f4   # maybe_invoke_LMP_handler_3F3F4 (aka 'LMP_Dispatcher')
+LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3f3f4   # LMP_Dispatcher_3F3F4 (aka 'LMP_Dispatcher')
 LMP_MONITOR_INJECTED_CODE = """
     // Jump Table
     // bl BUFFER_BASE_ADDRESS+1 executes hook_send_lmp

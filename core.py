@@ -444,7 +444,7 @@ class InternalBlue():
             context.device = adb_devices[0].serial
 
         # Import fw depending on device
-        global fw    # put the imported fw into global namespace
+        global fw    # put the imported fw into global namespace #FIXME does not work for cmds.py
         if adb.current_device().model == 'Nexus 5':
             log.info("Importing fw for Nexus 5")
             import fw_5 as fw

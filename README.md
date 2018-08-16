@@ -11,7 +11,11 @@ the Bluetooth protocol stack.
 Usage
 -----
 
-TODO!
+python2 -m internalblue.cli
+
+Requirements:
+* recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE'
+* currently only tested for Nexus 5 and Nexus 6P
 
 
 License

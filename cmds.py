@@ -35,6 +35,7 @@ import textwrap
 import struct
 import time
 import select
+import core #TODO we now need this to get the correct fw - not sure if best solution...
 
 def getCmdList():
     # List of available commands:
@@ -71,24 +72,6 @@ class MemorySection:
 class Cmd:
     keywords = []
 
-    # TODO: move this into fw.py??
-    #                          start,    end,      is_rom? is_ram?
-    sections = [ MemorySection(0x0,      0x90000,  True , False),
-                 MemorySection(0xd0000,  0xd8000,  False, True ),
-                #MemorySection(0xe0000,  0x1f0000, True , False),
-                 MemorySection(0x200000, 0x228000, False, True ),
-                 MemorySection(0x260000, 0x268000, True , False),
-                #MemorySection(0x280000, 0x2a0000, True , False),
-                 MemorySection(0x318000, 0x320000, False, False),
-                 MemorySection(0x324000, 0x360000, False, False),
-                 MemorySection(0x362000, 0x362100, False, False),
-                 MemorySection(0x363000, 0x363100, False, False),
-                 MemorySection(0x600000, 0x600800, False, False),
-                 MemorySection(0x640000, 0x640800, False, False),
-                 MemorySection(0x650000, 0x650800, False, False),
-                #MemorySection(0x680000, 0x800000, False, False)
-                ]
-
     memory_image = None
     memory_image_template_filename = "_memdump_template.bin"
 
@@ -114,7 +97,7 @@ class Cmd:
             return None
 
     def isAddressInSections(self, address, length=0, sectiontype=""):
-        for section in self.sections:
+        for section in core.fw.SECTIONS:
             if (sectiontype.upper() == "ROM" and not section.is_rom) or (sectiontype.upper() == "RAM" and not section.is_ram):
                 continue
 
@@ -135,10 +118,10 @@ class Cmd:
         bytes_done = 0
         if(not os.path.exists(self.memory_image_template_filename)):
             log.info("No template found. Need to read ROM sections as well!")
-            bytes_total = sum([s.size() for s in self.sections])
+            bytes_total = sum([s.size() for s in core.fw.SECTIONS])
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
-            for section in self.sections:
+            for section in core.fw.SECTIONS:
                 dumped_sections[section.start_addr] = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
@@ -153,9 +136,9 @@ class Cmd:
 
     def refreshMemoryImage(self):
         bytes_done = 0
-        bytes_total = sum([s.size() for s in self.sections if not s.is_rom])
+        bytes_total = sum([s.size() for s in core.fw.SECTIONS if not s.is_rom])
         self.progress_log = log.progress("Refresh internal memory image")
-        for section in self.sections:
+        for section in core.fw.SECTIONS:
             if not section.is_rom:
                 sectiondump = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
