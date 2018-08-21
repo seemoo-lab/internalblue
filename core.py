@@ -947,7 +947,7 @@ class InternalBlue():
 
         response = self.sendHciCommand(0xfc4e, p32(address))
         if (response == None):
-            log.warn("Empty HCI response, driver crashed?")
+            log.warn("Empty HCI response during launchRam, driver crashed due to invalid code or destination")
             return False
 
         if(response[3] != '\x00'):

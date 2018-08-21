@@ -1103,7 +1103,7 @@ class CmdInfo(Cmd):
     def infoPatchram(self):
         table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
         log.info("### | Patchram Table ###")
-        for i in range(128):
+        for i in range(self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS):
             if table_slots[i] == 1:
                 code = disasm(table_values[i],vma=table_addresses[i],byte=False,offset=False)
                 code = code.replace("    ", " ").replace("\n", ";  ")
