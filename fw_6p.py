@@ -35,7 +35,7 @@ BD_ADDR = 0x201C48 #works
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
 SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-             MemorySection(0xd0000,  0xd8000,  False, True ),
+             MemorySection(0xd0000,  0xd8000,  False, True ), #Patchram area where our hooks go
             #MemorySection(0xe0000,  0x1f0000, True , False),
              MemorySection(0x200000, 0x228000, False, True ),
              MemorySection(0x260000, 0x268000, True , False),
@@ -83,8 +83,8 @@ LMP_ESC_LENGTHS = [0, 4, 5, 12, 12, 12, 8, 3, 0, 0, 0, 3, 16, 4, 0, 0, 7, 12, 0,
 LMP_SEND_PACKET_HOOK            = 0x2023FC  # This address contains the hook function for LMP_send_packet
                                             # It is NULL by default. If we set it to a function address,
                                             # the function will be called by LMP_send_packet. #DONE
-LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd8600  # Start address for the INJECTED_CODE #TODO might not always work
-LMP_MONITOR_BUFFER_BASE_ADDRESS = 0xd8700   # Address of the temporary buffer for the HCI event #DONE
+LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd5230  # Start address for the INJECTED_CODE #TODO might not always work
+LMP_MONITOR_BUFFER_BASE_ADDRESS = 0xd5330   # Address of the temporary buffer for the HCI event #DONE
 LMP_MONITOR_BUFFER_LEN          = 0x80      # Length of the temporary BUFFER
 LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD46   # LMP_Dispatcher_3F3F4 #DONE
 
@@ -212,7 +212,7 @@ LMP_MONITOR_INJECTED_CODE = """
 
 
 # Snippet for sendLmpPacket()
-SENDLMP_CODE_BASE_ADDRESS = 0xd8500 #TODO?
+SENDLMP_CODE_BASE_ADDRESS = 0xd5130 #TODO?
 SENDLMP_ASM_CODE = """
         push {r4,lr}
 
@@ -256,23 +256,24 @@ SENDLMP_ASM_CODE = """
         """
 
 # Assembler snippet for the readMemAligned() function
-# works for "hexdump -l 60 -a 0xd5030" ... but lengths need to be <244
+## works immediately for "hexdump -l 60 -a 0xd5030" ... all lengths < 244
+## TODO for whatever reason it needs a pause when called multiple times, otherwise driver crashes after writeRAM command
 READ_MEM_ALIGNED_ASM_LOCATION = 0xd5030
+READ_MEM_ALIGNED_ASM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in seconds
 READ_MEM_ALIGNED_ASM_SNIPPET = """
         push {r4, lr}
         
         // malloc HCI event buffer
         mov  r1, 0xff    // event code is 0xff (vendor specific HCI Event) //DONE, was r0
         mov  r2, %d      // readMemAligned() injects the number of bytes it wants to read here //DONE, was r1
-        add  r2, 6       // + type and length + 'READ'
-        //mov  r0, r2, #2  // new //DONE, simply seems to be 2 higher than r2
+        add  r2, 4       // + 'READ'
         mov  r0, r2
-        adds r0, #2
+        adds r0, #2      // r0 needs to be 2 higher than r2 in all malloc_hci_event_buffer calls
         bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer) //DONE
         mov  r4, r0      // save pointer to the buffer in r4
 
         // append our custom header (the word 'READ') after the event code and event length field
-        add  r0, 10      // write after the length field (offset 10 instead of 2 now)
+        add  r0, 10      // write after the length field (offset 10 in event struct)
         ldr  r1, =0x44414552  // 'READ'
         str  r1, [r0]
         add  r0, 4      // advance the pointer. r0 now points to the beginning of our read data
@@ -290,12 +291,7 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
 
         // send HCI buffer to the host
         mov r0, r4      // r4 still points to the beginning of the HCI buffer
-        //bl  0x650       // send_hci_event_without_free()    //TODO
-        bl 0x20F4       // send_hci_event() //DONE, maybe this works...
-
-        // free HCI buffer
-        //mov r0, r4
-        //bl  0x3FA36     // free_bloc_buffer_aligned         //TODO, BLOC seems to be inexistent in newer RTOS
+        bl 0x20F4       // send_hci_event() //DONE
 
         pop {r4, pc}    // return
     """

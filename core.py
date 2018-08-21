@@ -609,6 +609,7 @@ class InternalBlue():
         saved_data_hooks = self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
         saved_data_data  = self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
 
+
         self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, p32(0)) # TODO: unnecessary, maybe remove?
 
         log.debug("startLmpMonitor: injecting hook functions...")
@@ -771,6 +772,7 @@ class InternalBlue():
         - bytes_total:  Total bytes that will be read within the transaction covered by progress_log.
         """
 
+        log.debug("readMem: reading at %x" % address)
         if not self.check_running():
             return None
 
@@ -790,7 +792,7 @@ class InternalBlue():
             response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
 
             if response == None:
-                log.warn("readMem: No response to readRAM HCI command!")
+                log.warn("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
                 return None
 
             status = ord(response[3])
@@ -868,6 +870,9 @@ class InternalBlue():
             blocksize = bytes_left
             if blocksize > 244:
                 blocksize = 244
+            
+            # bugfix: Nexus 6P readMemAligned requires pause 
+            time.sleep(fw.READ_MEM_ALIGNED_ASM_PAUSE)
 
             # Customize the assembler snippet with the current read_addr and blocksize
             code = asm(fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=fw.READ_MEM_ALIGNED_ASM_LOCATION)
@@ -897,6 +902,9 @@ class InternalBlue():
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
 
+        # bugfix: Nexus 6P readMemAligned requires pause 
+        time.sleep(fw.READ_MEM_ALIGNED_ASM_PAUSE)
+
         self.unregisterHciRecvQueue(recvQueue)
         return outbuffer
 
@@ -912,6 +920,8 @@ class InternalBlue():
         - bytes_total:  Total bytes that will be written within the transaction covered by progress_log.
         """
 
+        log.debug("writeMem: writing to %x" % address)
+        
         if not self.check_running():
             return None
 
