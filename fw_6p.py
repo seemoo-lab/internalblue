@@ -34,21 +34,20 @@ BD_ADDR = 0x201C48 #works
 
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-             MemorySection(0xd0000,  0xd8000,  False, True ), #Patchram area where our hooks go
-            #MemorySection(0xe0000,  0x1f0000, True , False),
-             MemorySection(0x200000, 0x228000, False, True ),
+SECTIONS = [ MemorySection(0x0,      0x9ef00,  True , False),
+             MemorySection(0xd0000,  0xd8000,  False, True ), # Patchram area where our hooks go
+            #MemorySection(0xe0000,  0x1e0000, True , False), # all zero
+             MemorySection(0x200000, 0x22a000, False, True ),
              MemorySection(0x260000, 0x268000, True , False),
-            #MemorySection(0x280000, 0x2a0000, True , False),
-             MemorySection(0x318000, 0x320000, False, False),
-             MemorySection(0x324000, 0x360000, False, False),
-             MemorySection(0x362000, 0x362100, False, False),
-             MemorySection(0x363000, 0x363100, False, False),
+            #MemorySection(0x280000, 0x2a0000, True , False), # all zero
+             MemorySection(0x300000, 0x301000, False, False),
+             MemorySection(0x318000, 0x322000, False, False),
+             MemorySection(0x324000, 0x368000, False, False),
              MemorySection(0x600000, 0x600800, False, False),
              MemorySection(0x640000, 0x640800, False, False),
              MemorySection(0x650000, 0x650800, False, False),
             #MemorySection(0x680000, 0x800000, False, False)
-             #MemorySection(0x770000, 0x78ffff, False, False), #TODO maybe more
+             #MemorySection(0x770000, 0x78ffff, False, False), #TODO maybe more, but all zero
             ]
 
 
@@ -86,7 +85,7 @@ LMP_SEND_PACKET_HOOK            = 0x2023FC  # This address contains the hook fun
 LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd5230  # Start address for the INJECTED_CODE #TODO might not always work
 LMP_MONITOR_BUFFER_BASE_ADDRESS = 0xd5330   # Address of the temporary buffer for the HCI event #DONE
 LMP_MONITOR_BUFFER_LEN          = 0x80      # Length of the temporary BUFFER
-LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD46   # LMP_Dispatcher_3F3F4 #DONE
+LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD48   # LMP_Dispatcher_3F3F4 #DONE
 
 LMP_MONITOR_INJECTED_CODE = """
     // Jump Table
@@ -104,21 +103,39 @@ LMP_MONITOR_INJECTED_CODE = """
         push {r0-r4,lr}     // this is to save the registers so we can overwrite
                             // them in this function
 
-        // write hci event header to beginning of the temp. buffer
-        ldr  r0, =0x%x      // adr of buffer in r0
-                            // (r0 will be increased as we write to the buffer)
-        mov  r4, r0         // and also backup the address in r4
-        mov  r3, r0         // TODO: this is unused. remove?
-        ldr  r1, =0x2cff    // HCI header: len=0x2c   event code=0xff
-        strh r1, [r0]       // write HCI header to buffer
-        add  r0, 2          // advance pointer
-        ldr  r1, =0x504d4c5f  // Beginning of my custom header: '_LMP'
+        //// write hci event header to beginning of the temp. buffer //TODO check buffer format and offsets
+        //ldr  r0, =0x%x      // adr of buffer in r0
+        //                    // (r0 will be increased as we write to the buffer)
+        //mov  r4, r0         // and also backup the address in r4
+        //mov  r3, r0         // TODO: this is unused. remove?
+        //ldr  r1, =0x2cff    // HCI header: len=0x2c   event code=0xff
+        //strh r1, [r0]       // write HCI header to buffer
+        //add  r0, 2          // advance pointer
+        //ldr  r1, =0x504d4c5f  // Beginning of my custom header: '_LMP'
+        //str  r1, [r0]
+        //add  r0, 4
+        //ldr  r1, =0x015f    // continuation of custom header: '_\x01'; 01 for 'lmp recv'
+        //strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
+        //add  r0, 2          //                                           0x01 for lmp recv
+        
+        // malloc HCI event buffer
+        mov  r1, 0xff    // HCI header: len=0x2c   event code=0xff
+        mov  r2, 0x2c    // 
+        add  r2, 4       // + '_LMP'
+        mov  r0, r2
+        adds r0, #2      // r0 needs to be 2 higher than r2 in all malloc_hci_event_buffer calls
+        bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer), don't use custom buffer here
+        mov  r4, r0      // save pointer to the buffer in r4
+        
+        // append our custom header (the word '_LMP') after the event code and event length field
+        add  r0, 10      // write after the length field (offset 10 in event struct)
+        ldr  r1, =0x504d4c5f  // '_LMP'
         str  r1, [r0]
-        add  r0, 4
+        add  r0, 4      // advance the pointer. r0 now points to the beginning of our own lmp data
         ldr  r1, =0x015f    // continuation of custom header: '_\x01'; 01 for 'lmp recv'
         strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
         add  r0, 2          //                                           0x01 for lmp recv
-
+        
         // read remote bt addr from connection struct
         ldr  r1, =0x20219A  // adr inside rx_info_data_200478 at which the conn. number is stored //DONE
         ldrb r2, [r1]       // store connection number in r2
@@ -142,14 +159,15 @@ LMP_MONITOR_INJECTED_CODE = """
         ldr  r1, [r1]       // r1 = ptr to the data.
         add  r1, 0xC        // The actual LMP payload starts at offset 0xC
         mov  r2, 24         // size for memcpy (max size of LMP should be 19 bytes; just to be safe do 24)
-        bl   0x63900+1      // memcpy                                                             //DONE
+        bl   0x63900+1      // memcpy      
+        
 
         // send HCI event packet (aka our temp. buffer)
         mov  r0, r4         // r4 still contains the start address of the temp. buffer
-        bl   0x650          // send_hci_event_without_free()                                      //TODO
+        bl   0x20F4          // send_hci_event()                                      //TODO - this includes a free
 
         pop  {r0-r4,lr}     // restore the registers we saved
-        b    0x3AD4a        // branch back into LMP_Dispatcher                                    //TODO?
+        b    0x3AD46        // branch back into LMP_Dispatcher                                    //TODO?
 
 
     // Hook for the LMP send path (intercepts outgoing LMP packets
@@ -258,7 +276,8 @@ SENDLMP_ASM_CODE = """
 # Assembler snippet for the readMemAligned() function
 ## works immediately for "hexdump -l 60 -a 0xd5030" ... all lengths < 244
 ## TODO for whatever reason it needs a pause when called multiple times, otherwise driver crashes after writeRAM command
-READ_MEM_ALIGNED_ASM_LOCATION = 0xd5030
+READ_MEM_ALIGNED_ASM_LOCATION = 0xd5030 #TODO maybe this memory area is the reason, might be overwritten
+# TODO a valid bugfix would be to e.g. pass sth along with the launchram command, then we only need writeram once
 READ_MEM_ALIGNED_ASM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in seconds
 READ_MEM_ALIGNED_ASM_SNIPPET = """
         push {r4, lr}
@@ -291,9 +310,10 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
 
         // send HCI buffer to the host
         mov r0, r4      // r4 still points to the beginning of the HCI buffer
-        bl 0x20F4       // send_hci_event() //DONE
 
-        pop {r4, pc}    // return
+        pop {r4, lr}    // return
+        b   0x20F4      // send_hci_event() //DONE
+
     """
 
 

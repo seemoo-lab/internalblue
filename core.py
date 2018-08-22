@@ -618,6 +618,9 @@ class InternalBlue():
         # The LMP_send_packet function has the option to define a hook in RAM
         log.debug("startLmpMonitor: inserting lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 1))
+        
+        #if True:
+        #    return False #TODO
 
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
         log.debug("startLmpMonitor: inserting lmp recv hook ...")

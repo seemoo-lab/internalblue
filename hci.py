@@ -471,7 +471,7 @@ class HCI_Event(HCI):
         eventname = "unknown"
         if self.event_code in self.HCI_EVENT_STR:
             eventname = self.HCI_EVENT_STR[self.event_code]
-        return parent + "<0x%02x %s (len=%d): %s>" % (self.event_code, eventname, self.length, self.data[0:16].encode('hex'))
+        return parent + "<0x%02x %s (len=%d): %s>" % (self.event_code, eventname, self.length, self.data[0:].encode('hex'))
 
 HCI_UART_TYPE_CLASS = {
         HCI.HCI_CMD :  HCI_Cmd,
