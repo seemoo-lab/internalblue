@@ -85,9 +85,120 @@ LMP_SEND_PACKET_HOOK            = 0x2023FC  # This address contains the hook fun
 LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd5230  # Start address for the INJECTED_CODE #TODO might not always work
 LMP_MONITOR_BUFFER_BASE_ADDRESS = 0xd5330   # Address of the temporary buffer for the HCI event #DONE
 LMP_MONITOR_BUFFER_LEN          = 0x80      # Length of the temporary BUFFER
-LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD48   # LMP_Dispatcher_3F3F4 #DONE
+LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD44   # LMP_Dispatcher_3F3F4 #DONE
+
+
 
 LMP_MONITOR_INJECTED_CODE = """
+    // Jump Table
+    // bl BUFFER_BASE_ADDRESS+1 executes hook_send_lmp
+    // bl BUFFER_BASE_ADDRESS+1+4 executes hook_recv_lmp
+    b hook_send_lmp
+    b hook_recv_lmp
+    
+    hook_recv_lmp: //looks like this one causes the infinite loop?
+    
+        b    0x3AD46        // branch back into LMP_Dispatcher   
+        
+        
+        push {r4, lr}
+        
+        // malloc HCI event buffer
+        mov  r1, 0xff    // event code is 0xff (vendor specific HCI Event) //DONE, was r0
+        mov  r2, 4      // 'TEST'
+        mov  r0, r2
+        adds r0, #2      // r0 needs to be 2 higher than r2 in all malloc_hci_event_buffer calls
+        bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer) //DONE
+        mov  r4, r0      // save pointer to the buffer in r4
+
+        // append our custom header (the word 'TEST') after the event code and event length field
+        add  r0, 10      // write after the length field (offset 10 in event struct)
+        ldr  r1, =0x23232323  // 'TEST'
+        str  r1, [r0]
+        add  r0, 4      // advance the pointer. r0 now points to the beginning of our read data
+
+
+        // send HCI buffer to the host
+        mov r0, r4      // r4 still points to the beginning of the HCI buffer
+
+
+        bl   0x20F4      // send_hci_event() //DONE
+        
+        pop {r4, lr}    // return
+        b    0x3AD46        // branch back into LMP_Dispatcher      
+        
+        
+        
+    hook_send_lmp: //works like 4 times and then creates infinite loop
+        push {r4,r5,r6,lr}  // save some registers we want to use
+        
+
+        // save function parameters of the LMP_send_packet function
+        mov  r5, r0         // pointer to connection struct for the packet
+        mov  r4, r1         // buffer (LMP payload)
+        
+        // malloc HCI event buffer
+        mov  r1, 0xff    // HCI header: len=0x2c   event code=0xff
+        mov  r2, 0x2c    // len
+        add  r2, 4       // len + len('_LMP')
+        mov  r0, r2
+        adds r0, #2      // r0 needs to be 2 higher than r2 in all malloc_hci_event_buffer calls
+        bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer) //DONE
+        mov  r6, r0      // save pointer to the buffer in r6
+
+        // append our custom header (the word 'TEST') after the event code and event length field
+        add  r0, 10      // write after the length field (offset 10 in event struct)
+        ldr  r1, =0x504d4c5f  // '_LMP'
+        str  r1, [r0]
+        add  r0, 4      // advance the pointer. r0 now points to the beginning of our read data
+        ldr  r1, =0x005f    // continuation of custom header: '_\x01'; 01 for 'lmp recv'
+        strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
+        add  r0, 2          //                                           0x01 for lmp recv
+        
+        // get bt addr of remote device from connection struct
+        mov  r1, r5         // r5 is ptr to connection struct
+        add  r1, 0x28       // BT address is at offset 0x28
+        mov  r2, 6
+        bl   0x63900+1      // memcpy                                                             //DONE
+        // memcpy returns end of dst buffer (8 byte aligned)
+        // that means r0 now points after the BT address inside the temp. buffer
+        
+        // get connection number (we send it to the host to be consistent with the
+        // receive path; actually it is not used)
+        mov  r1, 0          // first write 4 zero-bytes
+        str  r1, [r0]
+        add  r0, 2          // then write the conn. number in the middle of the bytes
+        ldr  r2, [r5]       // conn. number is at offset 0x0 of the conn. struct
+        strb r2, [r0]
+        add  r0, 2
+        
+        // read LMP data and store the LMP payload into the temp. buffer
+        add  r1, r4, 0xC    // start of LMP packet is at offset 0xC of rx_info_data_200478
+        mov  r2, 24         // size for memcpy (max size of LMP should be 19 bytes; just to be safe do 24)
+        bl   0x63900+1      // memcpy 
+
+
+        // send HCI buffer to the host
+        mov r0, r6      // r6 still points to the beginning of the HCI buffer
+
+
+        bl   0x20F4      // send_hci_event() //DONE
+        
+        mov r0, 0           // we need to return 0 to indicate to the hook code
+                            // that the original LMP_send_packet function should
+                            // continue to be executed
+        
+        pop  {r4,r5,r6,pc}  // restore saved registers and return %x %x
+        
+        
+
+    """ % (LMP_MONITOR_BUFFER_BASE_ADDRESS, LMP_MONITOR_BUFFER_BASE_ADDRESS+0x40)
+
+
+
+
+
+LMP_MONITOR_INJECTED_CODE2 = """
     // Jump Table
     // bl BUFFER_BASE_ADDRESS+1 executes hook_send_lmp
     // bl BUFFER_BASE_ADDRESS+1+4 executes hook_recv_lmp
@@ -136,30 +247,30 @@ LMP_MONITOR_INJECTED_CODE = """
         strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
         add  r0, 2          //                                           0x01 for lmp recv
         
-        // read remote bt addr from connection struct
-        ldr  r1, =0x20219A  // adr inside rx_info_data_200478 at which the conn. number is stored //DONE
-        ldrb r2, [r1]       // store connection number in r2
-        sub  r2, 1          // connection nr minus 1 results in the connection array index
-        mov  r1, 0x14C      // size r1 = size of connection struct
-        mul  r2, r1         // calculate offset of connection struct entry inside the array
-        ldr  r1, =0x218ed4  // address of connection array start                                  //DONE
-        add  r1, r2         // store address of connection struct in r1
-        add  r1, 0x28       // at offset 0x28 is the remote BT address located
-        mov  r2, 6          // memcpy the BT address into the temp. buffer
-        bl   0x63900+1      // memcpy                                                             //DONE
-        // memcpy returns end of dst buffer (8 byte aligned)
-        // that means r0 now points after the BT address inside the temp. buffer
+        //// read remote bt addr from connection struct
+        //ldr  r1, =0x20219A  // adr inside rx_info_data_200478 at which the conn. number is stored //DONE
+        //ldrb r2, [r1]       // store connection number in r2
+        //sub  r2, 1          // connection nr minus 1 results in the connection array index
+        //mov  r1, 0x14C      // size r1 = size of connection struct
+        //mul  r2, r1         // calculate offset of connection struct entry inside the array
+        //ldr  r1, =0x218ed4  // address of connection array start                                  //DONE
+        //add  r1, r2         // store address of connection struct in r1
+        //add  r1, 0x28       // at offset 0x28 is the remote BT address located
+        //mov  r2, 6          // memcpy the BT address into the temp. buffer
+        //bl   0x63900+1      // memcpy                                                             //DONE
+        //// memcpy returns end of dst buffer (8 byte aligned)
+        //// that means r0 now points after the BT address inside the temp. buffer
 
-        // read LMP payload data and store it inside the temp. buffer
-        ldr  r1, =0x202198  // r1 = rx_info_data_200478                                           //DONE
-        ldr  r2, [r1]       // first 4 byte of rx_info_data contains connection number
-        str  r2, [r0]       // copy the complete 4 bytes to the temp. buffer (we have space :))
-        add  r0, 4
-        add  r1, 4          // r1 = rx_info_data_200478 + 4 which contains the ptr to the data
-        ldr  r1, [r1]       // r1 = ptr to the data.
-        add  r1, 0xC        // The actual LMP payload starts at offset 0xC
-        mov  r2, 24         // size for memcpy (max size of LMP should be 19 bytes; just to be safe do 24)
-        bl   0x63900+1      // memcpy      
+        //// read LMP payload data and store it inside the temp. buffer
+        //ldr  r1, =0x202198  // r1 = rx_info_data_200478                                           //DONE
+        //ldr  r2, [r1]       // first 4 byte of rx_info_data contains connection number
+        //str  r2, [r0]       // copy the complete 4 bytes to the temp. buffer (we have space :))
+        //add  r0, 4
+        //add  r1, 4          // r1 = rx_info_data_200478 + 4 which contains the ptr to the data
+        //ldr  r1, [r1]       // r1 = ptr to the data.
+        //add  r1, 0xC        // The actual LMP payload starts at offset 0xC
+        //mov  r2, 24         // size for memcpy (max size of LMP should be 19 bytes; just to be safe do 24)
+        //bl   0x63900+1      // memcpy      
         
 
         // send HCI event packet (aka our temp. buffer)

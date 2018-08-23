@@ -606,8 +606,8 @@ class InternalBlue():
         # compile assembler snippet containing the hook code:
         hooks_code = asm(fw.LMP_MONITOR_INJECTED_CODE, vma=fw.LMP_MONITOR_HOOK_BASE_ADDRESS)
         # save memory content at the addresses where we place the snippet and the temp. buffer
-        saved_data_hooks = self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
-        saved_data_data  = self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
+        saved_data_hooks = "" #TODO self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_data  = "" #TODO self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
 
 
         self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, p32(0)) # TODO: unnecessary, maybe remove?
@@ -619,16 +619,15 @@ class InternalBlue():
         log.debug("startLmpMonitor: inserting lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 1))
         
-        #if True:
-        #    return False #TODO
 
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
-        log.debug("startLmpMonitor: inserting lmp recv hook ...")
-        patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
-        if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
-            log.warn("startLmpMonitor: couldn't insert patch!")
-            return False
-        log.debug("startLmpMonitor: monitor mode activated.")
+        #TODO
+        #log.debug("startLmpMonitor: inserting lmp recv hook ...")
+        #patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), #vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
+        #if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
+        #    log.warn("startLmpMonitor: couldn't insert patch!")
+        #    return False
+        #log.debug("startLmpMonitor: monitor mode activated.")
 
         # Get device's BT address
         deviceAddress = self.readMem(fw.BD_ADDR, 6)[::-1]
