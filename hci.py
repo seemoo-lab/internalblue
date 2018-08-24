@@ -495,12 +495,43 @@ class StackDumpReceiver:
             return
         if hcipkt.event_code != 0xff:
             return
-        if hcipkt.data[0:4] != p32(0x039200f7):
-            return
+        if hcipkt.data[0] == '\x57':
+            self.handleNexus6pStackDump(hcipkt)
+        if hcipkt.data[0:4] == p32(0x039200f7):
+            self.handleNexus5StackDump(hcipkt)
 
-        checksum_correct = sum([ord(x) for x in hcipkt.data[5:]]) % 0x100 == 0
 
-        if hcipkt.data[4] == '\x2c':
+    def verifyChecksum(self, data):
+        """ Data should be a byte string containing all payload bytes
+        beginning with the checksum byte.
+        """
+        return sum([ord(x) for x in data]) % 0x100 == 0
+
+    def handleRamDump(self, data):
+        """ Data should be a byte string containing the address (4 byte)
+        followed by the actual ram dump (at this address)
+        """
+        addr = u32(data[:4])
+        if self.memdump_addr == None:
+            self.memdump_addr = addr
+        self.memdumps[addr-self.memdump_addr] = data[4:]
+
+    def finishStackDump(self):
+        dump = fit(self.memdumps)
+        log.warn("Stack dump @0x%08x written to internalblue_stackdump.bin!" % self.memdump_addr)
+        f = open("internalblue_stackdump.bin", "wb")
+        f.write(dump)
+        f.close()
+
+        # Shut down:
+        self.stack_dump_has_happend = True
+
+
+    def handleNexus5StackDump(self, hcipkt):
+        checksum_correct = self.verifyChecksum(hcipkt.data[5:])
+        packet_type = u8(hcipkt.data[4])
+
+        if packet_type == 0x2c:
             data = hcipkt.data[6:]
             values = [u32(data[i:i+4]) for i in range(0, 64, 4)]
             log.debug("Stack Dump (%s):\n%s" % ("checksum correct" if checksum_correct else "checksum NOT correct",
@@ -514,31 +545,47 @@ class StackDumpReceiver:
                             tuple(values[6:11])
                 log.warn(registers)
 
-        elif hcipkt.data[4] == '\xf0':      # RAM dump
-            addr = u32(hcipkt.data[10:14])
-            if self.memdump_addr == None:
-                self.memdump_addr = addr
-            self.memdumps[addr-self.memdump_addr] = hcipkt.data[14:]
+        elif packet_type == 0xf0:      # RAM dump
+            self.handleRamDump(hcipkt.data[10:])
 
-        elif hcipkt.data[4] == '\x4c':      # RAM dump (last frame)
-            addr = u32(hcipkt.data[10:14])
-            if self.memdump_addr == None:
-                self.memdump_addr = addr
-            self.memdumps[addr-self.memdump_addr] = hcipkt.data[14:]
-
+        elif packet_type == 0x4c:      # RAM dump (last frame)
+            self.handleRamDump(hcipkt.data[10:])
             # This is the last pkt ouput:
-            dump = fit(self.memdumps)
-            log.warn("Stack dump @0x%08x written to internalblue_stackdump.bin!" % self.memdump_addr)
-            f = open("internalblue_stackdump.bin", "wb")
-            f.write(dump)
-            f.close()
-
-            # Shut down:
-            self.stack_dump_has_happend = True
+            self.finishStackDump()
             return True
         return False
 
 
+    def handleNexus6pStackDump(self, hcipkt):
+        checksum_correct = self.verifyChecksum(hcipkt.data[8:])
+        packet_nr   = u8(hcipkt.data[2])
+        packet_type = u8(hcipkt.data[7])
+
+        if packet_type in [0x2c, 0x4c]:
+            data = hcipkt.data[9:]
+            values = [u32(data[i:i+4]) for i in range(0, 64, 4)]
+            log.debug("Stack Dump (%s) [packet_type=0x%x]:\n%s" % ("checksum correct" if checksum_correct else "checksum NOT correct",
+                packet_type, '\n'.join([hex(x) for x in values])))
+
+            if packet_type == 0x2c and data[0] == '\x02':
+                # This is the second stack dump event (contains register values)
+                log.warn("Received Stack-Dump Event (contains %d registers):" % (u8(data[1])))
+                registers  = "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n" % \
+                            (values[2], values[3], values[1], values[4], values[5])
+                registers += "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n" % \
+                            tuple(values[6:11])
+                log.warn(registers)
+
+
+        elif packet_type == 0xf0:      # RAM dump
+            self.handleRamDump(hcipkt.data[13:])
+
+        if packet_nr == 0x84:
+            # This is the last pkt ouput:
+            self.finishStackDump()
+            return True
+
+        return False
 
 
 
