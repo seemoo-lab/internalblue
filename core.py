@@ -621,13 +621,12 @@ class InternalBlue():
         
 
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
-        #TODO
-        #log.debug("startLmpMonitor: inserting lmp recv hook ...")
-        #patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), #vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
-        #if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
-        #    log.warn("startLmpMonitor: couldn't insert patch!")
-        #    return False
-        #log.debug("startLmpMonitor: monitor mode activated.")
+        log.debug("startLmpMonitor: inserting lmp recv hook ...")
+        patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
+        if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
+            log.warn("startLmpMonitor: couldn't insert patch!")
+            return False
+        log.debug("startLmpMonitor: monitor mode activated.")
 
         # Get device's BT address
         deviceAddress = self.readMem(fw.BD_ADDR, 6)[::-1]
@@ -1029,10 +1028,18 @@ class InternalBlue():
         if len(patch) != 4:
             log.warn("patchRom: patch (0x%x) must be a 32-bit dword!" % patch)
             return False
+        
 
-        if address % 4 != 0:
-            log.warn("patchRom: Address 0x%x is not 4-byte aligned!" % address)
+        alignment = address % 4
+        if alignment != 0:
+            log.debug("patchRom: Address 0x%x is not 4-byte aligned!" % address)
             return False
+            #TODO parameter format still wrong and not sure if patching zeros makes sense...
+            #log.debug("patchRom: applying patch 0x%x in two rounds" % u32(patch) )
+            #self.patchRom(address - alignment, "%x" % (u32(patch) >> alignment*8), slot)
+            #self.patchRom(address + alignment, "%x" % ((u32(patch) << alignment*8) & 0xffffffff), slot)
+            
+            
 
         table_addresses, table_values, table_slots = self.getPatchramState()
 

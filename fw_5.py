@@ -91,7 +91,7 @@ LMP_MONITOR_INJECTED_CODE = """
     // and sends them to the host via HCI)
     // hook_recv_lmp uses BUFFER_BASE_ADDRESS as temp. buffer for the HCI event
     hook_recv_lmp:
-        push {r2-r8,lr}     // this is the original push from the hooked function
+        push {r2-r8,lr}     // this is the original push from the hooked function LMP_Dispatcher
                             // (we have to do it here as we overwrote if with the hook patch)
         push {r0-r4,lr}     // this is to save the registers so we can overwrite
                             // them in this function

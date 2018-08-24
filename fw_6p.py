@@ -85,8 +85,8 @@ LMP_SEND_PACKET_HOOK            = 0x2023FC  # This address contains the hook fun
 LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd5230  # Start address for the INJECTED_CODE #TODO might not always work
 LMP_MONITOR_BUFFER_BASE_ADDRESS = 0xd5330   # Address of the temporary buffer for the HCI event #DONE
 LMP_MONITOR_BUFFER_LEN          = 0x80      # Length of the temporary BUFFER
-LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD44   # LMP_Dispatcher_3F3F4 #DONE
-
+LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD44   # LMP_Dispatcher_3F3F4 #DONE #TODO not 4 byte aligned, but -2 seemed to do sth...
+# TODO we don't use the buffer any more
 
 
 LMP_MONITOR_INJECTED_CODE = """
@@ -98,7 +98,27 @@ LMP_MONITOR_INJECTED_CODE = """
     
     hook_recv_lmp: //looks like this one causes the infinite loop?
     
-        b    0x3AD46        // branch back into LMP_Dispatcher   
+        //TODO original hook_recv has double push, check that one out!!!
+
+        //hangs up
+        push {r2-r8,lr}
+        b    0x3AD4A //LMP_Dispatcher + 4
+        
+    
+        push {r4, lr}
+        //mov  r0, 0 //with r0=0: does hang up
+        mov  r0, 1 //with r1=0: does hang up
+        pop  {r4, pc}
+        
+        // hangs up without endless loop
+        push {r4, lr}
+        pop  {r4, pc}
+    
+        // with this we have again an endless loop of 0xff commands full of shit (0xff 0x1b03)
+        b    0xAF70   // return as if there was no hook
+    
+        //with address + 4 it just hangs up, no endless loop / data
+        b    0x3AD4A        // branch back into LMP_Dispatcher + 4  (TODO: do we need the +4?)
         
         
         push {r4, lr}
@@ -125,7 +145,7 @@ LMP_MONITOR_INJECTED_CODE = """
         bl   0x20F4      // send_hci_event() //DONE
         
         pop {r4, lr}    // return
-        b    0x3AD46        // branch back into LMP_Dispatcher      
+        b    0x3AD4A        // branch back into LMP_Dispatcher + 4     
         
         
         
