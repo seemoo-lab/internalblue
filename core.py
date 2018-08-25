@@ -590,8 +590,7 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['LMP_SEND_PACKET_HOOK', 'LMP_MONITOR_LMP_HANDLER_ADDRESS',
-                      'LMP_MONITOR_HOOK_BASE_ADDRESS', 'LMP_MONITOR_BUFFER_BASE_ADDRESS',
-                      'LMP_MONITOR_INJECTED_CODE', 'LMP_MONITOR_BUFFER_LEN']:
+                      'LMP_MONITOR_HOOK_BASE_ADDRESS', 'LMP_MONITOR_INJECTED_CODE']:
             if const not in dir(fw):
                 log.warn("startLmpMonitor: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
@@ -606,12 +605,12 @@ class InternalBlue():
         # compile assembler snippet containing the hook code:
         hooks_code = asm(fw.LMP_MONITOR_INJECTED_CODE, vma=fw.LMP_MONITOR_HOOK_BASE_ADDRESS)
         # save memory content at the addresses where we place the snippet and the temp. buffer
-        saved_data_hooks = "" #TODO self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
-        saved_data_data  = "" #TODO self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
+        saved_data_hooks = self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_data = ""
+        if 'LMP_MONITOR_BUFFER_BASE_ADDRESS' in dir(fw):
+            saved_data_data  = self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
 
-
-        self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, p32(0)) # TODO: unnecessary, maybe remove?
-
+        # write code for hook to memory (hook_send_lmp, hook_recv_lmp)
         log.debug("startLmpMonitor: injecting hook functions...")
         self.writeMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, hooks_code)
 
@@ -619,9 +618,9 @@ class InternalBlue():
         log.debug("startLmpMonitor: inserting lmp send hook ...")
         self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 1))
         
-
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
         log.debug("startLmpMonitor: inserting lmp recv hook ...")
+        # position of 'b hook_recv_lmp' within hook code is + 5
         patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
         if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
             log.warn("startLmpMonitor: couldn't insert patch!")
@@ -690,7 +689,7 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['LMP_SEND_PACKET_HOOK', 'LMP_MONITOR_LMP_HANDLER_ADDRESS',
-                      'LMP_MONITOR_HOOK_BASE_ADDRESS', 'LMP_MONITOR_BUFFER_BASE_ADDRESS']:
+                      'LMP_MONITOR_HOOK_BASE_ADDRESS']:
             if const not in dir(fw):
                 log.warn("stopLmpMonitor: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
@@ -715,7 +714,8 @@ class InternalBlue():
         # Restoring the memory content of the area where we stored the patch code and temp. buffers
         log.debug("stopLmpMonitor: Restoring saved data...")
         self.writeMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, saved_data_hooks)
-        self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, saved_data_data)
+        if 'LMP_MONITOR_BUFFER_BASE_ADDRESS' in dir(fw):
+            self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, saved_data_data)
         return True
 
     def sendHciCommand(self, opcode, data, timeout=2):
@@ -1026,18 +1026,23 @@ class InternalBlue():
                 return False
 
         if len(patch) != 4:
-            log.warn("patchRom: patch (0x%x) must be a 32-bit dword!" % patch)
+            log.warn("patchRom: patch (%s) must be a 32-bit dword!" % patch)
             return False
         
+        log.debug("patchRom: applying patch 0x%x to address 0x%x" % (u32(patch), address))
 
         alignment = address % 4
         if alignment != 0:
             log.debug("patchRom: Address 0x%x is not 4-byte aligned!" % address)
-            return False
-            #TODO parameter format still wrong and not sure if patching zeros makes sense...
-            #log.debug("patchRom: applying patch 0x%x in two rounds" % u32(patch) )
-            #self.patchRom(address - alignment, "%x" % (u32(patch) >> alignment*8), slot)
-            #self.patchRom(address + alignment, "%x" % ((u32(patch) << alignment*8) & 0xffffffff), slot)
+            log.debug("patchRom: applying patch 0x%x in two rounds" % u32(patch) )
+            # read original content
+            orig = self.readMem(address - alignment, 8)
+            # patch the difference of the 4 bytes we want to patch within the original 8 bytes
+            #self.patchRom(address - alignment, (orig[:alignment] + patch[:4-alignment])[::-1], slot)
+            #self.patchRom(address + 4 - alignment, (patch[4-alignment:] + orig[alignment+4:])[::-1], slot)
+            self.patchRom(address - alignment, orig[:alignment] + patch[:4-alignment], slot)
+            self.patchRom(address - alignment + 4, patch[4-alignment:] + orig[alignment+4:], slot)
+            return True
             
             
 
