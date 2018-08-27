@@ -55,7 +55,9 @@ SECTIONS = [ MemorySection(0x0,      0x9ef00,  True , False),
 # Connection Struct and Table
 #CONNECTION_ARRAY_ADDRESS = 0x201c20 #0x00208E55 # TODO ?? ... might also be around 00208E60, 0x201c2c seems to be wrong
 #CONNECTION_ARRAY_ADDRESS  = 0x218EA8; # correct according to get_ptr_to_connection_struct_from_index
-CONNECTION_ARRAY_ADDRESS  = 0x218ed4; #seems to work for Eifon
+#CONNECTION_ARRAY_ADDRESS = 0x218ed4; #seems to work for Eifon
+CONNECTION_ARRAY_ADDRESS = 0x201C2C
+#CONNECTION_ARRAY_ADDRESS  = 0x21AD5C # from find_connection_struct_by_number
 CONNECTION_ARRAY_SIZE    = 11 #is still 11 for Nexus 6P, but no longer hard-coded
 CONNECTION_STRUCT_LENGTH = 0x14C
 # hexdump 0x201c20 --length 0x14c
@@ -71,6 +73,13 @@ PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000 #done, seems to be similar
 PATCHRAM_NUMBER_OF_SLOTS        = 192 #was 128, many 0x80 are now 0xc0   
 
 
+LAUNCH_RAM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in seconds
+# not a problem: doing multiple writeMem in a row
+# the thing that crashes: executing multiple launchRam() in a row: sendhcicmd 0xfc4e 0x473CC
+# crashes even when executing 0x5E860 twice, which is just a nullsub
+# also crashes during the pause if there are other hci events
+
+
 # LMP
 
 # These arrays contain the sizes for LMP packets (including the opcode) depending
@@ -82,11 +91,11 @@ LMP_ESC_LENGTHS = [0, 4, 5, 12, 12, 12, 8, 3, 0, 0, 0, 3, 16, 4, 0, 0, 7, 12, 0,
 # Hooks for the LMP Monitor Mode
 LMP_SEND_PACKET_HOOK            = 0x2023FC  # This address contains the hook function for LMP_send_packet
                                             # It is NULL by default. If we set it to a function address,
-                                            # the function will be called by LMP_send_packet. #DONE
+                                            # the function will be called by LMP_send_packet.
 LMP_MONITOR_HOOK_BASE_ADDRESS   = 0xd5230   # Start address for the INJECTED_CODE 
 LMP_MONITOR_LMP_HANDLER_ADDRESS = 0x3AD46   # LMP_Dispatcher_3F3F4
 
-
+#FIXME still has a problem inserting the mac address in recv direction
 LMP_MONITOR_INJECTED_CODE = """
     // Jump Table
     // bl BUFFER_BASE_ADDRESS+1 executes hook_send_lmp
@@ -97,8 +106,10 @@ LMP_MONITOR_INJECTED_CODE = """
     hook_recv_lmp:    
     
         // we overwrite the first 4 bytes of LMP_Dispatcher with 'b hook_recv_lmp' via patchram
-        push {r2-r8,lr}  // restore the first 4 bytes of LMP_Dispatcher which pushes the registers        
-        push {r0-r4, lr} // we use r0-r4 locally
+        push {r2-r8, lr}  // restore the first 4 bytes of LMP_Dispatcher which pushes the registers        
+        push {r0-r5, lr} // we use r0-r5 locally
+        
+        mov r5, r0       // backup of empty connection struct ptr
         
         // malloc HCI event buffer
         mov  r1, 0xff    // HCI header: len=0x2c   event code=0xff
@@ -113,29 +124,30 @@ LMP_MONITOR_INJECTED_CODE = """
         add  r0, 10      // write after the length field (offset 10 in event struct)
         ldr  r1, =0x504d4c5f  // '_LMP'
         str  r1, [r0]
-        add  r0, 4      // advance the pointer. r0 now points to the beginning of our own lmp data
+        add  r0, 4          // advance the pointer. r0 now points to the beginning of our own lmp data
         ldr  r1, =0x015f    // continuation of custom header: '_\x01'; 01 for 'lmp recv'
         strh r1, [r0]       // Full header: _LMP_<type>    where type is 0x00 for lmp send
         add  r0, 2          //                                           0x01 for lmp recv
         
         // read remote bt addr from connection struct
         //TODO definitely broken, inserts wrong address
-        //TODO but "info connections" also does not work yet, so probably that's the problem?        
-        ldr  r1, =0x20219A  // adr inside rx_info_data_200478 at which the conn. number is stored //DONE?
-        ldrb r2, [r1]       // store connection number in r2
-        sub  r2, 1          // connection nr minus 1 results in the connection array index
-        mov  r1, 0x14C      // size r1 = size of connection struct
-        mul  r2, r1         // calculate offset of connection struct entry inside the array
-        ldr  r1, =0x218ed4  // address of connection array start                                  //DONE?
-        add  r1, r2         // store address of connection struct in r1
+        //TODO but "info connections" also does not work yet, so probably that's the problem?         
+        push {r0-r2, lr}
+        mov  r0, r5 //restore empty connection struct ptr 
+        add  r0, 2 //connection index offset
+        ldrh r0, [r0]
+        bl   0x473CC+1 //get_ptr_to_connection_struct_from_index
+        mov  r5, r0
+        pop  {r0-r2, lr}
+        ldr  r1, [r5]
         add  r1, 0x28       // at offset 0x28 is the remote BT address located
         mov  r2, 6          // memcpy the BT address into the temp. buffer
         bl   0x63900+1      // memcpy 
-        // memcpy returns end of dst buffer (8 byte aligned)
-        // that means r0 now points after the BT address inside the temp. buffer
+        
+        
 
         //// read LMP payload data and store it inside the temp. buffer
-        ldr  r1, =0x202198  // r1 = rx_info_data_200478                                           //DONE
+        ldr  r1, =0x202198  // r1 = rx_info_data_200478
         ldr  r2, [r1]       // first 4 byte of rx_info_data contains connection number
         str  r2, [r0]       // copy the complete 4 bytes to the temp. buffer (we have space :))
         add  r0, 4
@@ -150,7 +162,7 @@ LMP_MONITOR_INJECTED_CODE = """
 
         bl   0x20F4      // send_hci_event()
         
-        pop {r0-r4, lr}  // reset local registers
+        pop {r0-r5, lr}  // reset local registers
         b    0x3AD4A     // return to LMP_Dispatcher + 4 (after our 'b hook_recv_lmp' )
         
         
@@ -171,7 +183,7 @@ LMP_MONITOR_INJECTED_CODE = """
         bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer) 
         mov  r6, r0      // save pointer to the buffer in r6
 
-        // append our custom header (the word 'TEST') after the event code and event length field
+        // append our custom header (the word '_LMP') after the event code and event length field
         add  r0, 10      // write after the length field (offset 10 in event struct)
         ldr  r1, =0x504d4c5f  // '_LMP'
         str  r1, [r0]
@@ -220,12 +232,13 @@ LMP_MONITOR_INJECTED_CODE = """
 
 
 # Snippet for sendLmpPacket()
-SENDLMP_CODE_BASE_ADDRESS = 0xd5130 #TODO?
+SENDLMP_CODE_BASE_ADDRESS = 0xd5130
+#TODO already works except for correct mac address - so still a problem with the connection #
 SENDLMP_ASM_CODE = """
         push {r4,lr}
 
         // malloc buffer for LMP packet
-        bl 0x3AAA8      // malloc_0x20_bloc_buffer_memzero                                      //DONE
+        bl 0x3AAA8      // malloc_0x20_bloc_buffer_memzero
         mov r4, r0      // store buffer for LMP packet inside r4
 
         // fill buffer
@@ -235,11 +248,12 @@ SENDLMP_ASM_CODE = """
         mov r2, 20          // Max. size of an LMP packet is 19 (I guess). The send_LMP_packet
                             // function will use the LMP opcode to lookup the actual size and
                             // use it for actually transmitting the correct number of bytes.
-        bl  0x63900+1       // memcpy                                                           //DONE
+        bl  0x63900+1       // memcpy
 
         // load conn struct pointer (needed for determine if we are master or slave)
         mov r0, %d      // connection number is injected by sendLmpPacket()
-        bl 0x473CC      // find connection struct from conn nr (r0 will hold pointer to conn struct)    //DONE
+        bl 0x473CC      // find connection struct from conn nr (r0 will hold pointer to conn struct)    //FIXME
+        //FIXME: mac address is always 1f:8d:00:00:00:00
 
         // set tid bit if we are the slave
         ldr r1, [r0, 0x1c]  // Load a bitmap from the connection struct into r1.
@@ -257,28 +271,24 @@ SENDLMP_ASM_CODE = """
         mov r1, r4      // load the address of the LMP packet buffer into r1.
                         // r0 still contains the connection number.
         pop {r4,lr}     // restore r4 and the lr
-        b 0xAF4C        // branch to send_LMP_packet. send_LMP_packet will do the return for us.    //DONE
+        b 0xAF4C        // branch to send_LMP_packet. send_LMP_packet will do the return for us.
 
         .align          // The payload (LMP packet) must be 4-byte aligend (memcpy needs aligned addresses)
         payload:        // Note: the payload will be appended here by the sendLmpPacket() function
         """
 
 # Assembler snippet for the readMemAligned() function
-## works immediately for "hexdump -l 60 -a 0xd5030" ... all lengths < 244
-## TODO for whatever reason it needs a pause when called multiple times, otherwise driver crashes after writeRAM command
-READ_MEM_ALIGNED_ASM_LOCATION = 0xd5030 #TODO maybe this memory area is the reason, might be overwritten
-# TODO a valid bugfix would be to e.g. pass sth along with the launchram command, then we only need writeram once
-READ_MEM_ALIGNED_ASM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in seconds
+READ_MEM_ALIGNED_ASM_LOCATION = 0xd5030 
 READ_MEM_ALIGNED_ASM_SNIPPET = """
         push {r4, lr}
         
         // malloc HCI event buffer
-        mov  r1, 0xff    // event code is 0xff (vendor specific HCI Event) //DONE, was r0
-        mov  r2, %d      // readMemAligned() injects the number of bytes it wants to read here //DONE, was r1
+        mov  r1, 0xff    // event code is 0xff (vendor specific HCI Event) 
+        mov  r2, %d      // readMemAligned() injects the number of bytes it wants to read here 
         add  r2, 4       // + 'READ'
         mov  r0, r2
         adds r0, #2      // r0 needs to be 2 higher than r2 in all malloc_hci_event_buffer calls
-        bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer) //DONE
+        bl   0x22C4      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer)
         mov  r4, r0      // save pointer to the buffer in r4
 
         // append our custom header (the word 'READ') after the event code and event length field
@@ -302,7 +312,7 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
         mov r0, r4      // r4 still points to the beginning of the HCI buffer
 
         pop {r4, lr}    // return
-        b   0x20F4      // send_hci_event() //DONE
+        b   0x20F4      // send_hci_event()
 
     """
 

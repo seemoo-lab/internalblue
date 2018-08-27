@@ -246,7 +246,6 @@ SENDLMP_ASM_CODE = """
 
 # Assembler snippet for the readMemAligned() function
 READ_MEM_ALIGNED_ASM_LOCATION = 0xd7900
-READ_MEM_ALIGNED_ASM_PAUSE = 0 # pause between multiple readMemAligned() calls in seconds
 READ_MEM_ALIGNED_ASM_SNIPPET = """
         push {r4, lr}
 

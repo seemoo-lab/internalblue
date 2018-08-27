@@ -649,7 +649,7 @@ class InternalBlue():
             # was intercepted from LMP_dispatcher or LMP_send_packet
             sendFromDevice = hcipkt.data[5] == '\x00'   # 0 for send;  1 for recv
             lmpData = hcipkt.data[6:]                   # grab the data which comes after my header
-
+            
             connection_address = lmpData[0:6][::-1]     # The BT address of the remote device
                                                         # stored in little endian byte order
             connection_number = u8(lmpData[10])         # not used, but may be useful..
@@ -871,9 +871,6 @@ class InternalBlue():
             blocksize = bytes_left
             if blocksize > 244:
                 blocksize = 244
-            
-            # bugfix: Nexus 6P readMemAligned requires pause 
-            time.sleep(fw.READ_MEM_ALIGNED_ASM_PAUSE)
 
             # Customize the assembler snippet with the current read_addr and blocksize
             code = asm(fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=fw.READ_MEM_ALIGNED_ASM_LOCATION)
@@ -903,9 +900,6 @@ class InternalBlue():
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
 
-        # bugfix: Nexus 6P readMemAligned requires pause 
-        time.sleep(fw.READ_MEM_ALIGNED_ASM_PAUSE)
-
         self.unregisterHciRecvQueue(recvQueue)
         return outbuffer
 
@@ -921,7 +915,7 @@ class InternalBlue():
         - bytes_total:  Total bytes that will be written within the transaction covered by progress_log.
         """
 
-        log.debug("writeMem: writing to %x" % address)
+        log.debug("writeMem: writing to 0x%x" % address)
         
         if not self.check_running():
             return None
@@ -938,8 +932,11 @@ class InternalBlue():
                 blocksize = 251
 
             response = self.sendHciCommand(0xfc4c, p32(write_addr) + data[byte_counter:byte_counter+blocksize])
-            if(response[3] != '\x00'):
-                log.warn("Got error code %x in command complete event." % response[3])
+            if(response == None):
+                log.warn("writeMem: Timeout while reading response, probably need to wait longer.")
+                return False
+            elif (response[3] != '\x00'):
+                log.warn("writeMem: Got error code %x in command complete event." % response[3])
                 return False
             write_addr += blocksize
             byte_counter += blocksize
@@ -955,6 +952,7 @@ class InternalBlue():
         As the function blocks the HCI handler thread, the chip will most likely
         crash (or be resetted by Android) if the function takes too long.
         """
+        
 
         response = self.sendHciCommand(0xfc4e, p32(address))
         if (response == None):
@@ -964,6 +962,12 @@ class InternalBlue():
         if(response[3] != '\x00'):
             log.warn("Got error code %x in command complete event." % response[3])
             return False
+        
+        
+        if (fw.LAUNCH_RAM_PAUSE):
+            log.debug("launchRam: Bugfix, sleeping %ds" % fw.LAUNCH_RAM_PAUSE)
+            time.sleep(fw.LAUNCH_RAM_PAUSE)
+            
         return True
 
     def getPatchramState(self):
