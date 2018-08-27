@@ -85,8 +85,8 @@ LAUNCH_RAM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in 
 # These arrays contain the sizes for LMP packets (including the opcode) depending
 # on the LMP opcode or escaped LMP opcode. The values can be obtained from the BT
 # specification or from the LMP handler table in the firmware.
-LMP_LENGTHS = [0, 2, 17, 2, 3, 1, 3, 2, 17, 17, 17, 17, 5, 17, 17, 2, 2, 17, 1, 5, 7, 7, 0, 10, 1, 17, 0, 6, 13, 9, 15, 2, 2, 1, 1, 1, 2, 6, 6, 9, 9, 4, 4, 7, 3, 2, 2, 1, 3, 1, 1, 1, 9, 3, 3, 3, 1, 10, 1, 3, 16, 4, 17, 17, 17, 17, 17, 0]
-LMP_ESC_LENGTHS = [0, 4, 5, 12, 12, 12, 8, 3, 0, 0, 0, 3, 16, 4, 0, 0, 7, 12, 0, 0, 0, 9, 9, 2, 2, 5, 5, 2, 2, 2, 3, 3, 3]
+LMP_LENGTHS = [0, 2, 17, 2, 3, 1, 3, 2, 17, 17, 17, 17, 5, 17, 17, 2, 2, 17, 1, 5, 7, 7, 0, 10, 1, 17, 0, 6, 13, 9, 15, 2, 2, 1, 1, 1, 2, 6, 6, 9, 9, 4, 4, 7, 3, 2, 2, 1, 3, 1, 1, 1, 9, 3, 3, 3, 1, 10, 1, 3, 16, 4, 17, 17, 17, 17, 17, 0, 0, 0]
+LMP_ESC_LENGTHS = [0, 4, 5, 12, 12, 15, 3, 6, 0, 0, 0, 3, 16, 4, 0, 0, 7, 12, 0, 0, 0, 9, 9, 2, 2, 5, 5, 2, 2, 2, 3, 3, 3, 2, 2]
 
 # Hooks for the LMP Monitor Mode
 LMP_SEND_PACKET_HOOK            = 0x2023FC  # This address contains the hook function for LMP_send_packet
