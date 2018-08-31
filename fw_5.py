@@ -225,8 +225,7 @@ SENDLMP_ASM_CODE = """
         // set tid bit if we are the slave
         ldr r1, [r0, 0x1c]  // Load a bitmap from the connection struct into r1.
         lsr r1, 15          // The 'we are master'-bit is at position 15 of this bitmap
-        eor r1, 0x1         // invert and isolate the bit to get the correct value for the TID bit
-        and r1, 0x1
+        and r1, 0x1         // isolate the bit to get the correct value for the TID bit
         ldr r2, [r4, 0xC]   // Load the LMP opcode into r2. Note: The opcode was already shifted
                             // left by 1 bit (done by sendLmpPacket()). The TID bit goes into
                             // the LSB (least significant bit) of this shifted opcode byte.

@@ -1150,7 +1150,7 @@ class InternalBlue():
         conn_dict["connection_number"]    = u32(connection[:4])
         conn_dict["remote_address"]       = connection[0x28:0x2E][::-1]
         conn_dict["remote_name_address"]  = u32(connection[0x4C:0x50])
-        conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 != 0
+        conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 == 0
         conn_dict["connection_handle"]    = u16(connection[0x64:0x66])
         conn_dict["public_rand"]          = connection[0x78:0x88]
         #conn_dict["pin"]                  = connection[0x8C:0x92]
