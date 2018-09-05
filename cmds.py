@@ -37,11 +37,15 @@ import time
 import select
 
 def getCmdList():
-    # List of available commands:
+    """ Returns a list of all commands which are defined in this cmds.py file.
+    This is done by searching for all subclasses of Cmd
+    """
     return [obj for name, obj in inspect.getmembers(sys.modules[__name__]) 
                             if inspect.isclass(obj) and issubclass(obj, Cmd)][1:]
 
 def findCmd(keyword):
+    """ Find and return a Cmd subclass for a given keyword.
+    """
     command_list = getCmdList()
     matching_cmds = [cmd for cmd in command_list if keyword in cmd.keywords]
     if(len(matching_cmds) == 0):
@@ -52,23 +56,22 @@ def findCmd(keyword):
     return matching_cmds[0]
 
 def auto_int(x):
+    """ Convert a string (either decimal number or hex number) into an integer.
+    """
     return int(x, 0)
 
 def bt_addr_to_str(bt_addr):
+    """ Convert a Bluetooth address (6 bytes) into a human readable format.
+    """
     return ":".join([b.encode("hex") for b in bt_addr])
 
 
-class MemorySection:
-    def __init__(self, start_addr, end_addr, is_rom, is_ram):
-        self.start_addr = start_addr
-        self.end_addr = end_addr
-        self.is_rom = is_rom
-        self.is_ram = is_ram
-
-    def size(self):
-        return self.end_addr - self.start_addr
-
 class Cmd:
+    """ This class is the superclass of a CLI command. Every CLI command
+    must be defined as subclass of Cmd. The subclass must define the
+    'keywords' list as member variable. The actual implementation of the
+    command should be located in the work() method.
+    """
     keywords = []
 
     memory_image = None
