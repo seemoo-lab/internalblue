@@ -88,10 +88,8 @@ def commandLoop():
         cmd_instance = None
 
 
-#
 # Main Program Start
-#
-if __name__ == "__main__":
+def internalblue_cli():
     print_banner()
     internalblue = core.InternalBlue()
 
@@ -126,4 +124,8 @@ if __name__ == "__main__":
 
     # Cleanup
     log.info("Goodbye")
+
+
+if __name__ == "__main__":
+    internalblue_cli()
 
