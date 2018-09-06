@@ -8,14 +8,61 @@ therefore implement monitoring and injection tools for the lower layers of
 the Bluetooth protocol stack.
 
 
+Setup and Installation
+----------------------
+
+The framework uses ADB (Android Debug Bridge) to connect to the smartphone.
+Either connect the phone via USB or setup ADB over TCP and make sure you
+enable USB debugging in the developer settings of Android.
+
+The Android device needs to run a Bluetooth stack that was compiled with
+debugging features enabled. A detailed description on how to compile the
+Bluetooth stack for your device can be found in the *README.md* file inside the
+*android_bluetooth_stack* directory of this repository. It also contains
+precompiled stacks for some devices. InternalBlue does not work without the
+debug Bluetooth stack.
+
+The InternalBlue framework is written in Python 2. You can install it together
+with all dependencies by using the setup.py script:
+
+    python2 setup.py install
+
+It will install the following dependencies:
+* pwntools
+
+The pwntools module needs the binutils package for ARM 32-bit to be installed
+on the system. This has to be installed manually by using the packet manager
+of your Linux distribution:
+
+    # for Arch Linux
+    sudo pacman -S arm-none-eabi-binutils
+
+    # for Ubuntu
+    sudo apt install binutils-arm-linux-gnueabi
+
+
 Usage
 -----
 
-python2 -m internalblue.cli
+The CLI (Command Line Interface) of InternalBlue can be started by running:
+
+    python2 -m internalblue.cli
+
+The setup.py installation will also place a shortcut to the CLI into the $PATH
+so that it can be started from a command line using:
+
+    internalblue
+
+It should automatically connect to your Android phone through ADB.
+Use the *help* command to display a list of available commands.
 
 Requirements:
 * recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE'
-* currently only tested for Nexus 5 and Nexus 6P
+* Nexus 5 or Nexus 6P connected via ADB
+
+Optional Requirements:
+* LMP Wireshark Dissector Plugin (https://github.com/demantz/lmp_wireshark_dissector)
+
 
 
 License
