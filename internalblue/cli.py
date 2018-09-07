@@ -53,7 +53,7 @@ type <help> for usage information!\n\n"""
     for line in banner:
         term.output(text.blue(line))
 
-def commandLoop():
+def commandLoop(internalblue):
     while internalblue.running and not internalblue.exit_requested:
         cmd_instance = None
         try:
@@ -112,7 +112,7 @@ def internalblue_cli():
         exit(-1)
 
     # Enter command loop (runs until user quits)
-    commandLoop()
+    commandLoop(internalblue)
 
     # shutdown connection
     internalblue.shutdown()
