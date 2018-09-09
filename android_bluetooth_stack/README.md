@@ -1,8 +1,7 @@
 Enable Debugging Features in the Android Bluetooth Stack
 ========================================================
 
-The Android Bluetooth stack has [debugging features](https://chromium.googlesource.com/
-aosp/platform/system/bt/+/master/doc/network_ports.md) which are disabled in
+The Android Bluetooth stack has [debugging features](https://chromium.googlesource.com/aosp/platform/system/bt/+/master/doc/network_ports.md) which are disabled in
 normal builds. To enable them, the Bluetooth Stack (*bluetooth.default.so*) has
 to be build with debugging preprocessor defines.
 
@@ -24,8 +23,7 @@ an Android ROM needs around 100 GB of storage for the source tree and the
 compiled outputs.
 
 Most steps of this tutorial are taken from an online [tutorial from
-Sony](https://developer.sonymobile.com/open-devices/aosp-build-instructions/
-how-to-build-aosp-marshmallow-for-unlocked-xperia-devices/).
+Sony](https://developer.sonymobile.com/open-devices/aosp-build-instructions/how-to-build-aosp-marshmallow-for-unlocked-xperia-devices/).
 For the most recent Android version (at the time this tutorial was written the
 most recent Android version is 8.1) there exist preconfigured [AWS
 instances](https://aws.amazon.com/marketplace/pp/B01AOKYCZY) which come with
