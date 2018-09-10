@@ -1,9 +1,9 @@
 Enable Debugging Features in the Android Bluetooth Stack
 ========================================================
 
-The Android Bluetooth stack has [debugging features](https://chromium.googlesource.com/aosp/platform/system/bt/+/master/doc/network_ports.md) which are disabled in
-normal builds. To enable them, the Bluetooth Stack (*bluetooth.default.so*) has
-to be build with debugging preprocessor defines.
+The Android Bluetooth stack has [debugging features](https://chromium.googlesource.com/aosp/platform/system/bt/+/master/doc/network_ports.md)
+which are disabled in normal builds. To enable them, the Bluetooth Stack
+(*bluetooth.default.so*) has to be build with debugging preprocessor defines.
 
 This tutorial shows how to compile and install such a debugging Bluetooth Stack.
 Inside this directory are also several precompiled Bluetooth Stacks which have
@@ -11,8 +11,8 @@ been created according to the tutorial below. You can skip the build if you
 happen to have a device for which a precompiled *bluetooth.default.so* exists.
 
 
-Build
------
+Build (AOSP)
+------------
 
 In order to build a custom Bluetooth stack with enabled debugging features for
 Android it is necessary to setup a build environment for the AOSP. In recent
@@ -75,6 +75,23 @@ builds just the Bluetooth stack of the AOSP:
     lunch aosp_hammerhead-userdebug
     cd system/bt/
     bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
+
+
+Build (Lineage OS)
+------------------
+
+To compile the Bluetooth debug library for LineageOS 14.1, the steps are
+slightly different than for AOSP:
+
+Follow the build setup steps according to https://wiki.lineageos.org/devices/hammerhead/build
+until the Start the build section. Then do:
+
+    cd system/bt/
+    bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
+
+Flex crashes on Ubuntu 18.04 - [workaround](https://stackoverflow.com/questions/49301627/android-7-1-2-armv7):
+
+    export LC_ALL=C
 
 
 Installation
