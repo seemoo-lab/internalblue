@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 
 # core.py
 #
@@ -963,8 +963,8 @@ class InternalBlue():
             log.warn("Got error code %x in command complete event." % response[3])
             return False
         
-        
-        if (fw.LAUNCH_RAM_PAUSE):
+        # Nexus 6P Bugfix
+        if ('LAUNCH_RAM_PAUSE' in dir(fw) and fw.LAUNCH_RAM_PAUSE):
             log.debug("launchRam: Bugfix, sleeping %ds" % fw.LAUNCH_RAM_PAUSE)
             time.sleep(fw.LAUNCH_RAM_PAUSE)
             
@@ -1016,7 +1016,8 @@ class InternalBlue():
         slot if it is not forced through the 'slot' argument (see also
         getPatchramState()).
 
-        address: The address at which the patch should be applied (must be 4-byte aligned)
+        address: The address at which the patch should be applied
+                 (if the address is not 4-byte aligned, the patch will be splitted into two slots)
         patch:   The new value which should be placed at the address (byte string of length 4)
 
         Returns True on success and False on failure.
@@ -1038,17 +1039,16 @@ class InternalBlue():
         alignment = address % 4
         if alignment != 0:
             log.debug("patchRom: Address 0x%x is not 4-byte aligned!" % address)
+            if slot != None:
+                log.warn("patchRom: Patch must be splitted into two slots, but fixed slot value was enforced. Do nothing!")
+                return False
             log.debug("patchRom: applying patch 0x%x in two rounds" % u32(patch) )
             # read original content
             orig = self.readMem(address - alignment, 8)
             # patch the difference of the 4 bytes we want to patch within the original 8 bytes
-            #self.patchRom(address - alignment, (orig[:alignment] + patch[:4-alignment])[::-1], slot)
-            #self.patchRom(address + 4 - alignment, (patch[4-alignment:] + orig[alignment+4:])[::-1], slot)
             self.patchRom(address - alignment, orig[:alignment] + patch[:4-alignment], slot)
             self.patchRom(address - alignment + 4, patch[4-alignment:] + orig[alignment+4:], slot)
             return True
-            
-            
 
         table_addresses, table_values, table_slots = self.getPatchramState()
 
@@ -1168,7 +1168,7 @@ class InternalBlue():
         conn_dict["connection_number"]    = u32(connection[:4])
         conn_dict["remote_address"]       = connection[0x28:0x2E][::-1]
         conn_dict["remote_name_address"]  = u32(connection[0x4C:0x50])
-        conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 != 0
+        conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 == 0
         conn_dict["connection_handle"]    = u16(connection[0x64:0x66])
         conn_dict["public_rand"]          = connection[0x78:0x88]
         #conn_dict["pin"]                  = connection[0x8C:0x92]

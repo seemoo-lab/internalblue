@@ -1,0 +1,2 @@
+pyelftools==0.24
+pwntools==3.12.0
