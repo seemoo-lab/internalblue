@@ -70,8 +70,11 @@ class InternalBlue():
 
         self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
         self.sendThread = None                  # The thread which is responsible for the HCI inject socket
+
         self.lmpMonitorState = None             # A tuple which stores state information for the LMP monitor mode (see startLmpMonitor())
-        self.tracepoints = []
+
+        self.tracepoints = []                   # A list of currently active tracepoints
+                                                # (tuple containing: target address and address of the hook code)
 
         # The registeredHciCallbacks list holds callback functions which are being called by the
         # recvThread once a HCI Event is being received. Use registerHciCallback() for registering
@@ -413,15 +416,34 @@ class InternalBlue():
             return
         if hcipkt.event_code != 0xff:   # must be custom event (0xff)
             return
-        if hcipkt.data[0:5] != "TRACE": # My custom header (see hook code)
+        if hcipkt.data[0:6] != "TRACE_": # My custom header (see hook code)
             return
 
-        log.info("Tracepoint packet received!")
+        data = hcipkt.data[6:]
+        values = [u32(data[i:i+4]) for i in range(0, 68, 4)]
+        pc = values[0]
+        registers  = "pc:  0x%08x   lr:  0x%08x   sp:  0x%08x   cpsr: 0x%08x\n" % \
+                    (pc, values[16], values[1], values[2])
+        registers += "r0:  0x%08x   r1:  0x%08x   r2:  0x%08x   r3:  0x%08x   r4:  0x%08x\n" % \
+                    tuple(values[3:8])
+        registers += "r5:  0x%08x   r6:  0x%08x   r7:  0x%08x   r8:  0x%08x   r9:  0x%08x\n" % \
+                    tuple(values[8:13])
+        registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % \
+                    tuple(values[13:16])
+        log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
+
+        # remove tracepoint from self.tracepoints
+        for tp in self.tracepoints:
+            if tp[0] == pc:
+                self.tracepoints.remove(tp)
+                break
+
 
     def addTracepoint(self, address):
-
         # Check if constants are defined in fw.py
-        for const in ['TRACEPOINT_ASM_LOCATION', 'TRACEPOINT_ASM_SNIPPET']:
+        for const in ['TRACEPOINT_BODY_ASM_LOCATION', 'TRACEPOINT_BODY_ASM_SNIPPET',
+                      'TRACEPOINT_HOOK_ASM', 'TRACEPOINT_HOOKS_LOCATION',
+                      'TRACEPOINT_HOOK_SIZE']:
             if const not in dir(fw):
                 log.warn("addTracepoint: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
@@ -429,7 +451,50 @@ class InternalBlue():
         if not self.check_running():
             return False
 
-        ### Injecting hooks ###
+        #FIXME: Currently only works for aligned addresses
+        if address % 4 != 0:
+            log.warn("Only tracepoints at aligned addresses are allowed!")
+            return False
+
+        # Check if tracepoint exists
+        existing_hook_addresses = []
+        for tp_address, tp_hook_address in self.tracepoints:
+            existing_hook_addresses.append(tp_hook_address)
+            if tp_address == address:
+                log.warn("Tracepoint at 0x%x does already exist!" % address)
+                return False
+
+        # we only have room for 0x90/28 = 5 tracepoints
+        if len(self.tracepoints) >= 5:
+            log.warn("Already using the maximum of 5 tracepoints")
+            return False
+
+        # Find a free address for the hook code
+        for i in range(5):
+            hook_address = fw.TRACEPOINT_HOOKS_LOCATION + fw.TRACEPOINT_HOOK_SIZE*i
+            if hook_address not in existing_hook_addresses:
+                break
+
+        # Check if this is the first tracepoint
+        if self._tracepointHciCallbackFunction not in self.registeredHciCallbacks:
+            log.info("Initial tracepoint: setting up tracepoint engine.")
+
+            # compile assembler snippet containing the hook body code:
+            hooks_code = asm(fw.TRACEPOINT_BODY_ASM_SNIPPET, vma=fw.TRACEPOINT_BODY_ASM_LOCATION)
+
+            # save memory content at the addresses where we place the snippet and the stage-1 hooks
+            self.tracepoint_saved_data = self.readMem(fw.TRACEPOINT_BODY_ASM_LOCATION, 0x100)
+
+            # write code for hook to memory
+            self.writeMem(fw.TRACEPOINT_BODY_ASM_LOCATION, hooks_code)
+
+            # Register tracepoint hci callback function
+            self.registerHciCallback(self._tracepointHciCallbackFunction)
+
+        # Add tracepoint to list
+        self.tracepoints.append((address, hook_address))
+
+        ### Injecting stage-1 hooks ###
         # save the 4 bytes at which the hook branch (e.g. b <hook address>) will be placed
         saved_instructions = self.readMem(address, 4)
 
@@ -437,29 +502,51 @@ class InternalBlue():
         # little trick/hack: we just insert a patch now with the original data to
         # receive the slot value. later we insert the actual patch which will reuse
         # the same slot.
+        # FIXME: To increase performance, try to not do it like that ^^
         self.patchRom(address, saved_instructions)
         table_addresses, _, _ = self.getPatchramState()
         patchram_slot = table_addresses.index(address)
         log.info("Using patchram slot %d for tracepoint." % patchram_slot)
 
-        # compile assembler snippet containing the hook code:
-        hooks_code = asm(fw.TRACEPOINT_ASM_SNIPPET % (address, patchram_slot, address), vma=fw.TRACEPOINT_ASM_LOCATION)
+        # compile assembler snippet containing the stage-1 hook code:
+        stage1_hook_code = asm(fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
+            fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address)
 
-        # save memory content at the addresses where we place the snippet
-        saved_data_hooks = self.readMem(fw.TRACEPOINT_ASM_LOCATION, len(hooks_code))
+        if len(stage1_hook_code) != fw.TRACEPOINT_HOOK_SIZE:
+            log.error("Assertion failed: len(stage1_hook_code)=%d  is not equal to TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
+            return False
 
         # write code for hook to memory
         log.debug("addTracepoint: injecting hook function...")
-        self.writeMem(fw.TRACEPOINT_ASM_LOCATION, hooks_code)
+        self.writeMem(hook_address, stage1_hook_code)
 
         # patch in the hook branch instruction
-        patch = asm("b 0x%x" % fw.TRACEPOINT_ASM_LOCATION, vma=address)
+        patch = asm("b 0x%x" % hook_address, vma=address)
         if not self.patchRom(address, patch):
             log.warn("addTracepoint: couldn't insert tracepoint hook!")
             return False
 
-        log.debug("addTracepoint: Placed Tracepoint at 0x%08x." % address)
+        log.debug("addTracepoint: Placed Tracepoint at 0x%08x (hook at 0x%x)." % (address, hook_address))
+        return True
 
+    def deleteTracepoint(self, address):
+        if not self.check_running():
+            return False
+
+        # find tracepoint in the list
+        for tp in self.tracepoints:
+            if tp[0] == address:
+                # disable patchram slot for the tracepoint
+                self.disableRomPatch(tp[0])
+
+                # remove tracepoint from self.tracepoints
+                self.tracepoints.remove(tp)
+                break
+        else:
+            log.warn("deleteTracepoint: No tracepoint at address: 0x%x" % address)
+            return False
+
+        return True
 
     def check_running(self):
         """

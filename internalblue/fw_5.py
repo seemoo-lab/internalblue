@@ -292,10 +292,22 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
     """
 
 # Assembler snippet for tracepoints
-TRACEPOINT_ASM_LOCATION = 0xd7800
-TRACEPOINT_ASM_SNIPPET = """
+TRACEPOINT_BODY_ASM_LOCATION = 0xd7800
+TRACEPOINT_HOOKS_LOCATION = 0xd7870
+TRACEPOINT_HOOK_SIZE = 28
+TRACEPOINT_HOOK_ASM = """
         push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
-        
+        ldr  r6, =0x%x          // addTracepoint() injects pc of original tracepoint here
+        mov  r7, %d             // addTracepoint() injects the patchram slot of the hook patch
+        bl   0x%x               // addTracepoint() injects TRACEPOINT_BODY_ASM_LOCATION here
+        pop  {r0-r12, lr}       // restore registers
+
+        // branch back to the original instruction
+        b 0x%x                  // addTracepoint() injects the address of the tracepoint
+"""
+TRACEPOINT_BODY_ASM_SNIPPET = """
+        mov   r8, lr     // save link register in r8
+
         // save status register in r5
         mrs  r5, cpsr
 
@@ -315,8 +327,7 @@ TRACEPOINT_ASM_SNIPPET = """
         add  r0, 2            // advance the pointer. r0 now points to the start of the register values
 
         // store pc
-        ldr  r1, =0x%x     // addTracepoint() injects the pc of the actual tracepoint here
-        str  r1, [r0]
+        str  r6, [r0]    // r6 still contains the address of the original pc
         add  r0, 4       // advance the pointer.
 
         // store sp
@@ -342,14 +353,12 @@ TRACEPOINT_ASM_SNIPPET = """
         mov  r0, r4
         bl   0x3FA36     // free_bloc_buffer_aligned
 
-        mov  r0, %d      // addTracepoint() will inject the patchram slot of the hook patch
+        mov  r0, r7      // r7 still contains the patchram slot number
         bl   0x311AA     // disable_patchram_slot(slot)
 
         // restore status register
         msr  cpsr_f, r5
 
-        pop  {r0-r12, lr}    // restore registers
-
-        // branch back to the original instruction
-        b 0x%x           // addTracepoint() injects the address of the tracepoint
+        mov  lr, r8      // restore lr from r8
+        bx   lr          // return
 """
