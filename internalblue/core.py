@@ -71,6 +71,7 @@ class InternalBlue():
         self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
         self.sendThread = None                  # The thread which is responsible for the HCI inject socket
         self.lmpMonitorState = None             # A tuple which stores state information for the LMP monitor mode (see startLmpMonitor())
+        self.tracepoints = []
 
         # The registeredHciCallbacks list holds callback functions which are being called by the
         # recvThread once a HCI Event is being received. Use registerHciCallback() for registering
@@ -402,6 +403,63 @@ class InternalBlue():
             return False
         finally:
             context.log_level = saved_loglevel
+
+    def _tracepointHciCallbackFunction(self, record):
+        hcipkt = record[0]      # get HCI Event packet
+        timestamp = record[5]   # get timestamp
+
+        # Check if event contains a tracepoint packet
+        if not issubclass(hcipkt.__class__, hci.HCI_Event):
+            return
+        if hcipkt.event_code != 0xff:   # must be custom event (0xff)
+            return
+        if hcipkt.data[0:5] != "TRACE": # My custom header (see hook code)
+            return
+
+        log.info("Tracepoint packet received!")
+
+    def addTracepoint(self, address):
+
+        # Check if constants are defined in fw.py
+        for const in ['TRACEPOINT_ASM_LOCATION', 'TRACEPOINT_ASM_SNIPPET']:
+            if const not in dir(fw):
+                log.warn("addTracepoint: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        if not self.check_running():
+            return False
+
+        ### Injecting hooks ###
+        # save the 4 bytes at which the hook branch (e.g. b <hook address>) will be placed
+        saved_instructions = self.readMem(address, 4)
+
+        # we need to know the patchram slot in advance..
+        # little trick/hack: we just insert a patch now with the original data to
+        # receive the slot value. later we insert the actual patch which will reuse
+        # the same slot.
+        self.patchRom(address, saved_instructions)
+        table_addresses, _, _ = self.getPatchramState()
+        patchram_slot = table_addresses.index(address)
+        log.info("Using patchram slot %d for tracepoint." % patchram_slot)
+
+        # compile assembler snippet containing the hook code:
+        hooks_code = asm(fw.TRACEPOINT_ASM_SNIPPET % (address, patchram_slot, address), vma=fw.TRACEPOINT_ASM_LOCATION)
+
+        # save memory content at the addresses where we place the snippet
+        saved_data_hooks = self.readMem(fw.TRACEPOINT_ASM_LOCATION, len(hooks_code))
+
+        # write code for hook to memory
+        log.debug("addTracepoint: injecting hook function...")
+        self.writeMem(fw.TRACEPOINT_ASM_LOCATION, hooks_code)
+
+        # patch in the hook branch instruction
+        patch = asm("b 0x%x" % fw.TRACEPOINT_ASM_LOCATION, vma=address)
+        if not self.patchRom(address, patch):
+            log.warn("addTracepoint: couldn't insert tracepoint hook!")
+            return False
+
+        log.debug("addTracepoint: Placed Tracepoint at 0x%08x." % address)
+
 
     def check_running(self):
         """

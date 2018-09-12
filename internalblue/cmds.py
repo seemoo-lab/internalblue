@@ -1132,4 +1132,23 @@ class CmdInfo(Cmd):
         return True
 
 
+class CmdTracepoint(Cmd):
+    keywords = ['trace', 'tracepoint', 'tp']
+    description = "Manage tracepoints."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--address", "-a", type=auto_int,
+                        help="Address of the tracepoint") 
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        log.info("Inserting tracepoint at 0x%x..." % args.address)
+        self.internalblue.addTracepoint(args.address)
+        log.info("Tracing instruction at address 0x%x." % args.address)
+
+        return True
 

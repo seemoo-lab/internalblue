@@ -290,3 +290,66 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
 
         pop {r4, pc}    // return
     """
+
+# Assembler snippet for tracepoints
+TRACEPOINT_ASM_LOCATION = 0xd7800
+TRACEPOINT_ASM_SNIPPET = """
+        push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
+        
+        // save status register in r5
+        mrs  r5, cpsr
+
+        // malloc HCI event buffer
+        mov  r0, 0xff    // event code is 0xff (vendor specific HCI Event)
+        mov  r1, 76      // buffer size: size of registers (68 bytes) + type and length + 'TRACE_'
+        bl   0x7AFC      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer)
+        mov  r4, r0      // save pointer to the buffer in r4
+
+        // append our custom header (the word 'TRACE_') after the event code and event length field
+        add  r0, 2            // write after the length field
+        ldr  r1, =0x43415254  // 'TRAC'
+        str  r1, [r0]
+        add  r0, 4            // advance the pointer.
+        ldr  r1, =0x5f45      // 'E_'
+        strh r1, [r0]
+        add  r0, 2            // advance the pointer. r0 now points to the start of the register values
+
+        // store pc
+        ldr  r1, =0x%x     // addTracepoint() injects the pc of the actual tracepoint here
+        str  r1, [r0]
+        add  r0, 4       // advance the pointer.
+
+        // store sp
+        mov  r1, 56      // 14 saved registers * 4
+        add  r1, sp
+        str  r1, [r0]
+        add  r0, 4       // advance the pointer.
+
+        // store status register
+        str  r5, [r0]
+        add  r0, 4       // advance the pointer.
+
+        // store other registers
+        mov  r1, sp
+        mov  r2, 56
+        bl   0x2e03c+1   // memcpy(dst, src, len)
+
+        // send HCI buffer to the host
+        mov  r0, r4      // r4 still points to the beginning of the HCI buffer
+        bl   0x398c1     // send_hci_event_without_free()
+
+        // free HCI buffer
+        mov  r0, r4
+        bl   0x3FA36     // free_bloc_buffer_aligned
+
+        mov  r0, %d      // addTracepoint() will inject the patchram slot of the hook patch
+        bl   0x311AA     // disable_patchram_slot(slot)
+
+        // restore status register
+        msr  cpsr_f, r5
+
+        pop  {r0-r12, lr}    // restore registers
+
+        // branch back to the original instruction
+        b 0x%x           // addTracepoint() injects the address of the tracepoint
+"""
