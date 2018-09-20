@@ -292,8 +292,8 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
     """
 
 # Assembler snippet for tracepoints
-TRACEPOINT_BODY_ASM_LOCATION = 0xd7800
-TRACEPOINT_HOOKS_LOCATION = 0xd7870
+TRACEPOINT_BODY_ASM_LOCATION = 0xd7a00
+TRACEPOINT_HOOKS_LOCATION = 0xd7b00
 TRACEPOINT_HOOK_SIZE = 28
 TRACEPOINT_HOOK_ASM = """
         push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
@@ -305,6 +305,7 @@ TRACEPOINT_HOOK_ASM = """
         // branch back to the original instruction
         b 0x%x                  // addTracepoint() injects the address of the tracepoint
 """
+TRACEPOINT_RAM_DUMP_PKT_COUNT = 670     # <ramsize> / <packetsize>   where packetsize is 244
 TRACEPOINT_BODY_ASM_SNIPPET = """
         mov   r8, lr     // save link register in r8
 
@@ -359,6 +360,69 @@ TRACEPOINT_BODY_ASM_SNIPPET = """
         // restore status register
         msr  cpsr_f, r5
 
+        // dump ram
+        bl   dump_ram
+
         mov  lr, r8      // restore lr from r8
         bx   lr          // return
-"""
+
+
+// function to dump the RAM as multiple HCI packets:
+dump_ram:
+        push {r4-r6,lr}
+
+        // malloc HCI event buffer
+        mov  r0, 0xff    // event code is 0xff (vendor specific HCI Event)
+        mov  r1, 252     // buffer size
+        bl   0x7AFC      // malloc_hci_event_buffer (will automatically copy event code and length into the buffer)
+        mov  r4, r0      // save pointer to the buffer in r4
+
+        // append our custom header (the word 'RAM___') after the event code and event length field
+        add  r0, 2            // write after the length field
+        ldr  r1, =0x5f4d4152  // 'RAM_'
+        str  r1, [r0]
+        add  r0, 4            // advance the pointer.
+        ldr  r1, =0x5f5f      // '__'
+        strh r1, [r0]
+        add  r0, 2            // advance the pointer. r0 now points to the start of the actual payload
+
+        mov  r5, 0x200000     // start of ram
+        ldr  r6, =%d          // number of ramdump packets to be sent
+
+        dump_ram_loop:
+            // Set r0 to point to the beginning of the payload in the hci buffer
+            mov  r0, r4
+            add  r0, 8
+
+            // store current address
+            str  r5, [r0]    // r5 contains the address in RAM which is send next
+            add  r0, 4       // advance the pointer.
+
+            // copy ram to hci buffer
+            mov  r1, r5
+            mov  r2, 244
+            bl   0x2e03c     // memcpy
+
+            // send HCI buffer to the host
+            mov  r0, r4      // r4 still points to the beginning of the HCI buffer
+            bl   0x398c1     // send_hci_event_without_free()
+
+            // delay loop; Workaround: without the delay, a lot of packets are not actually sent
+            // through HCI.
+            mov  r0, 0x1000
+            delay_loop:
+                subs r0, 1
+                bne delay_loop
+
+            // increment the RAM pointer; decrement the counter
+            add  r5, 244
+            subs r6, 1
+
+            bne  dump_ram_loop
+
+        // free HCI buffer
+        mov  r0, r4
+        bl   0x3FA36     // free_bloc_buffer_aligned
+
+        pop  {r4-r6,pc}
+""" % TRACEPOINT_RAM_DUMP_PKT_COUNT

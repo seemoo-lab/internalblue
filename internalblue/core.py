@@ -73,8 +73,13 @@ class InternalBlue():
 
         self.lmpMonitorState = None             # A tuple which stores state information for the LMP monitor mode (see startLmpMonitor())
 
-        self.tracepoints = []                   # A list of currently active tracepoints
-                                                # (tuple containing: target address and address of the hook code)
+        self.tracepoints = []                   # A list of currently active tracepoints 
+                                                # The list contains tuples:
+                                                # [0] target address
+                                                # [1] address of the hook code
+        self.tracepoint_registers       = None  # Last captured register values from a tracepoint
+        self.tracepoint_memdump_parts   = {}    # Last captured RAM dump from a tracepoint
+        self.tracepoint_memdump_address = None  # Start address of the RAM dump
 
         # The registeredHciCallbacks list holds callback functions which are being called by the
         # recvThread once a HCI Event is being received. Use registerHciCallback() for registering
@@ -416,27 +421,49 @@ class InternalBlue():
             return
         if hcipkt.event_code != 0xff:   # must be custom event (0xff)
             return
-        if hcipkt.data[0:6] != "TRACE_": # My custom header (see hook code)
-            return
 
-        data = hcipkt.data[6:]
-        values = [u32(data[i:i+4]) for i in range(0, 68, 4)]
-        pc = values[0]
-        registers  = "pc:  0x%08x   lr:  0x%08x   sp:  0x%08x   cpsr: 0x%08x\n" % \
-                    (pc, values[16], values[1], values[2])
-        registers += "r0:  0x%08x   r1:  0x%08x   r2:  0x%08x   r3:  0x%08x   r4:  0x%08x\n" % \
-                    tuple(values[3:8])
-        registers += "r5:  0x%08x   r6:  0x%08x   r7:  0x%08x   r8:  0x%08x   r9:  0x%08x\n" % \
-                    tuple(values[8:13])
-        registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % \
-                    tuple(values[13:16])
-        log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
+        if hcipkt.data[0:6] == "TRACE_": # My custom header (see hook code)
+            data = hcipkt.data[6:]
+            self.tracepoint_registers = [u32(data[i:i+4]) for i in range(0, 68, 4)]
+            pc = self.tracepoint_registers[0]
+            registers  = "pc:  0x%08x   lr:  0x%08x   sp:  0x%08x   cpsr: 0x%08x\n" % \
+                        (pc, self.tracepoint_registers[16], self.tracepoint_registers[1], self.tracepoint_registers[2])
+            registers += "r0:  0x%08x   r1:  0x%08x   r2:  0x%08x   r3:  0x%08x   r4:  0x%08x\n" % \
+                        tuple(self.tracepoint_registers[3:8])
+            registers += "r5:  0x%08x   r6:  0x%08x   r7:  0x%08x   r8:  0x%08x   r9:  0x%08x\n" % \
+                        tuple(self.tracepoint_registers[8:13])
+            registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % \
+                        tuple(self.tracepoint_registers[13:16])
+            log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
 
-        # remove tracepoint from self.tracepoints
-        for tp in self.tracepoints:
-            if tp[0] == pc:
-                self.tracepoints.remove(tp)
-                break
+            # remove tracepoint from self.tracepoints
+            for tp in self.tracepoints:
+                if tp[0] == pc:
+                    self.tracepoints.remove(tp)
+                    break
+
+            # reset all RAM dump related variables:
+            self.tracepoint_memdump_address = None
+            self.tracepoint_memdump_parts = {}
+
+
+        elif hcipkt.data[0:6] == "RAM___": # My custom header (see hook code)
+            dump_address = u32(hcipkt.data[6:10])
+            data = hcipkt.data[10:]
+
+            if self.tracepoint_memdump_address == None:
+                self.tracepoint_memdump_address = dump_address
+            normalized_address = dump_address - self.tracepoint_memdump_address 
+            self.tracepoint_memdump_parts[normalized_address] = data
+
+            # Check if this was the last packet
+            if len(self.tracepoint_memdump_parts) == fw.TRACEPOINT_RAM_DUMP_PKT_COUNT:
+                dump = fit(self.tracepoint_memdump_parts)
+                #TODO: use this to start qemu
+                log.info("Captured Ram Dump for Tracepoint 0x%x" % self.tracepoint_memdump_address)
+                f = open("internalblue_tracepoint_0x%x.bin" % self.tracepoint_memdump_address, "wb")
+                f.write(dump)
+                f.close()
 
 
     def addTracepoint(self, address):
@@ -481,6 +508,8 @@ class InternalBlue():
 
             # compile assembler snippet containing the hook body code:
             hooks_code = asm(fw.TRACEPOINT_BODY_ASM_SNIPPET, vma=fw.TRACEPOINT_BODY_ASM_LOCATION)
+            if len(hooks_code) > 0x100:
+                log.error("Assertion failed: len(hooks_code)=%d  is larger than 0x100!" % len(hooks_code))
 
             # save memory content at the addresses where we place the snippet and the stage-1 hooks
             self.tracepoint_saved_data = self.readMem(fw.TRACEPOINT_BODY_ASM_LOCATION, 0x100)
