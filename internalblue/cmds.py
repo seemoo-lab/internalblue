@@ -1132,4 +1132,47 @@ class CmdInfo(Cmd):
         return True
 
 
+class CmdTracepoint(Cmd):
+    keywords = ['trace', 'tracepoint', 'tp']
+    description = "Manage tracepoints."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("command", 
+                        help="One of: add/set, remove/delete/del, list/show")
+    parser.add_argument("address", type=auto_int, nargs="?",
+                        help="Address of the tracepoint") 
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        if args.command in ['add', 'set']:
+            if args.address == None:
+                log.warn("Missing address. Use tracepoint add <address>")
+                return False
+            log.info("Inserting tracepoint at 0x%x..." % args.address)
+            if self.internalblue.addTracepoint(args.address):
+                log.info("Tracing instruction at address 0x%x." % args.address)
+            else:
+                return False
+
+        elif args.command in ['remove', 'delete', 'del']:
+            if args.address == None:
+                log.warn("Missing address. Use tracepoint del <address>")
+                return False
+            log.info("Deleting tracepoint at 0x%x..." % args.address)
+            if not self.internalblue.deleteTracepoint(args.address):
+                return False
+            log.info("Deleted tracepoint at address 0x%x" % args.address)
+
+        elif args.command in ['list', 'show']:
+            if len(self.internalblue.tracepoints) == 0:
+                log.info("No active tracepoints.")
+            else:
+                tracepoints = "\n".join(["  - 0x%x" % tp[0] for tp in self.internalblue.tracepoints])
+                log.info("Active Tracepoints:\n" + tracepoints)
+
+        return True
 

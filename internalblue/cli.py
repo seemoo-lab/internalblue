@@ -71,7 +71,7 @@ def commandLoop(internalblue):
             if(not cmd_instance.work()):
                 log.warn("Command failed: " + str(cmd_instance))
         except ValueError as e:
-            log.warn(str(e))
+            log.warn("commandLoop: ValueError: " + str(e))
             continue
         except KeyboardInterrupt:
             if(cmd_instance != None):

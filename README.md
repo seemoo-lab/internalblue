@@ -7,6 +7,13 @@ Bluetooth experimentation framework which is able to patch the firmware and
 therefore implement monitoring and injection tools for the lower layers of
 the Bluetooth protocol stack.
 
+The framework was presented at the MRMCD Conference 2018 in Darmstadt. The
+talk was also recorded and includes an overview of the framework as well as
+two demo usages at the end (Following a **Secure Simple Pairing procedure in
+Wireshark** and implementing a **proof of concept for CVE-2018-5383**):
+
+[![MRMCD 2018: InternalBlue](https://static.media.ccc.de/media/conferences/mrmcd/mrmcd18/154-hd_preview.jpg)](https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware)
+(Video-Link: https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware)
 
 Setup and Installation
 ----------------------
