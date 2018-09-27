@@ -834,6 +834,12 @@ class InternalBlue():
                 # This is a escape opcode. The actual opcode is stored in the next byte
                 lmp_opcode = u8(lmpData[13])
                 lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
+            elif lmp_opcode == 0:
+                lmp_opcode = u8(lmpData[13])
+                if lmp_opcode < len(fw.LMP_VSC_LENGTHS):
+                    lmp_len = fw.LMP_VSC_LENGTHS[lmp_opcode]
+                else:
+                    lmp_len = 17
             else:
                 lmp_len = fw.LMP_LENGTHS[lmp_opcode]
             lmpPacket = lmpData[12:12+lmp_len]          # Extract the LMP packet (incuding the opcode)
