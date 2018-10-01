@@ -342,7 +342,8 @@ class HCI_Acl(HCI):
         raw = bits(p16(self.handle))[4:]
         raw.extend(bits(p8(self.bp))[6:])
         raw.extend(bits(p8(self.bc))[6:])
-        return unbits(raw)
+        raw.extend(bits(p16(self.length)))
+        return super(HCI_Acl, self).getRaw() + unbits(raw) + self.data
 
     def __init__(self, handle, bp, bc, length, data):
         HCI.__init__(self, HCI.ACL_DATA)

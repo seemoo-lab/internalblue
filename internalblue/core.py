@@ -626,8 +626,8 @@ class InternalBlue():
             log.info("Importing fw for Nexus 6P")
             import fw_6p as fw
         else:
-            log.critical("Device not supported")
-            return False
+            log.critical("Device not supported - continue at own risk")
+            fw = None
         self.fw = fw    # Other scripts (such as cmds.py) can use fw through a member variable
 
         # setup sockets
