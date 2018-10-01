@@ -359,13 +359,14 @@ class HCI_Sco(HCI):
     def from_data(data):
         handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16,'0')))
         ps = u8(unbits(bits_str(data[1:2])[4:6].rjust(8,'0')))
-        return HCI_Sco(handle, ps, u16(data[2]), data[3:])
+        return HCI_Sco(handle, ps, u8(data[2]), data[3:])
 
     def getRaw(self):
         raw = bits(p16(self.handle))[4:]
         raw.extend(bits(p8(self.ps))[6:])
         raw.extend(bits(p8(0))[6:])
-        return unbits(raw)
+        raw.extend(bits(p8(self.length)))
+        return super(HCI_Sco, self).getRaw() + unbits(raw) + self.data
 
     def __init__(self, handle, ps, length, data):
         HCI.__init__(self, HCI.SCO_DATA)
