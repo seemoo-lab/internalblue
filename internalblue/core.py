@@ -980,6 +980,9 @@ class InternalBlue():
             if status != 0:
                 # It is not yet reverse engineered what this byte means. For almost
                 # all memory addresses it will be 0. But for some it will be different,
+                # EDIT: response should be a command complete event (event code 0x0e). The 4 byte (response[3]) indicates the hci error code
+                #       0x00 (0) means everything okay
+                #       0x12 means Command Disallowed
                 # e.g. for address 0xff000000 (aka 'EEPROM') it is 0x12
                 log.warning("readMem: [TODO] Got status != 0 : 0x%02X" % status)
             data = response[4:]         # start of the actual data is at offset 4
