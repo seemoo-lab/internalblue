@@ -75,11 +75,11 @@ class Cmd:
     keywords = []
 
     memory_image = None
-    memory_image_template_filename = "_memdump_template.bin"
 
     def __init__(self, cmdline, internalblue):
         self.cmdline = cmdline
         self.internalblue = internalblue
+        self.memory_image_template_filename = internalblue.data_directory + "/_memdump_template.bin"
 
     def __str__(self):
         return self.cmdline
@@ -828,7 +828,7 @@ class CmdExec(Cmd):
         if args == None:
             return True
 
-        filename = "exec_%s.s" % args.cmd
+        filename = self.internalblue.data_directory + "/exec_%s.s" % args.cmd
         if not os.path.exists(filename):
             f = open(filename, "w")
             f.write("/* Write arm thumb code here.\n")

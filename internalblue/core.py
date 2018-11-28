@@ -38,10 +38,11 @@ import hci
 
 class InternalBlue():
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True'):
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         context.log_level = log_level
-        context.log_file = '_internalblue.log'
+        context.log_file = data_directory + '/_internalblue.log'
         context.arch = "thumb"
+        self.data_directory = data_directory
         self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.s_inject = None    # This is the TCP socket to the HCI inject port
         self.s_snoop = None     # This is the TCP socket to the HCI snoop port
@@ -49,7 +50,7 @@ class InternalBlue():
         # If btsnooplog_filename is set, write all incomming HCI packets to a file (can be viewed in wireshark for debugging)
         if btsnooplog_filename != None:
             self.write_btsnooplog = True
-            self.btsnooplog_file = open(btsnooplog_filename, "wb")
+            self.btsnooplog_file = open(self.data_directory + "/" + btsnooplog_filename, "wb")
         else:
             self.write_btsnooplog = False
 
@@ -461,7 +462,7 @@ class InternalBlue():
                 dump = fit(self.tracepoint_memdump_parts)
                 #TODO: use this to start qemu
                 log.info("Captured Ram Dump for Tracepoint 0x%x" % self.tracepoint_memdump_address)
-                f = open("internalblue_tracepoint_0x%x.bin" % self.tracepoint_memdump_address, "wb")
+                f = open(self.data_directory + "/" + "internalblue_tracepoint_0x%x.bin" % self.tracepoint_memdump_address, "wb")
                 f.write(dump)
                 f.close()
 
@@ -647,7 +648,7 @@ class InternalBlue():
         self.sendThread.start()
 
         # register stackDumpReceiver callback:
-        self.stackDumpReceiver = hci.StackDumpReceiver()
+        self.stackDumpReceiver = hci.StackDumpReceiver(data_directory=self.data_directory)
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
 
         self.running = True

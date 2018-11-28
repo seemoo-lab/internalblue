@@ -37,7 +37,6 @@ import traceback
 import core
 import cmds
 
-LOGFILE  = '_internalblue.log'
 HISTFILE = "_internalblue.hist"
 
 def print_banner():
@@ -91,11 +90,14 @@ def commandLoop(internalblue):
 # Main Program Start
 def internalblue_cli():
     print_banner()
-    internalblue = core.InternalBlue()
+    data_directory = os.path.expanduser("~") + "/.internalblue"
+    if not os.path.exists(data_directory):
+        os.mkdir(data_directory)
+    internalblue = core.InternalBlue(data_directory=data_directory)
 
     # Restore readline history:
-    if os.path.exists(HISTFILE):
-        readline_history = read(HISTFILE)
+    if os.path.exists(internalblue.data_directory + "/" + HISTFILE):
+        readline_history = read(internalblue.data_directory + "/" + HISTFILE)
         term.readline.history = readline_history.split('\n')
 
     # Readline Completions
@@ -118,7 +120,7 @@ def internalblue_cli():
     internalblue.shutdown()
 
     # Save readline history:
-    f = open(HISTFILE, "w")
+    f = open(internalblue.data_directory + "/" + HISTFILE, "w")
     f.write("\n".join(term.readline.history))
     f.close()
 

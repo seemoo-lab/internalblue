@@ -491,6 +491,10 @@ class StackDumpReceiver:
     memdumps = {}
     stack_dump_has_happend = False
 
+    def __init__(self, data_directory="."):
+        self.data_directory = data_directory
+        self.stack_dump_filename = data_directory + "/internalblue_stackdump.bin"
+
     def recvPacket(self, record):
         hcipkt = record[0]
         if not issubclass(hcipkt.__class__, HCI_Event):
@@ -520,8 +524,8 @@ class StackDumpReceiver:
 
     def finishStackDump(self):
         dump = fit(self.memdumps)
-        log.warn("Stack dump @0x%08x written to internalblue_stackdump.bin!" % self.memdump_addr)
-        f = open("internalblue_stackdump.bin", "wb")
+        log.warn("Stack dump @0x%08x written to %s!" % (self.memdump_addr, self.stack_dump_filename))
+        f = open(self.stack_dump_filename, "wb")
         f.write(dump)
         f.close()
 
