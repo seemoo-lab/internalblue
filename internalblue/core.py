@@ -315,11 +315,15 @@ class InternalBlue():
 
                 if not isinstance(hcipkt, hci.HCI_Event):
                     return False
-                if hcipkt.event_code != 0x0e: # Cmd Complete event
-                    return False
-                if hcipkt.data[1:3] != p16(opcode):
-                    return False
-                return True
+
+                if hcipkt.event_code == 0x0e:   # Cmd Complete event
+                    if hcipkt.data[1:3] == p16(opcode):
+                        return True
+
+                if hcipkt.event_code == 0x0f:   # Cmd Status event
+                    if hcipkt.data[2:4] == p16(opcode):
+                        return True
+                return False
 
             self.registerHciRecvQueue(recvQueue, recvFilterFunction)
 
@@ -335,6 +339,7 @@ class InternalBlue():
             except Queue.Empty:
                 log.warn("_sendThreadFunc: No response from the firmware.")
                 data = None
+                self.unregisterHciRecvQueue(recvQueue)
                 continue
 
             queue.put(data)
@@ -907,6 +912,9 @@ class InternalBlue():
         HCI Command Complete Event which was received in response to
         the command or None if no response was received within the timeout.
         """
+        #TODO: If the response is a HCI Command Status Event, we will actually
+        #      return this instead of the Command Complete Event (which will
+        #      follow later and will be ignored). This should be fixed..
 
         queue = Queue.Queue(1)
         try:
