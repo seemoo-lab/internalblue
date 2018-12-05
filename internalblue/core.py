@@ -107,6 +107,9 @@ class InternalBlue():
 
         self.stackDumpReceiver = None           # This class will monitor the HCI Events and detect stack trace events.
 
+        # Register callbacks which handle specific HCI Events:
+        self.registerHciCallback(self.connectionStatusCallback)
+
     def check_binutils(self, fix=True):
         """
         Test if ARM binutils is in path so that asm and disasm (provided by
@@ -1425,4 +1428,43 @@ class InternalBlue():
         else:
             log.warn("sendLmpPacket: launchRam failed!")
             return False
+
+    def connectToRemoteDevice(self, bt_addr):
+        """Send a HCI Connect Command to the firmware. This will setup
+           a connection (inserted into the connection structure) if the
+           remote device (specified by bt_addr) accepts.
+           
+           bt_addr:  address of remote device (little endian byte string)
+                     e.g. for 'f8:95:c7:83:f8:11' you would pass
+                     b'\x11\xf8\x83\xc7\x95\xf8'."""
+
+        # TODO: expose more of the connection create parameters (instead of
+        #       passing 0's.
+        self.sendHciCommand(0x0405, bt_addr + '\x00\x00\x00\x00\x00\x00\x01')
+
+    def connectionStatusCallback(self, record):
+        """HCI Callback function to detect HCI Events related to
+           Create Connection"""
+
+        hcipkt    = record[0]   # get HCI Event packet
+        timestamp = record[5]   # get timestamp
+
+        if not issubclass(hcipkt.__class__, hci.HCI_Event):
+            return
+
+        # Check if event is Connection Create Status Event
+        if hcipkt.event_code == 0x0f:
+            if u16(hcipkt.data[0:2]) != 0x0405: # Create Connection HCI Cmd
+                log.info("[Connection Create initiated]")
+                return
+
+        # Check if event is Connection Create Complete Event
+        if hcipkt.event_code == 0x03:
+            status      = u8(hcipkt.data[0])
+            conn_handle = u16(hcipkt.data[1:3])
+            btaddr      = hcipkt.data[3:9][::-1]
+            btaddr_str  = ":".join([b.encode("hex") for b in btaddr])
+            log.info("[Connect Complete: Handle=0x%x  Address=%s  status=%d]" % (conn_handle, btaddr_str, status))
+
+
 

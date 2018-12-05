@@ -1176,3 +1176,36 @@ class CmdTracepoint(Cmd):
 
         return True
 
+
+class CmdSendHciCmd(Cmd):
+    keywords = ['connect']
+    description = "Initiate a connection to a remote Bluetooth device"
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("btaddr",
+                        help="Bluetooth address of the remote device (with or without ':'.")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        addr = args.btaddr
+        if ":" in addr:
+            addr = addr.replace(":","")
+
+        if len(addr) != 12:
+            log.info("BT Address needs to be 6 hex-bytes")
+            return False
+
+        # Convert to byte string (little endian)
+        try:
+            addr = addr.decode("hex")[::-1]
+        except TypeError:
+            log.info("BT Address must consist of only hex digests!")
+            return False
+
+        self.internalblue.connectToRemoteDevice(addr) 
+
+        return True
