@@ -36,11 +36,6 @@ import struct
 import time
 import select
 
-
-import hci
-from time import sleep
-
-
 def getCmdList():
     """ Returns a list of all commands which are defined in this cmds.py file.
     This is done by searching for all subclasses of Cmd
@@ -1178,72 +1173,6 @@ class CmdTracepoint(Cmd):
             else:
                 tracepoints = "\n".join(["  - 0x%x" % tp[0] for tp in self.internalblue.tracepoints])
                 log.info("Active Tracepoints:\n" + tracepoints)
-
-        return True
-
-class CmdJammer(Cmd):
-    keywords = ['jammer', 'j']
-
-    description = "Starts the jammer interface"
-
-    parser = argparse.ArgumentParser(prog=keywords[0],
-                                     description=description,
-                                     epilog="Aliases: " + ", ".join(keywords))
-
-
-    class WatchDog(object):
-
-        def __init__(self):
-            self.devices = []
-
-        def listDevice(self):
-            pass
-
-        def processLEMetaEvent(self):
-            pass
-
-
-    def work(self):
-        recvQueue = Queue.Queue(100)
-
-        def hciFilterFunction(record):
-            hcipkt = record[0]
-            if issubclass(hcipkt.__class__, hci.HCI_Event) and hcipkt.event_code == 0x3e:
-                return True
-            return False
-
-        self.internalblue.registerHciRecvQueue(recvQueue, hciFilterFunction)
-
-        # wait for the custom HCI event sent by the snippet:
-
-        i = 0
-
-        while i < 5:
-            try:
-                le_meta_event = recvQueue.get(timeout=10)[0]
-
-                log.info(le_meta_event)
-
-                a = LEAdvertisingReportEvent(le_meta_event.event_code, le_meta_event.length, le_meta_event.data)
-
-                print(a)
-
-            except Queue.Empty:
-                log.warning('No LE META Event received')
-                return None
-
-            sleep(1)
-            i += 1
-
-        self.internalblue.unregisterHciRecvQueue(recvQueue)
-
-        def hciCallback(record):
-            hcipkt = record[0]
-            if issubclass(hcipkt.__class__, hci.HCI_Event) and hcipkt.event_code == 0x3e:
-                log.info('boom')
-
-        #self.internalblue.registerHciCallback(hciCallback)
-        #self.internalblue.unregisterHciCallback(hciCallback)
 
         return True
 
