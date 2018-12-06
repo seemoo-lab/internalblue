@@ -842,15 +842,23 @@ class InternalBlue():
             if lmp_opcode >= 0x7C:
                 # This is a escape opcode. The actual opcode is stored in the next byte
                 lmp_opcode = u8(lmpData[13])
-                lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
+                if lmp_opcode < len(fw.LMP_ESC_LENGTHS):
+                    lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
+                else:
+                    log.debug("startLmpMonitor.hciCallbackFunction: received unknown esc. LMP opcode!")
+                    lmp_len = 17 # Asume max length
             elif lmp_opcode == 0:
                 lmp_opcode = u8(lmpData[13])
                 if lmp_opcode < len(fw.LMP_VSC_LENGTHS):
                     lmp_len = fw.LMP_VSC_LENGTHS[lmp_opcode]
                 else:
                     lmp_len = 17
-            else:
+            elif lmp_opcode < len(fw.LMP_LENGTHS):
                 lmp_len = fw.LMP_LENGTHS[lmp_opcode]
+            else:
+                log.debug("startLmpMonitor.hciCallbackFunction: received unknown LMP opcode!")
+                lmp_len = 17 # Asume max length
+
             lmpPacket = lmpData[12:12+lmp_len]          # Extract the LMP packet (incuding the opcode)
 
             # set src and dest address based on whether the packet was sent to a remote device or
@@ -1433,14 +1441,26 @@ class InternalBlue():
         """Send a HCI Connect Command to the firmware. This will setup
            a connection (inserted into the connection structure) if the
            remote device (specified by bt_addr) accepts.
+           To be exact: This will most likely send
+           - LMP_features_req
+           - LMP_version_req
+           - LMP_features_req_ext
+           - LMP_host_connection_req
+           - LMP_setup_complete
+           and also other channel-related packets to the remote device.
+           The devices do not have to be paired and the remote device
+           does not need to be visible. This will not initiate the
+           pairing sequence, therefore the remote host will not show
+           any notification to the user yet, the host is however notified
+           via HCI that there is an incomming connection.
            
-           bt_addr:  address of remote device (little endian byte string)
+           bt_addr:  address of remote device (byte string)
                      e.g. for 'f8:95:c7:83:f8:11' you would pass
-                     b'\x11\xf8\x83\xc7\x95\xf8'."""
+                     b'\xf8\x95\xc7\x83\xf8\x11'."""
 
         # TODO: expose more of the connection create parameters (instead of
         #       passing 0's.
-        self.sendHciCommand(0x0405, bt_addr + '\x00\x00\x00\x00\x00\x00\x01')
+        self.sendHciCommand(0x0405, bt_addr[::-1] + '\x00\x00\x00\x00\x00\x00\x01')
 
     def connectionStatusCallback(self, record):
         """HCI Callback function to detect HCI Events related to

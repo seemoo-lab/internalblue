@@ -1201,7 +1201,7 @@ class CmdSendHciCmd(Cmd):
 
         # Convert to byte string (little endian)
         try:
-            addr = addr.decode("hex")[::-1]
+            addr = addr.decode("hex")
         except TypeError:
             log.info("BT Address must consist of only hex digests!")
             return False
