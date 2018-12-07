@@ -1063,9 +1063,15 @@ class CmdInfo(Cmd):
     description = "Display various types of information parsed from live RAM"
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
-                                     epilog="Aliases: " + ", ".join(keywords))
-    parser.add_argument("type", 
-                        help="Type of information.")
+                                     epilog="Aliases: " + ", ".join(keywords),
+                                     formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument("type", help="""Type of information:
+    device:       General information (BT Name/Address, ADB Serial ID)
+    connections:  List of valid entries in the connection structure
+    patchram:     List of patches in the patchram table
+    heap / bloc:  List of BLOC structures (Heap Pools)
+    """)
 
     def infoConnections(self):
         for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
@@ -1114,6 +1120,14 @@ class CmdInfo(Cmd):
                                                  table_values[i].encode('hex'),
                                                  code))
 
+    def infoHeap(self):
+        heaplist = self.internalblue.readHeapInformation()  # List of BLOC structs
+        log.info("[ Idx ] @Pool-Addr  Buf-Size  Avail/Capacity  Mem-Size @ Addr")
+        log.info("-------------------------------------------------------------")
+        for heappool in heaplist:
+            # TODO: waitlist
+            log.info("BLOC[{index}] @ 0x{address:06X}: {buffer_size:8d}    {list_length:2d} / {capacity:2d}        {memory_size:7d} @ 0x{memory:06X}".format(**heappool))
+
     def work(self):
         args = self.getArgs()
         if args == None:
@@ -1123,6 +1137,8 @@ class CmdInfo(Cmd):
         subcommands["connections"] = self.infoConnections
         subcommands["device"] = self.infoDevice
         subcommands["patchram"] = self.infoPatchram
+        subcommands["heap"] = self.infoHeap
+        subcommands["bloc"] = self.infoHeap
 
         if args.type in subcommands:
             subcommands[args.type]()

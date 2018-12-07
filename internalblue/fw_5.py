@@ -58,6 +58,9 @@ SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
             #MemorySection(0x680000, 0x800000, False, False)
             ]
 
+# BLOC struct head which points to the first bloc struct (double-linked list)
+BLOC_HEAD = 0x203094
+
 
 # Connection Structure and Table
 CONNECTION_ARRAY_ADDRESS = 0x002038E8

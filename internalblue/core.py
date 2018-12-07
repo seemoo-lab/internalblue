@@ -1438,33 +1438,37 @@ class InternalBlue():
             return False
 
     def connectToRemoteDevice(self, bt_addr):
-        """Send a HCI Connect Command to the firmware. This will setup
-           a connection (inserted into the connection structure) if the
-           remote device (specified by bt_addr) accepts.
-           To be exact: This will most likely send
-           - LMP_features_req
-           - LMP_version_req
-           - LMP_features_req_ext
-           - LMP_host_connection_req
-           - LMP_setup_complete
-           and also other channel-related packets to the remote device.
-           The devices do not have to be paired and the remote device
-           does not need to be visible. This will not initiate the
-           pairing sequence, therefore the remote host will not show
-           any notification to the user yet, the host is however notified
-           via HCI that there is an incomming connection.
-           
-           bt_addr:  address of remote device (byte string)
-                     e.g. for 'f8:95:c7:83:f8:11' you would pass
-                     b'\xf8\x95\xc7\x83\xf8\x11'."""
+        """
+        Send a HCI Connect Command to the firmware. This will setup
+        a connection (inserted into the connection structure) if the
+        remote device (specified by bt_addr) accepts.
+        To be exact: This will most likely send
+        - LMP_features_req
+        - LMP_version_req
+        - LMP_features_req_ext
+        - LMP_host_connection_req
+        - LMP_setup_complete
+        and also other channel-related packets to the remote device.
+        The devices do not have to be paired and the remote device
+        does not need to be visible. This will not initiate the
+        pairing sequence, therefore the remote host will not show
+        any notification to the user yet, the host is however notified
+        via HCI that there is an incomming connection.
+        
+        bt_addr:  address of remote device (byte string)
+                  e.g. for 'f8:95:c7:83:f8:11' you would pass
+                  b'\xf8\x95\xc7\x83\xf8\x11'.
+        """
 
         # TODO: expose more of the connection create parameters (instead of
         #       passing 0's.
         self.sendHciCommand(0x0405, bt_addr[::-1] + '\x00\x00\x00\x00\x00\x00\x01')
 
     def connectionStatusCallback(self, record):
-        """HCI Callback function to detect HCI Events related to
-           Create Connection"""
+        """
+        HCI Callback function to detect HCI Events related to
+        Create Connection
+        """
 
         hcipkt    = record[0]   # get HCI Event packet
         timestamp = record[5]   # get timestamp
@@ -1487,4 +1491,59 @@ class InternalBlue():
             log.info("[Connect Complete: Handle=0x%x  Address=%s  status=%d]" % (conn_handle, btaddr_str, status))
 
 
+    def readHeapInformation(self):
+        """
+        Traverses the double-linked list of BLOC structs and returns them as a
+        list of dictionaries. The dicts have the following fields:
+        - index:            Index of the BLOC struct inside the double-linked list
+        - address:          Address of the BLOC struct
+        - list_length:      Number of available buffers currently in the list
+        - capacity:         Total number of buffers belonging to the struct
+        - buffer_list:      Head of the buffer list (single-linked list)
+        - memory:           Address of the backing buffer in memory
+        - memory_size:      Size of the backing buffer in memory
+        - buffer_size:      Size of a single buffer in the list
+        - thread_waitlist:  Head of the list of threads, that wait for a buffer to become available
+        - waitlist_length:  Length of the waiting list
+        - prev:             Previous BLOC struct (double-linked list)
+        - next:             Next BLOC struct (double-linked list)
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['BLOC_HEAD']:
+            if const not in dir(fw):
+                log.warn("readHeapInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        # Read address of first bloc struct:
+        first_bloc_struct_address = u32(self.readMem(fw.BLOC_HEAD, 4))
+
+        # Traverse the double-linked list
+        bloclist = []
+        current_bloc_struct_address = first_bloc_struct_address
+        for index in range(100): # Traverse at most 100 (don't loop forever if linked-list is corrupted)
+            bloc_struct = self.readMem(current_bloc_struct_address, 0x30)
+            bloc_fields = struct.unpack("I"*12, bloc_struct)
+            if bloc_fields[0] != u32("COLB"):
+                log.warn("readHeapInformation: BLOC double-linked list contains non-BLOC element. abort.")
+                return None
+            current_element = {}
+            current_element["index"]           = index
+            current_element["address"]         = current_bloc_struct_address
+            current_element["list_length"]     = bloc_fields[2]
+            current_element["capacity"]        = bloc_fields[3]
+            current_element["buffer_list"]     = bloc_fields[4]
+            current_element["memory"]          = bloc_fields[5]
+            current_element["memory_size"]     = bloc_fields[6]
+            current_element["buffer_size"]     = bloc_fields[7]
+            current_element["thread_waitlist"] = bloc_fields[8]
+            current_element["waitlist_length"] = bloc_fields[9]
+            current_element["next"]            = bloc_fields[10]
+            current_element["prev"]            = bloc_fields[11]
+            bloclist.append(current_element)
+
+            current_bloc_struct_address = current_element["next"]
+            if current_bloc_struct_address == first_bloc_struct_address:
+                break
+        return bloclist
 
