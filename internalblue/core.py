@@ -557,10 +557,9 @@ class InternalBlue():
         stage1_hook_code = asm(fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
             fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address)
 
-		# FIXME this check fails on address length 3 and 2 ...
-        #if len(stage1_hook_code) != fw.TRACEPOINT_HOOK_SIZE:
-        #    log.error("Assertion failed: len(stage1_hook_code)=%d  is not equal to TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
-        #    return False
+        if len(stage1_hook_code) > fw.TRACEPOINT_HOOK_SIZE:
+            log.error("Assertion failed: len(stage1_hook_code)=%d  is larger than TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
+            return False
 
         # write code for hook to memory
         log.debug("addTracepoint: injecting hook function...")
