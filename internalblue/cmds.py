@@ -1193,7 +1193,7 @@ class CmdTracepoint(Cmd):
         return True
 
 
-class CmdSendHciCmd(Cmd):
+class CmdConnectCmd(Cmd):
     keywords = ['connect']
     description = "Initiate a connection to a remote Bluetooth device"
     parser = argparse.ArgumentParser(prog=keywords[0],

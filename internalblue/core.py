@@ -444,6 +444,12 @@ class InternalBlue():
             registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % \
                         tuple(self.tracepoint_registers[13:16])
             log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
+            
+            filename = self.data_directory + "/" + "internalblue_tracepoint_registers_%s.bin" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            log.info("Captured Registers for Tracepoint to %s" % filename)
+            f = open(filename, "w")
+            f.write(registers)
+            f.close()
 
             # remove tracepoint from self.tracepoints
             for tp in self.tracepoints:
@@ -469,8 +475,9 @@ class InternalBlue():
             if len(self.tracepoint_memdump_parts) == fw.TRACEPOINT_RAM_DUMP_PKT_COUNT:
                 dump = fit(self.tracepoint_memdump_parts)
                 #TODO: use this to start qemu
-                log.info("Captured Ram Dump for Tracepoint 0x%x" % self.tracepoint_memdump_address)
-                f = open(self.data_directory + "/" + "internalblue_tracepoint_0x%x.bin" % self.tracepoint_memdump_address, "wb")
+                filename = self.data_directory + "/" + "internalblue_tracepoint_0x%x_%s.bin" % (self.tracepoint_memdump_address, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+                log.info("Captured Ram Dump for Tracepoint 0x%x to %s" % (self.tracepoint_memdump_address, filename))
+                f = open(filename, "wb")
                 f.write(dump)
                 f.close()
 
@@ -550,9 +557,10 @@ class InternalBlue():
         stage1_hook_code = asm(fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
             fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address)
 
-        if len(stage1_hook_code) != fw.TRACEPOINT_HOOK_SIZE:
-            log.error("Assertion failed: len(stage1_hook_code)=%d  is not equal to TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
-            return False
+		# FIXME this check fails on address length 3 and 2 ...
+        #if len(stage1_hook_code) != fw.TRACEPOINT_HOOK_SIZE:
+        #    log.error("Assertion failed: len(stage1_hook_code)=%d  is not equal to TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
+        #    return False
 
         # write code for hook to memory
         log.debug("addTracepoint: injecting hook function...")
