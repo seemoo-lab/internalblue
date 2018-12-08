@@ -455,6 +455,48 @@ class HCI_Event(HCI):
         0x57 : "EVENT Authenticated_Payload_Timeout_Expired",
     }
 
+    HCI_COMMAND_ERROR_STR = {
+        0x00 : "Success",
+        0x01 : "Unknown HCI Command",
+        0x02 : "No Connection",
+        0x03 : "Hardware Failure",
+        0x04 : "Page Timeout",
+        0x05 : "Authentication Failure",
+        0x06 : "Key Missing",
+        0x07 : "Memory Full",
+        0x08 : "Connection Timeout",
+        0x09 : "Max Number Of Connections",
+        0x0A : "Max Number Of SCO Connections To A Device",
+        0x0B : "ACL Connection Already Exists",
+        0x0C : "Command Disallowed",
+        0x0D : "Host Rejected Due To Limited Resources",
+        0x0E : "Host Rejected Due To Security Reasons",
+        0x0F : "Host Rejected Due To A Remote Device Only A Personal Device",
+        0x10 : "Host Timeout",
+        0x11 : "Unsupported Feature Or Parameter Value",
+        0x12 : "Invalid HCI Command Parameters",
+        0x13 : "Other End Terminated Connection: User Ended Connection",
+        0x14 : "Other End Terminated Connection: Low Resources",
+        0x15 : "Other End Terminated Connection: About To Power Off",
+        0x16 : "Connection Terminated By Local Host",
+        0x17 : "Repeated Attempts",
+        0x18 : "Pairing Not Allowed",
+        0x19 : "Unknown LMP PDU",
+        0x1A : "Unsupported Remote Feature",
+        0x1B : "SCO Offset Rejected",
+        0x1C : "SCO Interval Rejected",
+        0x1D : "SCO Air Mode Rejected",
+        0x1E : "Invalid LMP Parameters",
+        0x1F : "Unspecified Error",
+        0x20 : "Unsupported LMP Parameter",
+        0x21 : "Role Change Not Allowed",
+        0x22 : "LMP Response Timeout",
+        0x23 : "LMP Error Transaction Collision",
+        0x24 : "LMP PDU Not Allowed",
+        0x25 : "Encryption Mode Not Acceptable",
+        0x26 : "Unit Key Used",
+    }
+
     @staticmethod
     def from_data(data):
         return HCI_Event(ord(data[0]), ord(data[1]), data[2:])

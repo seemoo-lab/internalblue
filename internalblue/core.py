@@ -1485,17 +1485,18 @@ class InternalBlue():
 
         # Check if event is Connection Create Status Event
         if hcipkt.event_code == 0x0f:
-            if u16(hcipkt.data[0:2]) != 0x0405: # Create Connection HCI Cmd
+            if u16(hcipkt.data[2:4]) == 0x0405: # Create Connection HCI Cmd
                 log.info("[Connection Create initiated]")
                 return
 
         # Check if event is Connection Create Complete Event
         if hcipkt.event_code == 0x03:
             status      = u8(hcipkt.data[0])
+            status_str  = hex(status) if status not in hcipkt.HCI_COMMAND_ERROR_STR else hcipkt.HCI_COMMAND_ERROR_STR[status]
             conn_handle = u16(hcipkt.data[1:3])
             btaddr      = hcipkt.data[3:9][::-1]
             btaddr_str  = ":".join([b.encode("hex") for b in btaddr])
-            log.info("[Connect Complete: Handle=0x%x  Address=%s  status=%d]" % (conn_handle, btaddr_str, status))
+            log.info("[Connect Complete: Handle=0x%x  Address=%s  status=%s]" % (conn_handle, btaddr_str, status_str))
 
 
     def readHeapInformation(self):
