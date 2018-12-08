@@ -1067,13 +1067,17 @@ class CmdInfo(Cmd):
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument("type", help="""Type of information:
-    device:       General information (BT Name/Address, ADB Serial ID)
-    connections:  List of valid entries in the connection structure
-    patchram:     List of patches in the patchram table
-    heap / bloc:  List of BLOC structures (Heap Pools)
+    device:       General information (BT Name/Address, ADB Serial ID).
+    connections:  List of valid entries in the connection structure.
+    patchram:     List of patches in the patchram table.
+    heap / bloc:  List of BLOC structures (Heap Pools).
+                  Optional argument: BLOC index or address for more details.
     """)
 
-    def infoConnections(self):
+    parser.add_argument("args", nargs="*",
+                        help="Optional arguments for each type.")
+
+    def infoConnections(self, args):
         for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
             connection = self.internalblue.readConnectionInformation(i+1)
             if connection == None:
@@ -1095,8 +1099,9 @@ class CmdInfo(Cmd):
             log.info("    - TX Power (dBm):    %d"     % connection["tx_pwr_lvl_dBm"])
             log.info("    - Array Index:       %s"     % connection["id"].encode('hex'))
         print
+        return True
 
-    def infoDevice(self):
+    def infoDevice(self, args):
         bt_addr      = self.readMem(self.internalblue.fw.BD_ADDR, 6)[::-1]
         bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
         device_name  = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
@@ -1108,8 +1113,9 @@ class CmdInfo(Cmd):
         log.info("    - Name:       %s" % device_name)
         log.info("    - ADB Serial: %s" % adb_serial)
         log.info("    - Address:    %s" % bt_addr_str)
+        return True
 
-    def infoPatchram(self):
+    def infoPatchram(self, args):
         table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
         log.info("### | Patchram Table ###")
         for i in range(self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS):
@@ -1119,14 +1125,58 @@ class CmdInfo(Cmd):
                 log.info("[%03d] 0x%08X: %s (%s)" % (i, table_addresses[i],
                                                  table_values[i].encode('hex'),
                                                  code))
+        return True
 
-    def infoHeap(self):
+    def infoHeap(self, args):
+        bloc_for_details = None
+        bloc_address     = None
+        bloc_index       = None
+        if len(args) > 0:
+            try: 
+                if args[0].startswith("0x"):
+                    bloc_address = int(args[0], 16)
+                else:
+                    bloc_index   = int(args[0])
+            except TypeError:
+                log.warn("Optional argument is neither a number (decimal) nor an address (hex)")
+                return False
+
+        progress_log = log.progress("Traversing Heap")
         heaplist = self.internalblue.readHeapInformation()  # List of BLOC structs
-        log.info("[ Idx ] @Pool-Addr  Buf-Size  Avail/Capacity  Mem-Size @ Addr")
-        log.info("-------------------------------------------------------------")
+        log.info("  [ Idx ] @Pool-Addr  Buf-Size  Avail/Capacity  Mem-Size @ Addr")
+        log.info("  -----------------------------------------------------------------")
         for heappool in heaplist:
             # TODO: waitlist
-            log.info("BLOC[{index}] @ 0x{address:06X}: {buffer_size:8d}    {list_length:2d} / {capacity:2d}        {memory_size:7d} @ 0x{memory:06X}".format(**heappool))
+
+            marker_str = "> "
+            if bloc_address != None and heappool["address"] == bloc_address:
+                bloc_for_details = heappool
+            elif bloc_index != None and heappool["index"] == bloc_index:
+                bloc_for_details = heappool
+            else:
+                marker_str = "  "
+
+            log.info(marker_str + ("BLOC[{index}] @ 0x{address:06X}: {buffer_size:8d}"\
+                                  "    {list_length:2d} / {capacity:2d}        "\
+                                  "{memory_size:7d} @ 0x{memory:06X}").format(**heappool))
+
+        if bloc_for_details == None:
+            progress_log.success("done")
+            return True
+
+        buffer_size  = bloc_for_details["buffer_size"] + 4
+        buffer_count = bloc_for_details["memory_size"] / buffer_size
+        for buf_index in range(buffer_count):
+            buffer_address = bloc_for_details["memory"] + buf_index * buffer_size
+            progress_log.status("Dumping buffers from BLOC[%d]: 0x%06X" % (bloc_for_details["index"], buffer_address))
+            buf = self.internalblue.readMem(buffer_address, buffer_size)
+            if u32(buf[0:4]) == bloc_for_details["address"]:
+                # Buffer in use!
+                log.info("dumping buffer 0x%06X from BLOC[%d]:" % (buffer_address + 4, bloc_for_details["index"]))
+                log.hexdump(buf[4:], begin=buffer_address+4)
+
+        progress_log.success("done")
+        return True
 
     def work(self):
         args = self.getArgs()
@@ -1141,11 +1191,10 @@ class CmdInfo(Cmd):
         subcommands["bloc"] = self.infoHeap
 
         if args.type in subcommands:
-            subcommands[args.type]()
+            return subcommands[args.type](args.args)
         else:
             log.warn("Unkown type: %s\nKnown types: %s" % (args.type, subcommands.keys()))
             return False
-        return True
 
 
 class CmdTracepoint(Cmd):
