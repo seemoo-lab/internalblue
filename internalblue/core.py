@@ -523,7 +523,7 @@ class InternalBlue():
             log.info("Initial tracepoint: setting up tracepoint engine.")
 
             # compile assembler snippet containing the hook body code:
-            hooks_code = asm(fw.TRACEPOINT_BODY_ASM_SNIPPET, vma=fw.TRACEPOINT_BODY_ASM_LOCATION)
+            hooks_code = asm(fw.TRACEPOINT_BODY_ASM_SNIPPET, vma=fw.TRACEPOINT_BODY_ASM_LOCATION, arch='thumb')
             if len(hooks_code) > 0x100:
                 log.error("Assertion failed: len(hooks_code)=%d  is larger than 0x100!" % len(hooks_code))
 
@@ -555,7 +555,7 @@ class InternalBlue():
 
         # compile assembler snippet containing the stage-1 hook code:
         stage1_hook_code = asm(fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
-            fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address)
+            fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address, arch='thumb')
 
         if len(stage1_hook_code) > fw.TRACEPOINT_HOOK_SIZE:
             log.error("Assertion failed: len(stage1_hook_code)=%d  is larger than TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
@@ -566,7 +566,7 @@ class InternalBlue():
         self.writeMem(hook_address, stage1_hook_code)
 
         # patch in the hook branch instruction
-        patch = asm("b 0x%x" % hook_address, vma=address)
+        patch = asm("b 0x%x" % hook_address, vma=address, arch='thumb')
         if not self.patchRom(address, patch):
             log.warn("addTracepoint: couldn't insert tracepoint hook!")
             return False
@@ -793,7 +793,7 @@ class InternalBlue():
 
         ### Injecting hooks ###
         # compile assembler snippet containing the hook code:
-        hooks_code = asm(fw.LMP_MONITOR_INJECTED_CODE, vma=fw.LMP_MONITOR_HOOK_BASE_ADDRESS)
+        hooks_code = asm(fw.LMP_MONITOR_INJECTED_CODE, vma=fw.LMP_MONITOR_HOOK_BASE_ADDRESS, arch='thumb')
         # save memory content at the addresses where we place the snippet and the temp. buffer
         saved_data_hooks = self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
         saved_data_data = ""
@@ -811,7 +811,7 @@ class InternalBlue():
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
         log.debug("startLmpMonitor: inserting lmp recv hook ...")
         # position of 'b hook_recv_lmp' within hook code is + 5
-        patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
+        patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, arch='thumb')
         if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
             log.warn("startLmpMonitor: couldn't insert patch!")
             return False
@@ -1083,7 +1083,7 @@ class InternalBlue():
                 blocksize = 244
 
             # Customize the assembler snippet with the current read_addr and blocksize
-            code = asm(fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=fw.READ_MEM_ALIGNED_ASM_LOCATION)
+            code = asm(fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=fw.READ_MEM_ALIGNED_ASM_LOCATION, arch='thumb')
 
             # Write snippet to the RAM (TODO: maybe backup and restore content of this area?)
             self.writeMem(fw.READ_MEM_ALIGNED_ASM_LOCATION, code)
@@ -1434,7 +1434,7 @@ class InternalBlue():
                 for x in data.ljust(20, "\x00")])
 
         # Assemble the snippet and write it to SENDLMP_CODE_BASE_ADDRESS
-        code = asm(asm_code_with_data, vma=fw.SENDLMP_CODE_BASE_ADDRESS)
+        code = asm(asm_code_with_data, vma=fw.SENDLMP_CODE_BASE_ADDRESS, arch='thumb')
         self.writeMem(fw.SENDLMP_CODE_BASE_ADDRESS, code)
 
         # Invoke the snippet
