@@ -61,6 +61,12 @@ SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
 # BLOC struct head which points to the first bloc struct (double-linked list)
 BLOC_HEAD = 0x203094
 
+# QUEU struct head which points to the first queue struct (double-linked list)
+QUEUE_HEAD = 0x20307C
+QUEUE_NAMES = ["hci_evt_send", "queue2", "queue3", "queue4", "queue5", "hci_recv",
+               "queue7", "queue8", "queue9", "queue10", "queue11", "queue12",
+               "hci_uart_type7", "queue14", "hci_sco", "queue16"]   # TODO: better names
+
 
 # Connection Structure and Table
 CONNECTION_ARRAY_ADDRESS = 0x002038E8

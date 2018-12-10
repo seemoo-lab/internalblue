@@ -1072,6 +1072,7 @@ class CmdInfo(Cmd):
     patchram:     List of patches in the patchram table.
     heap / bloc:  List of BLOC structures (Heap Pools).
                   Optional argument: BLOC index or address for more details.
+    queue:        List of QUEU structures (Blocking Queues).
     """)
 
     parser.add_argument("args", nargs="*",
@@ -1178,6 +1179,29 @@ class CmdInfo(Cmd):
         progress_log.success("done")
         return True
 
+    def infoQueue(self, args):
+        progress_log = log.progress("Traversing Queues")
+        queuelist = self.internalblue.readQueueInformation()  # List of QUEU structs
+        log.info("[ Idx  ] @Queue-Addr  Queue-Name   Items/Free/Capacity  Item-Size  Buffer")
+        log.info("--------------------------------------------------------------------------")
+        for queue in queuelist:
+            # TODO: waitlist
+            log.info(("QUEU[{index:2d}] @ 0x{address:06X}:  {name:14s} {available_items:2d} /"
+                      " {free_slots:2d} / {capacity:2d}      {item_size:2d} Bytes    0x{queue_buf_start:06X}").format(**queue))
+
+        # TODO: output all queued items
+        #if "-v" in args:
+        #    print
+        #    for queue in queuelist:
+        #        if len(queue["items"]) > 0:
+        #            log.info("QUEUE[{index}] @ 0x{address:06X}:  {name:10s}  ({available_items:d} items)\n"
+        #                     "---------------------------------------------------------------------------")
+        #            for item in queue["items"]:
+        #                log.hexdump(item, begin=0x0)
+
+        progress_log.success("done")
+        return True
+
     def work(self):
         args = self.getArgs()
         if args == None:
@@ -1189,6 +1213,7 @@ class CmdInfo(Cmd):
         subcommands["patchram"] = self.infoPatchram
         subcommands["heap"] = self.infoHeap
         subcommands["bloc"] = self.infoHeap
+        subcommands["queue"] = self.infoQueue
 
         if args.type in subcommands:
             return subcommands[args.type](args.args)

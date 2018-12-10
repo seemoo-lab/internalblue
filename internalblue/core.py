@@ -1555,3 +1555,66 @@ class InternalBlue():
                 break
         return bloclist
 
+    def readQueueInformation(self):
+        """
+        Traverses the double-linked list of QUEUE structs and returns them as a
+        list of dictionaries. The dicts have the following fields:
+        - index:            Index of the BLOC struct inside the double-linked list
+        - address:          Address of the BLOC struct
+        - item_size:        Size of a single queue item (in Byte)
+        - capacity:         Total number of queue items belonging to the struct
+        - available_items:  Number of valid queue items ready to be retrieved
+        - free_slots:       Number of free item slots
+        - queue_buf_start:  Pointer to the beginning of the queue buffer
+        - queue_buf_end:    Pointer to the end of the queue buffer
+        - next_item:        Pointer to the next item to be retrieved from the queue
+        - next_free_slot:   Pointer to the next free item slot to be filled
+        - thread_waitlist:  Head of the list of threads, that wait for a buffer to become available
+        - waitlist_length:  Length of the waiting list
+        - prev:             Previous BLOC struct (double-linked list)
+        - next:             Next BLOC struct (double-linked list)
+        - items:            List of queue items (raw bytes)
+        - name:             Name of the queue (from reverse engineering its usage)
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['QUEUE_HEAD']:
+            if const not in dir(fw):
+                log.warn("readQueueInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        # Read address of first queue struct:
+        first_queue_struct_address = u32(self.readMem(fw.QUEUE_HEAD, 4))
+
+        # Traverse the double-linked list
+        queuelist = []
+        current_queue_struct_address = first_queue_struct_address
+        for index in range(100): # Traverse at most 100 (don't loop forever if linked-list is corrupted)
+            queue_struct = self.readMem(current_queue_struct_address, 0x38)
+            queue_fields = struct.unpack("I"*14, queue_struct)
+            if queue_fields[0] != u32("UEUQ"):
+                log.warn("readQueueInformation: QUEUE double-linked list contains non-QUEU element. abort.")
+                return None
+            current_element = {}
+            current_element["index"]           = index
+            current_element["address"]         = current_queue_struct_address
+            current_element["item_size"]       = queue_fields[2] * 4 # Item size is measured in dwords (4 Byte)
+            current_element["capacity"]        = queue_fields[3]
+            current_element["available_items"] = queue_fields[4]
+            current_element["free_slots"]      = queue_fields[5]
+            current_element["queue_buf_start"] = queue_fields[6]
+            current_element["queue_buf_end"]   = queue_fields[7]
+            current_element["next_item"]       = queue_fields[8]
+            current_element["next_free_slot"]  = queue_fields[9]
+            current_element["thread_waitlist"] = queue_fields[10]
+            current_element["waitlist_length"] = queue_fields[11]
+            current_element["next"]            = queue_fields[12]
+            current_element["prev"]            = queue_fields[13]
+            current_element["name"]            = fw.QUEUE_NAMES[index]
+            queuelist.append(current_element)
+
+            current_queue_struct_address = current_element["next"]
+            if current_queue_struct_address == first_queue_struct_address:
+                break
+        return queuelist
+
