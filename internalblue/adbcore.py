@@ -1,15 +1,12 @@
 #!/usr/bin/env python2
 
 import socket
-import time
-import datetime
 import Queue
 import random
 
 from pwn import *
 
 from core import InternalBlue
-import hci
 
 
 class ADBCore(InternalBlue):
@@ -105,6 +102,9 @@ class ADBCore(InternalBlue):
         HCI Command Complete Event which was received in response to
         the command or None if no response was received within the timeout.
         """
+        #TODO: If the response is a HCI Command Status Event, we will actually
+        #      return this instead of the Command Complete Event (which will
+        #      follow later and will be ignored). This should be fixed..
 
         queue = Queue.Queue(1)
         try:
@@ -123,13 +123,13 @@ class ADBCore(InternalBlue):
         """
 
         data = self.s_snoop.recv(16)
-        if (len(data) < 16):
+        if(len(data) < 16):
             return None
-        if (self.write_btsnooplog):
+        if(self.write_btsnooplog):
             self.btsnooplog_file.write(data)
             self.btsnooplog_file.flush()
 
-        btsnoop_hdr = (data[:8], u32(data[8:12], endian="big"), u32(data[12:16], endian="big"))
+        btsnoop_hdr = (data[:8], u32(data[8:12],endian="big"),u32(data[12:16],endian="big"))
         log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
         return btsnoop_hdr
 
