@@ -34,7 +34,9 @@ import signal
 import time
 import traceback
 
-import core
+from adbcore import ADBCore
+from htcore import HTCore
+
 import cmds
 
 HISTFILE = "_internalblue.hist"
@@ -93,12 +95,6 @@ def internalblue_cli():
     data_directory = os.path.expanduser("~") + "/.internalblue"
     if not os.path.exists(data_directory):
         os.mkdir(data_directory)
-    internalblue = core.InternalBlue(data_directory=data_directory)
-
-    # Restore readline history:
-    if os.path.exists(internalblue.data_directory + "/" + HISTFILE):
-        readline_history = read(internalblue.data_directory + "/" + HISTFILE)
-        term.readline.history = readline_history.split('\n')
 
     # Readline Completions
     cmd_keywords = []
@@ -108,21 +104,44 @@ def internalblue_cli():
     readline_completer = term.completer.LongestPrefixCompleter(words=cmd_keywords)
     term.readline.set_completer(readline_completer)
 
-    # setup sockets
-    if not internalblue.connect():
-        log.critical("No connection to target device.")
-        exit(-1)
+    # Initalize cores and get devices
+    connection_methods = [ADBCore(data_directory=data_directory), HTCore(data_directory=data_directory)]
 
-    # Enter command loop (runs until user quits)
-    commandLoop(internalblue)
+    devices = []
+    for connection_method in connection_methods:
+        devices.extend(connection_method.device_list())
 
-    # shutdown connection
-    internalblue.shutdown()
+    if len(devices) > 0:
+        if len(devices) == 1:
+            device = devices[0]
+        else:
+            i = options('Please specify device:',  [d[2] for d in devices], 0)
+            device = devices[i]
 
-    # Save readline history:
-    f = open(internalblue.data_directory + "/" + HISTFILE, "w")
-    f.write("\n".join(term.readline.history))
-    f.close()
+        # Setup device
+        reference = device[0]
+        reference.interface = device[1]
+
+        # Restore readline history:
+        if os.path.exists(reference.data_directory + "/" + HISTFILE):
+            readline_history = read(reference.data_directory + "/" + HISTFILE)
+            term.readline.history = readline_history.split('\n')
+
+        # Connect to device
+        if not reference.connect():
+            log.critical("No connection to target device.")
+            exit(-1)
+
+        # Enter command loop (runs until user quits)
+        commandLoop(reference)
+
+        # shutdown connection
+        reference.shutdown()
+
+        # Save readline history:
+        f = open(reference.data_directory + "/" + HISTFILE, "w")
+        f.write("\n".join(term.readline.history))
+        f.close()
 
     # Cleanup
     log.info("Goodbye")

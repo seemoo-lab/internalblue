@@ -15,8 +15,8 @@ from htresponse import HTResponse
 
 class HTCore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='debug', fix_binutils='True'):
-        super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils)
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='debug', fix_binutils='True', data_directory="."):
+        super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
 
         # shift ogf 2 bits to the right
         HCI_Cmd.HCI_CMD_STR = {(((divmod(k, 0x100)[0] >> 2) % pow(2, 8)) << 8) + divmod(k, 0x100)[1]: v for k, v in HCI_Cmd.HCI_CMD_STR.iteritems()}
