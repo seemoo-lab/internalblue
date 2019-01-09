@@ -35,6 +35,7 @@ import textwrap
 import struct
 import time
 import select
+import json
 
 def getCmdList():
     """ Returns a list of all commands which are defined in this cmds.py file.
@@ -1301,5 +1302,112 @@ class CmdConnectCmd(Cmd):
             return False
 
         self.internalblue.connectToRemoteDevice(addr) 
+
+        return True
+
+
+class CmdCustom(Cmd):
+    keywords = ['custom', 'c']
+    description = "Add custom command to internalblue"
+
+    actions = ['list', 'add', 'run', 'remove']
+
+    for keyword in list(keywords):
+        keywords.extend(['%s %s' % (keyword, action) for action in actions])
+
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+
+    parser.add_argument("do",
+                        help="one of (%s)" % ", ".join(actions))
+    parser.add_argument("alias", nargs="?", default=None,
+                        help="alias of the cmd")
+    parser.add_argument("cmd", nargs="*", default=[],
+                        help="only used with add")
+
+    file = 'custom.json'
+    custom_commands = {}
+
+    if os.path.isfile(file):
+        try:
+            with open(file, 'r') as reader:
+                custom_commands = json.loads(reader.read())
+        except:
+            log.critical("Something went wrong with loading custom commands!")
+
+    @staticmethod
+    def save(custom_commands):
+        with open(CmdCustom.file, 'w') as writer:
+            json.dump(custom_commands, writer, sort_keys=True, indent=2)
+
+    def work(self):
+        args = self.getArgs()
+
+        if args == None:
+            return True
+
+        if args.do == 'list':
+            custom_cmds= ["\t%s\t\t%s\n" % (k, v) for k, v in sorted(CmdCustom.custom_commands.iteritems())]
+            log.info("Custom commands:\n%s" % ''.join(custom_cmds))
+            return True
+
+        if args.do == 'add':
+
+            alias = args.alias
+            cmd = " ".join(args.cmd)
+
+            log.debug("Alias: " + alias)
+            log.debug("Command " + cmd)
+
+            # if cmd not found, return False
+            if not findCmd(cmd.split(" ")[0]):
+                log.warning("Custom command not found: " + cmd.split(" ")[0])
+                return False
+
+            CmdCustom.custom_commands[alias] = cmd
+            CmdCustom.save(CmdCustom.custom_commands)
+
+            log.info("Custom Command added: " + alias)
+
+        if args.do == "run":
+            alias = args.alias
+
+            # check if no cmd has been passed
+            if len(args.cmd) == 0:
+
+                if alias in CmdCustom.custom_commands:
+
+                    cmd = CmdCustom.custom_commands[alias]
+
+                    matching_cmd = findCmd(cmd.split(" ")[0])
+
+                    if matching_cmd == None:
+                        log.warn("Command unknown: " + cmd)
+                        return False
+
+                    cmd_instance = matching_cmd(cmd, self.internalblue)
+
+                    if (not cmd_instance.work()):
+                        log.warn("Command failed: " + str(cmd_instance))
+
+                    return True
+
+                log.info("Custom Command not found: " + alias)
+
+                return False
+
+            return True
+
+        if args.do == 'remove':
+            if not args.alias in CmdCustom.custom_commands:
+                log.info("Custom command not found: " + args.alias)
+                return False
+
+            CmdCustom.custom_commands.pop(args.alias, None)
+
+            log.info("Custom command removed: " + args.alias)
+
+            return True
 
         return True
