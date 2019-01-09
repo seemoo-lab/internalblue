@@ -25,6 +25,7 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from abc import ABCMeta, abstractmethod
 
 from pwn import *
 import socket
@@ -37,11 +38,17 @@ import hci
 
 
 class InternalBlue():
+    __metaclass__ = ABCMeta
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         context.log_level = log_level
         context.log_file = data_directory + '/_internalblue.log'
         context.arch = "thumb"
+
+        self.interface = None   # holds the context.device / hci interaface which is used to connect, is set in cli
+        self.fw = None          # holds the firmware file
+
+
         self.data_directory = data_directory
         self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.s_inject = None    # This is the TCP socket to the HCI inject port
@@ -607,11 +614,17 @@ class InternalBlue():
             return False
         return True
 
+    def init_vsc_variables(self):
+        """
+        Need to be called from the initiating class of internalblue. otherwise opcode might be wrong
+        """
+        self.vsc_read_ram = hci.HCI_Cmd.cmd_opcode('COMND VSC_Read_RAM')
+
+    @abstractmethod
+    def device_list(self):
+        pass
+
     def connect(self):
-        """
-        Start the framework by connecting to the Bluetooth Stack of the Android
-        device via adb and the debugging TCP ports.
-        """
 
         if self.exit_requested:
             self.shutdown()
@@ -620,37 +633,14 @@ class InternalBlue():
             log.warn("Already running. call shutdown() first!")
             return False
 
-        # Check for connected adb devices
-        adb_devices = adb.devices()
-        if(len(adb_devices) == 0):
-            log.critical("No adb devices found.")
+        if not self.interface:
+            log.warn("No adb device identifier is set")
             return False
-        if(len(adb_devices) > 1):
-            log.info("Found multiple adb devices. Please specify!")
-            choice = options("Please choose:", [d.serial + ' (' + d.model + ')' for d in adb_devices])
-            context.device = adb_devices[choice].serial
-        else:
-            log.info("Using adb device: %s (%s)" % (adb_devices[0].serial, adb_devices[0].model))
-            context.device = adb_devices[0].serial
 
-        # Import fw depending on device
-        global fw    # put the imported fw into global namespace #FIXME does not work for cmds.py
-        if adb.current_device().model == 'Nexus 5':
-            log.info("Importing fw for Nexus 5")
-            import fw_5 as fw
-        elif adb.current_device().model == 'Nexus 6P':
-            log.info("Importing fw for Nexus 6P")
-            import fw_6p as fw
-        else:
-            log.critical("Device not supported - continue at own risk")
-            fw = None
-        self.fw = fw    # Other scripts (such as cmds.py) can use fw through a member variable
-
-        # setup sockets
-        if not self._setupSockets():
-            log.critical("No connection to target device.")
-            log.info("Check if:\n -> Bluetooth is active\n -> Bluetooth Stack has Debug Enabled\n -> BT HCI snoop log is activated\n")
+        if not self.local_connect():
             return False
+
+        log.info('Connected to %s', self.interface)
 
         # start receive thread
         self.recvThread = context.Thread(target=self._recvThreadFunc)
@@ -663,16 +653,21 @@ class InternalBlue():
         self.sendThread.start()
 
         # register stackDumpReceiver callback:
-        self.stackDumpReceiver = hci.StackDumpReceiver(data_directory=self.data_directory)
+        self.stackDumpReceiver = hci.StackDumpReceiver()
+
+        # register hci callback:
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
 
         self.running = True
+
+        return True
+
+    def local_connect(self):
         return True
 
     def shutdown(self):
         """
-        Shutdown the framework by stopping the send and recv threads and disconnecting
-        the TCP sockets.
+        Shutdown the framework by stopping the send and recv threads and calling the local_shutdown function.
         """
 
         # Setting exit_requested to True will stop the send and recv threads at their
@@ -681,22 +676,20 @@ class InternalBlue():
 
         # unregister stackDumpReceiver callback:
         if self.stackDumpReceiver != None:
-            self.unregisterHciCallback(self.stackDumpReceiver.recvPacket)
             self.stackDumpReceiver = None
 
-        # Wait until both threads have actually finished
-        self.recvThread.join()
-        self.sendThread.join()
+        # Call local_shutdown
+        self.local_shutdown()
 
-        # Disconnect the TCP sockets
-        self._teardownSockets()
-
-        if(self.write_btsnooplog):
+        if (self.write_btsnooplog):
             self.btsnooplog_file.close()
 
         self.running = False
         self.exit_requested = False
         log.info("Shutdown complete.")
+
+    def local_shutdown(self):
+        pass
 
     def registerHciCallback(self, callback):
         """
@@ -922,28 +915,9 @@ class InternalBlue():
             self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, saved_data_data)
         return True
 
+    @abstractmethod
     def sendHciCommand(self, opcode, data, timeout=2):
-        """
-        Send an arbitrary HCI packet by pushing a send-task into the
-        sendQueue. This function blocks until the response is received
-        or the timeout expires. The return value is the Payload of the
-        HCI Command Complete Event which was received in response to
-        the command or None if no response was received within the timeout.
-        """
-        #TODO: If the response is a HCI Command Status Event, we will actually
-        #      return this instead of the Command Complete Event (which will
-        #      follow later and will be ignored). This should be fixed..
-
-        queue = Queue.Queue(1)
-        try:
-            self.sendQueue.put((opcode, data, queue), timeout=timeout)
-            return queue.get(timeout=timeout)
-        except Queue.Empty:
-            log.warn("sendHciCommand: waiting for response timed out!")
-            return None
-        except Queue.Full:
-            log.warn("sendHciCommand: send queue is full!")
-            return None
+        pass
 
     def recvPacket(self, timeout=None):
         """
