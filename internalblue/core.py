@@ -479,7 +479,7 @@ class InternalBlue():
             self.tracepoint_memdump_parts[normalized_address] = data
 
             # Check if this was the last packet
-            if len(self.tracepoint_memdump_parts) == fw.TRACEPOINT_RAM_DUMP_PKT_COUNT:
+            if len(self.tracepoint_memdump_parts) == self.fw.TRACEPOINT_RAM_DUMP_PKT_COUNT:
                 dump = fit(self.tracepoint_memdump_parts)
                 #TODO: use this to start qemu
                 filename = self.data_directory + "/" + "internalblue_tracepoint_0x%x_%s.bin" % (self.tracepoint_memdump_address, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
@@ -494,7 +494,7 @@ class InternalBlue():
         for const in ['TRACEPOINT_BODY_ASM_LOCATION', 'TRACEPOINT_BODY_ASM_SNIPPET',
                       'TRACEPOINT_HOOK_ASM', 'TRACEPOINT_HOOKS_LOCATION',
                       'TRACEPOINT_HOOK_SIZE']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("addTracepoint: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
@@ -521,7 +521,7 @@ class InternalBlue():
 
         # Find a free address for the hook code
         for i in range(5):
-            hook_address = fw.TRACEPOINT_HOOKS_LOCATION + fw.TRACEPOINT_HOOK_SIZE*i
+            hook_address = self.fw.TRACEPOINT_HOOKS_LOCATION + self.fw.TRACEPOINT_HOOK_SIZE*i
             if hook_address not in existing_hook_addresses:
                 break
 
@@ -530,15 +530,15 @@ class InternalBlue():
             log.info("Initial tracepoint: setting up tracepoint engine.")
 
             # compile assembler snippet containing the hook body code:
-            hooks_code = asm(fw.TRACEPOINT_BODY_ASM_SNIPPET, vma=fw.TRACEPOINT_BODY_ASM_LOCATION, arch='thumb')
+            hooks_code = asm(self.fw.TRACEPOINT_BODY_ASM_SNIPPET, vma=self.fw.TRACEPOINT_BODY_ASM_LOCATION, arch='thumb')
             if len(hooks_code) > 0x100:
                 log.error("Assertion failed: len(hooks_code)=%d  is larger than 0x100!" % len(hooks_code))
 
             # save memory content at the addresses where we place the snippet and the stage-1 hooks
-            self.tracepoint_saved_data = self.readMem(fw.TRACEPOINT_BODY_ASM_LOCATION, 0x100)
+            self.tracepoint_saved_data = self.readMem(self.fw.TRACEPOINT_BODY_ASM_LOCATION, 0x100)
 
             # write code for hook to memory
-            self.writeMem(fw.TRACEPOINT_BODY_ASM_LOCATION, hooks_code)
+            self.writeMem(self.fw.TRACEPOINT_BODY_ASM_LOCATION, hooks_code)
 
             # Register tracepoint hci callback function
             self.registerHciCallback(self._tracepointHciCallbackFunction)
@@ -561,10 +561,10 @@ class InternalBlue():
         log.info("Using patchram slot %d for tracepoint." % patchram_slot)
 
         # compile assembler snippet containing the stage-1 hook code:
-        stage1_hook_code = asm(fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
-            fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address, arch='thumb')
+        stage1_hook_code = asm(self.fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
+            self.fw.TRACEPOINT_BODY_ASM_LOCATION, address), vma=hook_address, arch='thumb')
 
-        if len(stage1_hook_code) > fw.TRACEPOINT_HOOK_SIZE:
+        if len(stage1_hook_code) > self.fw.TRACEPOINT_HOOK_SIZE:
             log.error("Assertion failed: len(stage1_hook_code)=%d  is larger than TRACEPOINT_HOOK_SIZE!" % len(stage1_hook_code))
             return False
 
@@ -774,7 +774,7 @@ class InternalBlue():
         # Check if constants are defined in fw.py
         for const in ['LMP_SEND_PACKET_HOOK', 'LMP_MONITOR_LMP_HANDLER_ADDRESS',
                       'LMP_MONITOR_HOOK_BASE_ADDRESS', 'LMP_MONITOR_INJECTED_CODE']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("startLmpMonitor: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
@@ -786,32 +786,32 @@ class InternalBlue():
 
         ### Injecting hooks ###
         # compile assembler snippet containing the hook code:
-        hooks_code = asm(fw.LMP_MONITOR_INJECTED_CODE, vma=fw.LMP_MONITOR_HOOK_BASE_ADDRESS, arch='thumb')
+        hooks_code = asm(self.fw.LMP_MONITOR_INJECTED_CODE, vma=self.fw.LMP_MONITOR_HOOK_BASE_ADDRESS, arch='thumb')
         # save memory content at the addresses where we place the snippet and the temp. buffer
-        saved_data_hooks = self.readMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
+        saved_data_hooks = self.readMem(self.fw.LMP_MONITOR_HOOK_BASE_ADDRESS, len(hooks_code))
         saved_data_data = ""
-        if 'LMP_MONITOR_BUFFER_BASE_ADDRESS' in dir(fw):
-            saved_data_data  = self.readMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, fw.LMP_MONITOR_BUFFER_LEN)
+        if 'LMP_MONITOR_BUFFER_BASE_ADDRESS' in dir(self.fw):
+            saved_data_data  = self.readMem(self.fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, self.fw.LMP_MONITOR_BUFFER_LEN)
 
         # write code for hook to memory (hook_send_lmp, hook_recv_lmp)
         log.debug("startLmpMonitor: injecting hook functions...")
-        self.writeMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, hooks_code)
+        self.writeMem(self.fw.LMP_MONITOR_HOOK_BASE_ADDRESS, hooks_code)
 
         # The LMP_send_packet function has the option to define a hook in RAM
         log.debug("startLmpMonitor: inserting lmp send hook ...")
-        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 1))
+        self.writeMem(self.fw.LMP_SEND_PACKET_HOOK, p32(self.fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 1))
         
         # The LMP_dispatcher function needs a ROM patch for inserting a hook
         log.debug("startLmpMonitor: inserting lmp recv hook ...")
         # position of 'b hook_recv_lmp' within hook code is + 5
-        patch = asm("b 0x%x" % (fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, arch='thumb')
-        if not self.patchRom(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
+        patch = asm("b 0x%x" % (self.fw.LMP_MONITOR_HOOK_BASE_ADDRESS + 5), vma=self.fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, arch='thumb')
+        if not self.patchRom(self.fw.LMP_MONITOR_LMP_HANDLER_ADDRESS, patch):
             log.warn("startLmpMonitor: couldn't insert patch!")
             return False
         log.debug("startLmpMonitor: monitor mode activated.")
 
         # Get device's BT address
-        deviceAddress = self.readMem(fw.BD_ADDR, 6)[::-1]
+        deviceAddress = self.readMem(self.fw.BD_ADDR, 6)[::-1]
 
         # define a callback function that gets called every time a HCI event is received.
         # It checks whether the event contains a LMP packet, extracts the LMP packet and 
@@ -842,19 +842,19 @@ class InternalBlue():
             if lmp_opcode >= 0x7C:
                 # This is a escape opcode. The actual opcode is stored in the next byte
                 lmp_opcode = u8(lmpData[13])
-                if lmp_opcode < len(fw.LMP_ESC_LENGTHS):
-                    lmp_len = fw.LMP_ESC_LENGTHS[lmp_opcode]
+                if lmp_opcode < len(self.fw.LMP_ESC_LENGTHS):
+                    lmp_len = self.fw.LMP_ESC_LENGTHS[lmp_opcode]
                 else:
                     log.debug("startLmpMonitor.hciCallbackFunction: received unknown esc. LMP opcode!")
                     lmp_len = 17 # Asume max length
             elif lmp_opcode == 0:
                 lmp_opcode = u8(lmpData[13])
-                if lmp_opcode < len(fw.LMP_VSC_LENGTHS):
-                    lmp_len = fw.LMP_VSC_LENGTHS[lmp_opcode]
+                if lmp_opcode < len(self.fw.LMP_VSC_LENGTHS):
+                    lmp_len = self.fw.LMP_VSC_LENGTHS[lmp_opcode]
                 else:
                     lmp_len = 17
-            elif lmp_opcode < len(fw.LMP_LENGTHS):
-                lmp_len = fw.LMP_LENGTHS[lmp_opcode]
+            elif lmp_opcode < len(self.fw.LMP_LENGTHS):
+                lmp_len = self.fw.LMP_LENGTHS[lmp_opcode]
             else:
                 log.debug("startLmpMonitor.hciCallbackFunction: received unknown LMP opcode!")
                 lmp_len = 17 # Asume max length
@@ -887,7 +887,7 @@ class InternalBlue():
         # Check if constants are defined in fw.py
         for const in ['LMP_SEND_PACKET_HOOK', 'LMP_MONITOR_LMP_HANDLER_ADDRESS',
                       'LMP_MONITOR_HOOK_BASE_ADDRESS']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("stopLmpMonitor: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
@@ -904,15 +904,15 @@ class InternalBlue():
 
         # Removing hooks
         log.debug("stopLmpMonitor: removing lmp send hook ...")
-        self.writeMem(fw.LMP_SEND_PACKET_HOOK, p32(0))
+        self.writeMem(self.fw.LMP_SEND_PACKET_HOOK, p32(0))
         log.debug("stopLmpMonitor: removing lmp recv hook ...")
-        self.disableRomPatch(fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
+        self.disableRomPatch(self.fw.LMP_MONITOR_LMP_HANDLER_ADDRESS)
 
         # Restoring the memory content of the area where we stored the patch code and temp. buffers
         log.debug("stopLmpMonitor: Restoring saved data...")
-        self.writeMem(fw.LMP_MONITOR_HOOK_BASE_ADDRESS, saved_data_hooks)
-        if 'LMP_MONITOR_BUFFER_BASE_ADDRESS' in dir(fw):
-            self.writeMem(fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, saved_data_data)
+        self.writeMem(self.fw.LMP_MONITOR_HOOK_BASE_ADDRESS, saved_data_hooks)
+        if 'LMP_MONITOR_BUFFER_BASE_ADDRESS' in dir(self.fw):
+            self.writeMem(self.fw.LMP_MONITOR_BUFFER_BASE_ADDRESS, saved_data_data)
         return True
 
     @abstractmethod
@@ -1015,7 +1015,7 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['READ_MEM_ALIGNED_ASM_LOCATION', 'READ_MEM_ALIGNED_ASM_SNIPPET']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("readMemAligned: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
@@ -1057,13 +1057,13 @@ class InternalBlue():
                 blocksize = 244
 
             # Customize the assembler snippet with the current read_addr and blocksize
-            code = asm(fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=fw.READ_MEM_ALIGNED_ASM_LOCATION, arch='thumb')
+            code = asm(self.fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=self.fw.READ_MEM_ALIGNED_ASM_LOCATION, arch='thumb')
 
             # Write snippet to the RAM (TODO: maybe backup and restore content of this area?)
-            self.writeMem(fw.READ_MEM_ALIGNED_ASM_LOCATION, code)
+            self.writeMem(self.fw.READ_MEM_ALIGNED_ASM_LOCATION, code)
 
             # Run snippet
-            if not self.launchRam(fw.READ_MEM_ALIGNED_ASM_LOCATION):
+            if not self.launchRam(self.fw.READ_MEM_ALIGNED_ASM_LOCATION):
                 log.error("readMemAligned: launching assembler snippet failed!")
                 return None
 
@@ -1148,9 +1148,9 @@ class InternalBlue():
             return False
         
         # Nexus 6P Bugfix
-        if ('LAUNCH_RAM_PAUSE' in dir(fw) and fw.LAUNCH_RAM_PAUSE):
-            log.debug("launchRam: Bugfix, sleeping %ds" % fw.LAUNCH_RAM_PAUSE)
-            time.sleep(fw.LAUNCH_RAM_PAUSE)
+        if ('LAUNCH_RAM_PAUSE' in dir(self.fw) and self.fw.LAUNCH_RAM_PAUSE):
+            log.debug("launchRam: Bugfix, sleeping %ds" % self.fw.LAUNCH_RAM_PAUSE)
+            time.sleep(self.fw.LAUNCH_RAM_PAUSE)
             
         return True
 
@@ -1166,14 +1166,14 @@ class InternalBlue():
         # Check if constants are defined in fw.py
         for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS',
                       'PATCHRAM_VALUE_TABLE_ADDRESS', 'PATCHRAM_NUMBER_OF_SLOTS']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("getPatchramState: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
-        slot_count      = fw.PATCHRAM_NUMBER_OF_SLOTS
-        slot_dump       = self.readMemAligned(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
-        table_addr_dump = self.readMemAligned(fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
-        table_val_dump  = self.readMem(fw.PATCHRAM_VALUE_TABLE_ADDRESS, slot_count*4)
+        slot_count      = self.fw.PATCHRAM_NUMBER_OF_SLOTS
+        slot_dump       = self.readMemAligned(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
+        table_addr_dump = self.readMemAligned(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
+        table_val_dump  = self.readMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS, slot_count*4)
         table_addresses = []
         table_values    = []
         slot_dwords     = []
@@ -1210,7 +1210,7 @@ class InternalBlue():
         # Check if constants are defined in fw.py
         for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS',
                       'PATCHRAM_VALUE_TABLE_ADDRESS', 'PATCHRAM_NUMBER_OF_SLOTS']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("patchRom: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
@@ -1237,7 +1237,7 @@ class InternalBlue():
         table_addresses, table_values, table_slots = self.getPatchramState()
 
         # Check whether the address is already patched:
-        for i in range(fw.PATCHRAM_NUMBER_OF_SLOTS):
+        for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
             if table_addresses[i] == address:
                 slot = i
                 log.info("patchRom: Reusing slot for address 0x%x: %d" % (address,slot))
@@ -1247,7 +1247,7 @@ class InternalBlue():
 
         if slot == None:
             # Find free slot:
-            for i in range(fw.PATCHRAM_NUMBER_OF_SLOTS):
+            for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] == None:
                     slot = i
                     log.info("patchRom: Choosing next free slot: %d" % slot)
@@ -1260,17 +1260,17 @@ class InternalBlue():
                 log.warn("patchRom: Slot %d is already in use. Overwriting..." % slot)
 
         # Write new value to patchram value table at 0xd0000
-        self.writeMem(fw.PATCHRAM_VALUE_TABLE_ADDRESS + slot*4, patch)
+        self.writeMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS + slot*4, patch)
 
         # Write address to patchram target table at 0x310000
-        self.writeMem(fw.PATCHRAM_TARGET_TABLE_ADDRESS + slot*4, p32(address >> 2))
+        self.writeMem(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS + slot*4, p32(address >> 2))
 
         # Enable patchram slot (enable bitfield starts at 0x310204)
         # (We need to enable the slot by setting a bit in a multi-dword bitfield)
         target_dword = int(slot / 32)
         table_slots[slot] = 1
         slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
-        self.writeMem(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
+        self.writeMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
         return True
 
     def disableRomPatch(self, address, slot=None):
@@ -1284,7 +1284,7 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("disableRomPatch: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
@@ -1308,11 +1308,11 @@ class InternalBlue():
         target_dword = int(slot / 32)
         table_slots[slot] = 0
         slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
-        self.writeMem(fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
+        self.writeMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
 
         # Write 0xFFFFC to patchram target table at 0x310000
         # (0xFFFFC seems to be the default value if the slot is inactive)
-        self.writeMem(fw.PATCHRAM_TARGET_TABLE_ADDRESS + slot*4, p32(0xFFFFC>>2))
+        self.writeMem(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS + slot*4, p32(0xFFFFC>>2))
         return True
 
     def readConnectionInformation(self, conn_number):
@@ -1333,19 +1333,19 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['CONNECTION_ARRAY_SIZE', 'CONNECTION_ARRAY_ADDRESS', 'CONNECTION_STRUCT_LENGTH']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("readConnectionInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return None
 
-        if conn_number < 1 or conn_number > fw.CONNECTION_ARRAY_SIZE:
+        if conn_number < 1 or conn_number > self.fw.CONNECTION_ARRAY_SIZE:
             log.warn("readConnectionInformation: connection number out of bounds: %d" % conn_number)
             return None
 
-        connection = self.readMem(fw.CONNECTION_ARRAY_ADDRESS +
-                            fw.CONNECTION_STRUCT_LENGTH*(conn_number-1),
-                            fw.CONNECTION_STRUCT_LENGTH)
+        connection = self.readMem(self.fw.CONNECTION_ARRAY_ADDRESS +
+                            self.fw.CONNECTION_STRUCT_LENGTH*(conn_number-1),
+                            self.fw.CONNECTION_STRUCT_LENGTH)
 
-        if connection == b'\x00'*fw.CONNECTION_STRUCT_LENGTH:
+        if connection == b'\x00'*self.fw.CONNECTION_STRUCT_LENGTH:
             return None
 
         conn_dict = {}
@@ -1387,12 +1387,12 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['CONNECTION_ARRAY_SIZE', 'SENDLMP_CODE_BASE_ADDRESS', 'SENDLMP_ASM_CODE']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("sendLmpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
         # connection number bounds check
-        if conn_nr < 1 or conn_nr > fw.CONNECTION_ARRAY_SIZE:
+        if conn_nr < 1 or conn_nr > self.fw.CONNECTION_ARRAY_SIZE:
             log.warn("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
             return False
 
@@ -1403,16 +1403,16 @@ class InternalBlue():
 
         # Prepare the assembler snippet by injecting the connection number
         # and appending the LMP packet data.
-        asm_code = fw.SENDLMP_ASM_CODE % (conn_nr)
+        asm_code = self.fw.SENDLMP_ASM_CODE % (conn_nr)
         asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x) 
                 for x in data.ljust(20, "\x00")])
 
         # Assemble the snippet and write it to SENDLMP_CODE_BASE_ADDRESS
-        code = asm(asm_code_with_data, vma=fw.SENDLMP_CODE_BASE_ADDRESS, arch='thumb')
-        self.writeMem(fw.SENDLMP_CODE_BASE_ADDRESS, code)
+        code = asm(asm_code_with_data, vma=self.fw.SENDLMP_CODE_BASE_ADDRESS, arch='thumb')
+        self.writeMem(self.fw.SENDLMP_CODE_BASE_ADDRESS, code)
 
         # Invoke the snippet
-        if self.launchRam(fw.SENDLMP_CODE_BASE_ADDRESS):
+        if self.launchRam(self.fw.SENDLMP_CODE_BASE_ADDRESS):
             return True
         else:
             log.warn("sendLmpPacket: launchRam failed!")
@@ -1493,12 +1493,12 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['BLOC_HEAD']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("readHeapInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
         # Read address of first bloc struct:
-        first_bloc_struct_address = u32(self.readMem(fw.BLOC_HEAD, 4))
+        first_bloc_struct_address = u32(self.readMem(self.fw.BLOC_HEAD, 4))
 
         # Traverse the double-linked list
         bloclist = []
@@ -1553,12 +1553,12 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['QUEUE_HEAD']:
-            if const not in dir(fw):
+            if const not in dir(self.fw):
                 log.warn("readQueueInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
         # Read address of first queue struct:
-        first_queue_struct_address = u32(self.readMem(fw.QUEUE_HEAD, 4))
+        first_queue_struct_address = u32(self.readMem(self.fw.QUEUE_HEAD, 4))
 
         # Traverse the double-linked list
         queuelist = []
@@ -1584,7 +1584,7 @@ class InternalBlue():
             current_element["waitlist_length"] = queue_fields[11]
             current_element["next"]            = queue_fields[12]
             current_element["prev"]            = queue_fields[13]
-            current_element["name"]            = fw.QUEUE_NAMES[index]
+            current_element["name"]            = self.fw.QUEUE_NAMES[index]
             queuelist.append(current_element)
 
             current_queue_struct_address = current_element["next"]

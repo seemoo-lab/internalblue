@@ -44,12 +44,12 @@ class HTCore(InternalBlue):
                 device_list.append([self, interface, 'hci: %s (%s)' % (address, interface)])
 
         if len(device_list) == 0:
-            log.info('No connected hci device found')
+            log.info('No connected HCI device found')
             return []
         elif len(device_list) == 1:
-            log.info('Found 1 hci devic, %s' % device_list[0][2])
+            log.info('Found 1 HCI device, %s' % device_list[0][2])
         else:
-            log.info('Found multiple hci devices')
+            log.info('Found multiple HCI devices')
 
         return device_list
 
@@ -106,7 +106,7 @@ class HTCore(InternalBlue):
 
         except QueueEmpty:
             # failed because bluetooth chip crashed
-            log.warning('Hci device crashed from cmd: %s', cmd)
+            log.warning('HCI device crashed from cmd: %s', cmd)
             log.info('Reattach device, this will take a few seconds')
 
             # how many devices? n = devices * 2 + 1
@@ -140,7 +140,10 @@ class HTCore(InternalBlue):
         """
 
         # split opcode into first and second byte
-        ogf, ocf = divmod(opcode, 0x100)
+        #ogf, ocf = divmod(opcode, 0x100)
+        ogf = (opcode & 0xff00) >> 10 # HCI_GRP_LINK_CONTROL_CMDS (0x01 << 10) /* 0x0400 */ etc.
+        ocf = opcode & 0x00ff
+        
 
         # convert back to hex
         ogf = hex(ogf)
