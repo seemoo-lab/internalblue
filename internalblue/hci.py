@@ -309,6 +309,38 @@ class HCI_Cmd(HCI):
         0xfd59 : "COMND VSC_BLE_ENERGY_INFO"
     }
 
+    HCI_CMD_STR_REVERSE = {v: k for k, v in HCI_CMD_STR.iteritems()}
+
+    @staticmethod
+    def cmd_name(opcode):
+        """
+        Input is the opcode in hex, output is the command name, or false
+        """
+
+        opcode_int = int(opcode, 16)
+
+        d = HCI_Cmd.HCI_CMD_STR
+        if opcode_int in d:
+            return d[opcode_int]
+
+        log.warning('Hci command not found: %s' % opcode)
+
+        return False
+
+    @staticmethod
+    def cmd_opcode(command_name):
+        """
+        Returns the opcode in hex, or false
+        """
+
+        d = HCI_Cmd.HCI_CMD_STR_REVERSE
+        if command_name in d:
+            return hex(d[command_name])
+
+        log.warning('Hci command not found: %s' % command_name)
+
+        return False
+
     @staticmethod
     def from_data(data):
         return HCI_Cmd(u16(data[0:2]), ord(data[2]), data[3:])
@@ -496,6 +528,22 @@ class HCI_Event(HCI):
         0x25 : "Encryption Mode Not Acceptable",
         0x26 : "Unit Key Used",
     }
+
+    @staticmethod
+    def event_name(code):
+        """
+        Input is the event code in hex, reply is the event name or false
+        """
+
+        code_int = int(code, 16)
+
+        d = HCI_Event.HCI_EVENT_STR
+        if code_int in d:
+            return d[code_int]
+
+        log.warning('Hci event not found: %s' % code)
+
+        return False
 
     @staticmethod
     def from_data(data):
