@@ -199,6 +199,10 @@ class CmdLogLevel(Cmd):
     keywords = ['log_level', 'loglevel', 'verbosity']
     description = "Change the verbosity of log messages."
     log_levels = ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'NOTSET', 'WARN', 'WARNING']
+
+    for keyword in list(keywords):
+        keywords.extend(['%s %s' % (keyword, log_level) for log_level in log_levels])
+
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
