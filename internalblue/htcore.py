@@ -19,13 +19,6 @@ class HTCore(InternalBlue):
         super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
         self.hcitool = 'sudo hcitool'
 
-        # shift ogf 2 bits to the right
-        HCI_Cmd.HCI_CMD_STR = {(((divmod(k, 0x100)[0] >> 2) % pow(2, 8)) << 8) + divmod(k, 0x100)[1]: v for k, v in HCI_Cmd.HCI_CMD_STR.iteritems()}
-        HCI_Cmd.HCI_CMD_STR_REVERSE = {v: k for k, v in HCI_Cmd.HCI_CMD_STR.iteritems()}
-
-        # get vsc commands from hci class
-        self.init_vsc_variables()
-
         # wait a few seconds after reattach after crash to check if the device reappeared
         self.sanitycheckonreboot = False
         self.sanitychecksleep = 8
@@ -81,14 +74,14 @@ class HTCore(InternalBlue):
         """
 
         log.debug('Run cmd: %s' % cmd)
-        queue.put(popen(cmd).read())
+        queue.put(popen(cmd).read()) #TODO should be closed
 
     def _process(self, cmd, queue):
         p = Process(target=self._run_async, args=(cmd, queue,))
         p.start()
         return p
 
-    def _run(self, cmd, timeout=1):
+    def _run(self, cmd, timeout=1): 
         """
         Runs provided cmd
         """
@@ -101,7 +94,7 @@ class HTCore(InternalBlue):
 
         # check if process hangs (wait 1 second)
         try:
-            response = queue.get(True, 1)
+            response = queue.get(True, timeout)
             process.join()
 
             log.debug('Cmd: %s, response: \n%s' % (cmd, response))
@@ -138,10 +131,12 @@ class HTCore(InternalBlue):
 
         return False
 
-    def sendHciCommand(self, opcode, data, timeout=1):
+    def sendHciCommand(self, opcode, data, timeout=2):
         """
         Send an arbitrary HCI packet
         """
+        
+        sleep(0.5) # required by commands like dumpmem since we don't wait for callback of previous command
 
         log.debug("sendHciCommand: opcode %x" % opcode)
         
@@ -181,8 +176,8 @@ class HciCmd(object):
 
     def __str__(self):
         return "HCI_CMD: %s\n" \
-               "\topcode: %s (ogf: %s, ocf: %s)\n" \
-               "\tplen: %s\n" \
+               "\topcode: %04x (ogf: %02x, ocf: %02x)\n" \
+               "\tplen: %d\n" \
                "\tpayload: %s" \
                % (self.name, self.opcode, self.ogf, self.ocf, self.payload_length, str(self.payload.encode('hex')))
 
@@ -191,17 +186,16 @@ class HciCmd(object):
         self.ocf = ocf
         self.payload_length = payload_length
         self.payload = payload
-
-        self.opcode = '0x' + hex((int(ogf, 16) << 8) + int(ocf, 16))[2:].zfill(4)
-        self.name = HCI_Cmd.cmd_name(self.opcode)
+        self.opcode = (self.ogf << 10) | self.ocf
+        self.name = HCI_Cmd.cmd_name("0x%04x" % self.opcode)
 
 
 class HciEvent(object):
 
     def __str__(self):
         return "HCI_EVT: %s\n" \
-               "\tcode: %s\n" \
-               "\tplen: %s\n" \
+               "\tcode: %02x\n" \
+               "\tplen: %d\n" \
                "\tpayload: %s" \
                % (self.name, self.code, self.payload_length, str(self.payload.encode('hex')))
 
@@ -210,7 +204,7 @@ class HciEvent(object):
         self.payload_length = payload_length
         self.payload = payload
 
-        self.name = HCI_Event.event_name(self.code)
+        self.name = HCI_Event.event_name("0x%02x" % self.code)
 
 
 class HTResponse(object):
@@ -264,14 +258,14 @@ class HTResponse(object):
         event_payload = ''.join(re.findall(HTResponse.payload_pattern, event)).decode('hex')
 
         self.cmd = HciCmd(
-            ogf,
-            ocf,
+            int(ogf, 0),
+            int(ocf, 0),
             cmd_plen,
             cmd_payload
         )
 
         self.event = HciEvent(
-            event_code,
+            int(event_code, 0),
             event_plen,
             event_payload
         )

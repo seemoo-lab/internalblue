@@ -614,12 +614,6 @@ class InternalBlue():
             return False
         return True
 
-    def init_vsc_variables(self):
-        """
-        Need to be called from the initiating class of internalblue. otherwise opcode might be wrong
-        """
-        self.vsc_read_ram = hci.HCI_Cmd.cmd_opcode('COMND VSC_Read_RAM')
-
     @abstractmethod
     def device_list(self):
         pass

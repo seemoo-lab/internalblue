@@ -1123,7 +1123,12 @@ class CmdInfo(Cmd):
         return True
 
     def infoPatchram(self, args):
-        table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
+        try:
+            table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
+        except:
+            log.info("Invalid Patchram Table")
+            return False
+        
         log.info("### | Patchram Table ###")
         for i in range(self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS):
             if table_slots[i] == 1:
