@@ -44,7 +44,7 @@ class ADBCore(InternalBlue):
         # Third index is the label which is shown in options(...)
         device_list = []
         for d in adb_devices:
-            device_list.append((self, d.serial, 'add: %s (%s)' % (d.serial, d.model)))
+            device_list.append((self, d.serial, 'adb: %s (%s)' % (d.serial, d.model)))
 
         return device_list
 
@@ -66,6 +66,7 @@ class ADBCore(InternalBlue):
             log.info("Importing fw for Nexus 6P")
             import fw_6p as fw
         else:
+            #TODO as of now, we have many generic commands that should work on Android/Broadcom phones...
             log.critical("Device not supported")
             return False
         self.fw = fw    # Other scripts (such as adbcmds.py) can use fw through a member variable

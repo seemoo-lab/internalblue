@@ -17,6 +17,7 @@ class HTCore(InternalBlue):
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='debug', fix_binutils='True', data_directory="."):
         super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
+        self.hcitool = 'sudo hcitool'
 
         # shift ogf 2 bits to the right
         HCI_Cmd.HCI_CMD_STR = {(((divmod(k, 0x100)[0] >> 2) % pow(2, 8)) << 8) + divmod(k, 0x100)[1]: v for k, v in HCI_Cmd.HCI_CMD_STR.iteritems()}
@@ -34,7 +35,7 @@ class HTCore(InternalBlue):
         Return a list of connected hci devices
         """
 
-        response = self._run('hcitool dev').split()
+        response = self._run(self.hcitool + ' dev').split()
 
         device_list = []
         # checks if a hci device is connected
@@ -47,7 +48,7 @@ class HTCore(InternalBlue):
             log.info('No connected HCI device found')
             return []
         elif len(device_list) == 1:
-            log.info('Found 1 HCI device, %s' % device_list[0][2])
+            log.info('Found one HCI device, %s' % device_list[0][2])
         else:
             log.info('Found multiple HCI devices')
 
@@ -55,16 +56,19 @@ class HTCore(InternalBlue):
 
     def local_connect(self):
         """
-        Start the framework by connecting to the Bluetooth Stack of the Android
-        device via adb and the debugging TCP ports.
+        Just imports firmware, no special actions to run Wireshark...
+        TODO This means currently only callbacks for specific hcitool commands
+             started via InternalBlue - open wireshark directly on the host machine!
         """
 
         if not self.interface:
-            log.warn("No hci identifier is set")
+            log.warn("No HCI identifier is set")
             return False
 
         # Import fw depending on device
         global fw    # put the imported fw into global namespace
+        
+        #TODO check if rpi3/rpi3+/unknown
         import fw_rpi3 as fw
 
         self.fw = fw    # Other scripts (such as cmds.py) can use fw through a member variable
@@ -111,7 +115,7 @@ class HTCore(InternalBlue):
 
             # how many devices? n = devices * 2 + 1
             if self.sanitycheckonreboot:
-                n = len(self._run('hcitool dev').split())
+                n = len(self._run(self.hcitool + ' dev').split())
 
             # need to wait a few seconds otherwise command fails
             self._process('sleep 5 && sudo systemctl restart hciuart.service', queue)
@@ -125,8 +129,8 @@ class HTCore(InternalBlue):
                 sleep(self.sanitychecksleep)
 
                 # check if device is rebooted
-                if len(self._run('hcitool dev').split()) != n:
-                    log.critical('Could not reboot bluetooth chip, terminating internalblue')
+                if len(self._run(self.hcitool + ' dev').split()) != n:
+                    log.critical('Could not reboot Bluetooth chip, terminating InternalBlue!')
 
                     exit(-1)
 
@@ -139,10 +143,14 @@ class HTCore(InternalBlue):
         Send an arbitrary HCI packet
         """
 
+        log.debug("sendHciCommand: opcode %x" % opcode)
+        
         # split opcode into first and second byte
         #ogf, ocf = divmod(opcode, 0x100)
         ogf = (opcode & 0xff00) >> 10 # HCI_GRP_LINK_CONTROL_CMDS (0x01 << 10) /* 0x0400 */ etc.
         ocf = opcode & 0x00ff
+        
+        log.debug("sendHciCommand: ogf %x ocf %x" % (ogf, ocf))
         
 
         # convert back to hex
@@ -152,7 +160,7 @@ class HTCore(InternalBlue):
         data = ' '.join(['0x' + hex(ord(data[i]))[2:].zfill(2) for i in range(len(data))])
 
         # finalize cmd
-        cmd = 'hcitool -i %s cmd %s %s %s' % (self.interface, ogf, ocf, data)
+        cmd = self.hcitool + ' -i %s cmd %s %s %s' % (self.interface, ogf, ocf, data)
 
         response = self._run(cmd, timeout)
 
@@ -164,7 +172,7 @@ class HTCore(InternalBlue):
         # otherwise return response packet
         event_payload = HTResponse(response).event.payload
 
-        log.info('%s, payload: %s' % (cmd, event_payload))
+        log.info('executed "%s"\nhcitool response payload: %s' % (cmd, event_payload.encode('hex')))
 
         return event_payload
 
@@ -172,11 +180,11 @@ class HTCore(InternalBlue):
 class HciCmd(object):
 
     def __str__(self):
-        return "hci command: %s\n" \
+        return "HCI_CMD: %s\n" \
                "\topcode: %s (ogf: %s, ocf: %s)\n" \
                "\tplen: %s\n" \
                "\tpayload: %s" \
-               % (self.name, self.opcode, self.ogf, self.ocf, self.payload_length, self.payload)
+               % (self.name, self.opcode, self.ogf, self.ocf, self.payload_length, str(self.payload.encode('hex')))
 
     def __init__(self, ogf, ocf, payload_length, payload):
         self.ogf = ogf
@@ -191,11 +199,11 @@ class HciCmd(object):
 class HciEvent(object):
 
     def __str__(self):
-        return "hci event: %s\n" \
+        return "HCI_EVT: %s\n" \
                "\tcode: %s\n" \
                "\tplen: %s\n" \
                "\tpayload: %s" \
-               % (self.name, self.code, self.payload_length, self.payload)
+               % (self.name, self.code, self.payload_length, str(self.payload.encode('hex')))
 
     def __init__(self, code, payload_length, payload):
         self.code = code
@@ -252,8 +260,8 @@ class HTResponse(object):
         command = ' '.join(ht_response[0:separator].split('\n')[1:])
         event = ' '.join(ht_response[separator:].split('\n')[1:])
 
-        cmd_payload = ''.join(re.findall(HTResponse.payload_pattern, command))
-        event_payload = ''.join(re.findall(HTResponse.payload_pattern, event))
+        cmd_payload = ''.join(re.findall(HTResponse.payload_pattern, command)).decode('hex')
+        event_payload = ''.join(re.findall(HTResponse.payload_pattern, event)).decode('hex')
 
         self.cmd = HciCmd(
             ogf,
@@ -272,6 +280,8 @@ class HTResponse(object):
 
         # if plen and payload does not match log and exit
         # cmd_plen and event_plen are in byte, cmd_payload, event_payload in nibble
-        if cmd_plen*2 != len(cmd_payload) or event_plen*2 != len(event_payload):
-            log.critical('HCI Command plen %s (%s) or HCI Event plen %s (%s) does not match: \n%s' % (cmd_plen, len(cmd_payload), event_plen, len(event_payload), self))
-            exit(-1)
+        # FIXME does not work due to conversion of hcitool string to hex
+        #if cmd_plen*2 != len(cmd_payload) or event_plen*2 != len(event_payload):
+        #    log.critical('HCI Command plen %s (%s) or HCI Event plen %s (%s) does not match: \n%s' % (cmd_plen, len(cmd_payload), event_plen, len(event_payload), self))
+        #    exit(-1)
+        

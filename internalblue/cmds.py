@@ -288,7 +288,8 @@ class CmdMonitor(Cmd):
                         PCAP_ACCUR_TIMSTAMP,
                         PCAP_MAX_LENGTH_CAP,
                         PCAP_DATA_LINK_TYPE)
-
+                
+                # TODO on Linux/hcitool we can directly run wireshark -k -i bluetooth0
                 self.wireshark_process = subprocess.Popen(
                         ["wireshark", "-k", "-i", "-"], 
                         stdin=subprocess.PIPE)
