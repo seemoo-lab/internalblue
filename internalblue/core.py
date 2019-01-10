@@ -656,19 +656,52 @@ class InternalBlue():
         # register hci callback:
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
         
-        # automatically get correct firmware
-        # send Read_Local_Version_Information
-        version = self.sendHciCommand(0x1001, '')
-        # get LMP Subversion
-        log.info("Chip identifier (LMP subversion): 0x%02x%02x" % (u8(version[11]), u8(version[10])))
-        # TODO identify chip by subversion
-        # TODO load firmware
+        self.initialize_fimware()
 
         self.running = True
 
         return True
 
     def local_connect(self):
+        return True
+    
+    def initialize_fimware(self):
+        """
+        Checks if we are running on a Broadcom chip and loads available firmware information based
+        on LMP subversion.
+        """
+        
+        global fw    # put the imported fw into global namespace #FIXME does not work for adbcmds.py
+
+        # send Read_Local_Version_Information
+        version = self.sendHciCommand(0x1001, '')
+        # Broadcom uses 0x000f as vendor ID
+        if (u8(version[9]) != 0x00 or u8(version[8]) != 0x0f):
+            log.critical("Not running on a Broadcom chip!")
+        else:
+            log.info("Broadcom chip detected.")
+            subversion = (u8(version[11]) << 8) + u8(version[10])
+            # get LMP Subversion
+            log.info("Chip identifier (LMP subversion): 0x%04x" % subversion)
+            
+            # TODO move this to a generic firmware file
+            if   (subversion == 0x6109): # Nexus 5, Xperia Z3, Samsung Galaxy Note 3
+                import fw_5 as fw
+                log.info("Loaded firmware information for BCM4335C0.")
+            elif (subversion == 0x6119): # Raspberry Pi 3+
+                import fw_rpi3 as fw #TODO rpi3/rpi3+ are different, update this along with the firmware file
+                log.info("Laoded firmware information for BCM4345C0.")
+            elif (subversion == 0x240f): # Nexus 6P
+                import fw_6p as fw
+                log.info("Loaded firmware information for BCM4358A3.")
+        
+        try:
+            self.fw = fw    # Other scripts (such as adbcmds.py) can use fw through a member variable
+        except:
+            import fw_rpi3 as fw #TODO default empty firmware
+            self.fw = fw
+            log.warn("Loaded default firmware information, some commands will not be supported.")            
+            
         return True
 
     def shutdown(self):

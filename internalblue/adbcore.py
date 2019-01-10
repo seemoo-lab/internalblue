@@ -58,20 +58,6 @@ class ADBCore(InternalBlue):
         # Connect to adb device
         context.device = self.interface
 
-        # Import fw depending on device
-        global fw    # put the imported fw into global namespace #FIXME does not work for adbcmds.py
-        if adb.current_device().model == 'Nexus 5':
-            log.info("Importing fw for Nexus 5")
-            import fw_5 as fw
-        elif adb.current_device().model == 'Nexus 6P':
-            log.info("Importing fw for Nexus 6P")
-            import fw_6p as fw
-        else:
-            #TODO as of now, we have many generic commands that should work on Android/Broadcom phones...
-            log.critical("Device not supported")
-            return False
-        self.fw = fw    # Other scripts (such as adbcmds.py) can use fw through a member variable
-
         # setup sockets
         if not self._setupSockets():
             log.critical("No connection to target device.")

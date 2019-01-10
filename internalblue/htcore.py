@@ -15,7 +15,7 @@ from htresponse import HTResponse
 
 class HTCore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='debug', fix_binutils='True', data_directory="."):
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
         self.hcitool = 'sudo hcitool'
 
@@ -49,7 +49,7 @@ class HTCore(InternalBlue):
 
     def local_connect(self):
         """
-        Just imports firmware, no special actions to run Wireshark...
+        So far no special actions to run Wireshark...
         TODO This means currently only callbacks for specific hcitool commands
              started via InternalBlue - open wireshark directly on the host machine!
         """
@@ -57,14 +57,6 @@ class HTCore(InternalBlue):
         if not self.interface:
             log.warn("No HCI identifier is set")
             return False
-
-        # Import fw depending on device
-        global fw    # put the imported fw into global namespace
-        
-        #TODO check if rpi3/rpi3+/unknown
-        import fw_rpi3 as fw
-
-        self.fw = fw    # Other scripts (such as cmds.py) can use fw through a member variable
 
         return True
 

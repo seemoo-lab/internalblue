@@ -48,7 +48,6 @@ def print_banner():
  _/ // _ \/ __/ -_) __/ _ \/ _ `/ / _  / / // / -_)
 /___/_//_/\__/\__/_/ /_//_/\_,_/_/____/_/\_,_/\__/
 
-by Dennis Mantz.
 
 type <help> for usage information!\n\n"""
     for line in banner:
