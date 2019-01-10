@@ -1006,12 +1006,14 @@ class CmdSendLmp(Cmd):
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
-    parser.add_argument("--conn_number", "-n", type=auto_int,
-                        help="Number of the connection associated with the other device.") 
-    parser.add_argument("--nocheck", action="store_true",
-                        help="Do not verify that connection number is valid (fast but unsafe)")
+    parser.add_argument("--conn_handle", "-c", type=auto_int,
+                        help="Handle of the connection associated with the other device, default is 0x0C.") 
+    #parser.add_argument("--nocheck", action="store_true",
+    #                    help="Do not verify that connection number is valid (fast but unsafe)")
     parser.add_argument("--extended", "-e", action="store_true",
                         help="Use extended opcodes (prepend opcode with 0x7F)")
+    parser.add_argument("--slave", action="store_true",
+                        help="Send as slave (default is master)")
     parser.add_argument("opcode", type=auto_int,
                         help="Number of the LMP opcode") 
     parser.add_argument("data",
@@ -1022,45 +1024,14 @@ class CmdSendLmp(Cmd):
         if args == None:
             return True
 
-        connection_number = args.conn_number
-        remote_addr = None
-        if connection_number == None:
-            connection = None
-            found_multiple_active = False
-            log.info("Reading connection information to find active connection number...")
-            
-            if (not hasattr(self.internalblue.fw, 'CONNECTION_ARRAY_SIZE')):
-                log.warn("CONNECTION_ARRAY_SIZE not defined in fw.")
-                return False
-            
-            for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
-                tmp_connection = self.internalblue.readConnectionInformation(i+1)
-                if tmp_connection != None and tmp_connection["remote_address"] != "\x00"*6:
-                    log.info("Found active connection with number %d (%s)." %
-                            (i+1, bt_addr_to_str(tmp_connection["remote_address"])))
-                    if connection != None:
-                        found_multiple_active = True
-                    connection = tmp_connection
-
-            if connection == None:
-                log.warn("No active connection found!")
-                return False
-            if found_multiple_active:
-                log.warn("Multiple active connections detected. Please specify connection number with -n!")
-                return False
-
-            connection_number = connection["connection_number"]
-            remote_addr = bt_addr_to_str(connection["remote_address"])
-        else:
-            if args.nocheck:
-                remote_addr = "?"
-            else:
-                connection = self.internalblue.readConnectionInformation(connection_number)
-                if connection == None:
-                    log.warn("Connection entry at number %d is empty!" % connection_number)
-                    return False
-                else:
-                    remote_addr = bt_addr_to_str(connection["remote_address"])
+        # TODO automatically get valid connection handle
+        if args.conn_handle == None:
+            args.conn_handle = 0x0c
+        
+        # TODO automatically determine if we are master
+        is_master = True
+        if args.slave:
+            is_master = False
 
         data = None
         try:
@@ -1069,10 +1040,10 @@ class CmdSendLmp(Cmd):
             log.warn("Data string cannot be converted to hexstring: " + str(e))
             return False
 
-        log.info("Sending op=%d data=%s to connection nr=%d (%s)" %
-                (args.opcode, data.encode("hex"), connection_number, remote_addr))
-        return self.internalblue.sendLmpPacket(connection_number, args.opcode,
-                        data, extended_op=args.extended)
+        log.info("Sending op=%d data=%s to connection handle=%d" %
+                (args.opcode, data.encode("hex"), args.conn_handle))
+        return self.internalblue.sendLmpPacket(args.opcode,
+                        data, is_master, args.conn_handle, extended_op=args.extended)
 
 
 class CmdInfo(Cmd):

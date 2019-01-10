@@ -689,7 +689,7 @@ class InternalBlue():
                 import fw_5 as fw
                 log.info("Loaded firmware information for BCM4335C0.")
             elif (subversion == 0x6119): # Raspberry Pi 3+
-                import fw_rpi3 as fw #TODO rpi3/rpi3+ are different, update this along with the firmware file
+                import fw_rpi3p as fw #TODO rpi3/rpi3+ are different, update this along with the firmware file
                 log.info("Laoded firmware information for BCM4345C0.")
             elif (subversion == 0x240f): # Nexus 6P
                 import fw_6p as fw
@@ -1420,10 +1420,53 @@ class InternalBlue():
         conn_dict["id"]                   = connection[0x0c:0x0d] #not sure if this is an id?
         return conn_dict
 
-    def sendLmpPacket(self, conn_nr, opcode, payload, extended_op=False):
+    def sendLmpPacket(self, opcode, payload, is_master=True, conn_handle=0x0c, extended_op=False):
         """
         Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
         to a remote device which is paired and connected with our local device).
+        This code is using the vendor specific HCI command 0xfc58, which sends
+        an LMP PDU. Note that Broadcom firmware internally checks opcodes and 
+        lengths, meaning that despite returning success long payloads will be
+        cut and invalid opcodes might be discarded.
+
+        is_master:   Determines if we are master or slave within the connection.
+        conn_handle: The connection handle specifying the connection into which the
+                     packet will be injected. By default, the first connection handle
+                     used by Broadcom is 0x0c.
+        opcode:      The LMP opcode of the LMP packet that will be injected.
+        payload:     The LMP payload of the LMP packet that will be injected.
+        extended_op: Set to True if the opcode should be interpreted as extended / escaped
+                     LMP opcode.
+
+        Returns True on success and False on failure.
+        """
+        
+        # Check the connection handle
+        # Range: 0x0000-0x0EFF (all other values reserved for future use)
+        if conn_handle < 0 or conn_handle > 0x0EFF:
+            log.warn("sendLmpPacket: connection handle out of bounds: %d" % conn_handle)
+            return False
+        
+        # Build the LMP packet
+        # (The TID bit will later be set in the assembler code)
+        opcode_data = p8(opcode<<1 | (not is_master)) if not extended_op else p8(0x7F<<1 | (not is_master)) + p8(opcode)
+        data = opcode_data + payload
+        
+        #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
+        result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(data)) + data)
+        result = u8(result[3])
+        
+        if (result != 0):
+            log.warn("sendLmpPacket: got error status 0x%02x" % result)
+            return False
+        
+        return True
+    
+    def sendLmpPacketLegacy(self, conn_nr, opcode, payload, extended_op=False):
+        """
+        Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
+        to a remote device which is paired and connected with our local device).
+        This is legacy code only running on BCM4339 based on assembly patches.
 
         conn_nr:     The connection number specifying the connection into which the
                      packet will be injected.
@@ -1451,7 +1494,7 @@ class InternalBlue():
 
         # Build the LMP packet
         # (The TID bit will later be set in the assembler code)
-        opcode_data = p8(opcode<<1) if not args.ext else p8(0x7F<<1) + p8(opcode)
+        opcode_data = p8(opcode<<1) if not extended_op else p8(0x7F<<1) + p8(opcode)
         data = opcode_data + payload
 
         # Prepare the assembler snippet by injecting the connection number
