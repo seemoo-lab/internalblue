@@ -968,7 +968,8 @@ class InternalBlue():
         byte_counter = 0            # tracks the number of received bytes
         outbuffer = ''              # buffer which stores all accumulated data read from the chip
         if bytes_total == 0:        # If no total bytes where given just use length
-            bytes_total = length
+            bytes_total = length        
+        retry = True                # Retry once on failures
         while(read_addr < address+length):  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
             bytes_left = length - byte_counter
@@ -979,9 +980,16 @@ class InternalBlue():
             # Send Read_RAM (0xfc4d) command
             response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
 
-            if response == None:
-                log.warn("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
-                return None
+            if (response == None or response == False):
+                log.warning("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
+                # Retry once...
+                if retry:
+                    log.debug("readMem: retrying once...")
+                    retry = False
+                    continue
+                else:
+                    log.warning("readMem: failed!")
+                    return None
 
             status = ord(response[3])
             if status != 0:
@@ -991,7 +999,7 @@ class InternalBlue():
                 #       0x00 (0) means everything okay
                 #       0x12 means Command Disallowed
                 # e.g. for address 0xff000000 (aka 'EEPROM') it is 0x12
-                log.warning("readMem: [TODO] Got status != 0 : 0x%02X" % status)
+                log.warning("readMem: [TODO] Got status != 0 : error 0x%02X" % status)
             data = response[4:]         # start of the actual data is at offset 4
             outbuffer += data
             
@@ -1005,6 +1013,7 @@ class InternalBlue():
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
+            retry = True # this round worked, so we re-enable this flag 
         return outbuffer
 
     def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):

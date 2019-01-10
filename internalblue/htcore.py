@@ -98,12 +98,14 @@ class HTCore(InternalBlue):
             response = queue.get(True, timeout)
             process.join()
 
-            #FIXME does (sometimes?) not get a response when called via readMem / dumpmem 
             log.debug('hcitool response: \n%s' % response)
 
             return response
 
         except QueueEmpty:
+            return None
+        
+            # FIXME on Raspi this actually kills the hci0 device :(
             # failed because bluetooth chip crashed
             log.warning('HCI device crashed from cmd: %s', cmd)
             log.info('Reattach device, this will take a few seconds')
@@ -131,14 +133,14 @@ class HTCore(InternalBlue):
 
                 log.info('device is reattached')
 
-        return False
+        return None
 
     def sendHciCommand(self, opcode, data, timeout=2):
         """
         Send an arbitrary HCI packet
         """
         
-        sleep(0.5) # required by commands like dumpmem since we don't wait for callback of previous command
+        #sleep(0.5) # required by commands like dumpmem since we don't wait for callback of previous command
 
         log.debug("sendHciCommand: opcode %x" % opcode)
         

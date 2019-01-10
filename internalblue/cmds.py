@@ -499,10 +499,10 @@ class CmdDumpMem(Cmd):
             return True
 
         if args.ram:
-            bytes_total = sum([s.size() for s in self.sections if s.is_ram])
+            bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS if s.is_ram])
             bytes_done = 0
             self.progress_log = log.progress("Downloading RAM sections...")
-            for section in filter(lambda s: s.is_ram, self.sections):
+            for section in filter(lambda s: s.is_ram, self.internalblue.fw.SECTIONS):
                 filename = args.file + "_" + hex(section.start_addr)
                 if(os.path.exists(filename)):
                     if not yesno("Overwrite '%s'?" % filename):
