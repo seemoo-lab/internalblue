@@ -416,6 +416,12 @@ class CmdMonitor(Cmd):
         args = self.getArgs()
         if args==None:
             return True
+        
+        if (self.internalblue.__class__.__name__ == "HTCore"):
+            log.info("Running on hcitool without adb sockets. Call monitor yourself, i.e.:\n" +
+                      "\ttcpdump -i bluetooth0\n" +
+                      "\twireshark -i bluetooth0")
+            return False
 
         monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.internalblue)
         if monitorController == None:
@@ -1022,6 +1028,11 @@ class CmdSendLmp(Cmd):
             connection = None
             found_multiple_active = False
             log.info("Reading connection information to find active connection number...")
+            
+            if (not hasattr(self.internalblue.fw, 'CONNECTION_ARRAY_SIZE')):
+                log.warn("CONNECTION_ARRAY_SIZE not defined in fw.")
+                return False
+            
             for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
                 tmp_connection = self.internalblue.readConnectionInformation(i+1)
                 if tmp_connection != None and tmp_connection["remote_address"] != "\x00"*6:
@@ -1085,6 +1096,10 @@ class CmdInfo(Cmd):
                         help="Optional arguments for each type.")
 
     def infoConnections(self, args):
+        if (not hasattr(self.internalblue.fw, 'CONNECTION_ARRAY_SIZE')):
+            log.warn("CONNECTION_ARRAY_SIZE not defined in fw.")
+            return False
+        
         for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
             connection = self.internalblue.readConnectionInformation(i+1)
             if connection == None:
@@ -1109,6 +1124,10 @@ class CmdInfo(Cmd):
         return True
 
     def infoDevice(self, args):
+        for const in ['BD_ADDR', 'DEVICE_NAME']:
+            if const not in dir(self.internalblue.fw):
+                log.warn(" '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
         bt_addr      = self.readMem(self.internalblue.fw.BD_ADDR, 6)[::-1]
         bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
         device_name  = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
@@ -1123,6 +1142,10 @@ class CmdInfo(Cmd):
         return True
 
     def infoPatchram(self, args):
+        if (not hasattr(self.internalblue.fw, 'PATCHRAM_NUMBER_OF_SLOTS')):
+            log.warn("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")
+            return False
+        
         try:
             table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
         except:
@@ -1155,6 +1178,12 @@ class CmdInfo(Cmd):
 
         progress_log = log.progress("Traversing Heap")
         heaplist = self.internalblue.readHeapInformation()  # List of BLOC structs
+        
+        if (heaplist == False):
+            log.debug("No heap returned!")
+            progress_log.failure("empty")
+            return False
+        
         log.info("  [ Idx ] @Pool-Addr  Buf-Size  Avail/Capacity  Mem-Size @ Addr")
         log.info("  -----------------------------------------------------------------")
         for heappool in heaplist:
@@ -1193,6 +1222,12 @@ class CmdInfo(Cmd):
     def infoQueue(self, args):
         progress_log = log.progress("Traversing Queues")
         queuelist = self.internalblue.readQueueInformation()  # List of QUEU structs
+        
+        if (queuelist == False):
+            log.debug("No queues returned!")
+            progress_log.failure("empty")
+            return False
+        
         log.info("[ Idx  ] @Queue-Addr  Queue-Name   Items/Free/Capacity  Item-Size  Buffer")
         log.info("--------------------------------------------------------------------------")
         for queue in queuelist:
