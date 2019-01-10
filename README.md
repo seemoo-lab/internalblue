@@ -90,19 +90,19 @@ On any Broadcom Bluetooth chip:
 
 On selected Broadcom Bluetooth chips:
 * BCM4335C0, BCM4358A3
-⋅⋅* Write to ROM via Patchram
-..* Interpret coredumps
+  * Write to ROM via Patchram
+  * Interpret coredumps
 * BCM4335C0 only
-⋅⋅* ECDH CVE-2018-5383 example
-⋅⋅* NiNo example
-⋅⋅* Debug firmware with tracepoints
-⋅⋅* (Legacy) LMP injection via HCI and assembly patch
-⋅⋅* (Legacy) LMP monitor via HCI and assembly patch
+  * ECDH CVE-2018-5383 example
+  * NiNo example
+  * Debug firmware with tracepoints
+  * (Legacy) LMP injection via HCI and assembly patch
+  * (Legacy) LMP monitor via HCI and assembly patch
 * CYW20735 only
-⋅⋅* Full symbol and function table
+  * Full symbol and function table
 
 
-Firmware | Device 
+Firmware | Devices 
 --- | --- 
 BCM4335C0 | Nexus 5, Xperia Z3, Samsung Galaxy Note 3 (also known as BCM4339) 
 BCM4345C0 | Raspberry Pi 3+
