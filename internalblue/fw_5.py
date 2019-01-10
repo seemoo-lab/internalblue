@@ -70,7 +70,7 @@ QUEUE_NAMES = ["hci_evt_send", "queue2", "queue3", "queue4", "queue5", "hci_recv
 
 # Connection Structure and Table
 CONNECTION_ARRAY_ADDRESS = 0x002038E8
-CONNECTION_ARRAY_SIZE    = 11
+CONNECTION_MAX           = 11
 CONNECTION_STRUCT_LENGTH = 0x14C
 
 

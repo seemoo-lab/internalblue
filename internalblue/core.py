@@ -1385,18 +1385,31 @@ class InternalBlue():
         """
 
         # Check if constants are defined in fw.py
-        for const in ['CONNECTION_ARRAY_SIZE', 'CONNECTION_ARRAY_ADDRESS', 'CONNECTION_STRUCT_LENGTH']:
+        # Do we have an array implementation?
+        is_array = True
+        for const in ['CONNECTION_MAX', 'CONNECTION_ARRAY_ADDRESS', 'CONNECTION_STRUCT_LENGTH']:
             if const not in dir(self.fw):
-                log.warn("readConnectionInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
-                return None
+                is_array = False
+                
+                # Do we have a list implementation?
+                for const in ['CONNECTION_LIST_ADDRESS']:
+                    if const not in dir(self.fw):
+                        log.warn("readConnectionInformation: neither CONNECTION_LIST nor CONNECTION_ARRAY in fw.py. FEATURE NOT SUPPORTED!")
+                        return None
 
-        if conn_number < 1 or conn_number > self.fw.CONNECTION_ARRAY_SIZE:
+        if conn_number < 1 or conn_number > self.fw.CONNECTION_MAX:
             log.warn("readConnectionInformation: connection number out of bounds: %d" % conn_number)
             return None
 
-        connection = self.readMem(self.fw.CONNECTION_ARRAY_ADDRESS +
+        if is_array:
+            connection = self.readMem(self.fw.CONNECTION_ARRAY_ADDRESS +
                             self.fw.CONNECTION_STRUCT_LENGTH*(conn_number-1),
                             self.fw.CONNECTION_STRUCT_LENGTH)
+        else:
+            connection_memaddr = u32(self.readMem(self.fw.CONNECTION_LIST_ADDRESS + 4*(conn_number-1), 4))
+            if (connection_memaddr == 0x00000000):
+                return None
+            connection = self.readMem(connection_memaddr, self.fw.CONNECTION_STRUCT_LENGTH)
 
         if connection == b'\x00'*self.fw.CONNECTION_STRUCT_LENGTH:
             return None
@@ -1482,13 +1495,13 @@ class InternalBlue():
         """
 
         # Check if constants are defined in fw.py
-        for const in ['CONNECTION_ARRAY_SIZE', 'SENDLMP_CODE_BASE_ADDRESS', 'SENDLMP_ASM_CODE']:
+        for const in ['CONNECTION_MAX', 'SENDLMP_CODE_BASE_ADDRESS', 'SENDLMP_ASM_CODE']:
             if const not in dir(self.fw):
                 log.warn("sendLmpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
         # connection number bounds check
-        if conn_nr < 1 or conn_nr > self.fw.CONNECTION_ARRAY_SIZE:
+        if conn_nr < 1 or conn_nr > self.fw.CONNECTION_MAX:
             log.warn("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
             return False
 

@@ -1067,11 +1067,11 @@ class CmdInfo(Cmd):
                         help="Optional arguments for each type.")
 
     def infoConnections(self, args):
-        if (not hasattr(self.internalblue.fw, 'CONNECTION_ARRAY_SIZE')):
-            log.warn("CONNECTION_ARRAY_SIZE not defined in fw.")
+        if (not hasattr(self.internalblue.fw, 'CONNECTION_MAX')):
+            log.warn("CONNECTION_MAX not defined in fw.")
             return False
         
-        for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
+        for i in range(self.internalblue.fw.CONNECTION_MAX):
             connection = self.internalblue.readConnectionInformation(i+1)
             if connection == None:
                 continue

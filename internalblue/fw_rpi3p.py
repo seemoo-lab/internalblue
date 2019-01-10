@@ -31,5 +31,5 @@ SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
 
 # Connection Structure and Table
 CONNECTION_ARRAY_ADDRESS = 0x204ba8
-CONNECTION_ARRAY_SIZE    = 11
+CONNECTION_MAX           = 11
 CONNECTION_STRUCT_LENGTH = 0x150

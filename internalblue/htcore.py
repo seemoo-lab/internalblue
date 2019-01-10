@@ -28,7 +28,10 @@ class HTCore(InternalBlue):
         Return a list of connected hci devices
         """
 
-        response = self._run(self.hcitool + ' dev').split()
+        # higher timeout here to allow the user to enter sudo password initally
+        # (should be cached by sudo afterwards)
+        log.info("Running hcitool with sudo...")
+        response = self._run(self.hcitool + ' dev', timeout=20).split() 
 
         device_list = []
         # checks if a hci device is connected

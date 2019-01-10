@@ -61,18 +61,14 @@ SECTIONS = [ MemorySection(0x0,      0x9ef00,  True , False),
 
 
 # Connection Struct and Table
-#CONNECTION_ARRAY_ADDRESS = 0x201c20 #0x00208E55 # TODO ?? ... might also be around 00208E60, 0x201c2c seems to be wrong
-#CONNECTION_ARRAY_ADDRESS  = 0x218EA8; # correct according to get_ptr_to_connection_struct_from_index
-#CONNECTION_ARRAY_ADDRESS = 0x218ed4; #seems to work for Eifon
-CONNECTION_ARRAY_ADDRESS = 0x201C2C
-#CONNECTION_ARRAY_ADDRESS  = 0x21AD5C # from find_connection_struct_by_number
-CONNECTION_ARRAY_SIZE    = 11 #is still 11 for Nexus 6P, but no longer hard-coded
-CONNECTION_STRUCT_LENGTH = 0x14C
-# hexdump 0x201c20 --length 0x14c
-# hexdump 0x201c48 --length 0x6 -> own BT_ADDR from first connection struct
 
-
-
+# Nexus 6P works differently:
+# address 0x21AD5C holds a list with pointers to connection structs!
+# CONNECTION_ARRAY_ADDRESS = 0x21ad88 #potentially the first valid address... but not part of an array
+# CONNECTION_ARRAY_SIZE    = 11 #is still 11 for Nexus 6P, but no longer hard-coded
+CONNECTION_LIST_ADDRESS   = 0x21AD5C
+CONNECTION_MAX            = 11
+CONNECTION_STRUCT_LENGTH  = 0x168 #??
 
 # Patchram
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204 #done, seems to be be similar
