@@ -217,6 +217,10 @@ class InternalBlue():
                     record_hdr += recv_data
                 except socket.timeout:
                     pass # this is ok. just try again without error
+                except AttributeError:
+                    #FIXME bt_snoop socket not properly working for hcitool
+                    sleep(1)
+                    pass
 
             if not record_hdr or len(record_hdr) != 24:
                 if not self.exit_requested:
@@ -651,6 +655,14 @@ class InternalBlue():
 
         # register hci callback:
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
+        
+        # automatically get correct firmware
+        # send Read_Local_Version_Information
+        version = self.sendHciCommand(0x1001, '')
+        # get LMP Subversion
+        log.info("Chip identifier (LMP subversion): 0x%02x%02x" % (u8(version[11]), u8(version[10])))
+        # TODO identify chip by subversion
+        # TODO load firmware
 
         self.running = True
 
@@ -948,7 +960,7 @@ class InternalBlue():
         - bytes_total:  Total bytes that will be read within the transaction covered by progress_log.
         """
 
-        log.debug("readMem: reading at %x" % address)
+        log.debug("readMem: reading at 0x%x" % address)
         if not self.check_running():
             return None
 
@@ -982,6 +994,11 @@ class InternalBlue():
                 log.warning("readMem: [TODO] Got status != 0 : 0x%02X" % status)
             data = response[4:]         # start of the actual data is at offset 4
             outbuffer += data
+            
+            if (len(data) == 0): #this happens i.e. if not called on a brcm chip
+                log.warn("readMem: empty response, quitting...")
+                break
+            
             read_addr += len(data)
             byte_counter += len(data)
             if(progress_log != None):

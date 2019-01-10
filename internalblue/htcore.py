@@ -94,10 +94,12 @@ class HTCore(InternalBlue):
 
         # check if process hangs (wait 1 second)
         try:
+            log.debug('hcitool cmd: %s', cmd)
             response = queue.get(True, timeout)
             process.join()
 
-            log.debug('Cmd: %s, response: \n%s' % (cmd, response))
+            #FIXME does (sometimes?) not get a response when called via readMem / dumpmem 
+            log.debug('hcitool response: \n%s' % response)
 
             return response
 
@@ -167,8 +169,6 @@ class HTCore(InternalBlue):
         # otherwise return response packet
         event_payload = HTResponse(response).event.payload
 
-        log.info('executed "%s"\nhcitool response payload: %s' % (cmd, event_payload.encode('hex')))
-
         return event_payload
 
 
@@ -176,9 +176,9 @@ class HciCmd(object):
 
     def __str__(self):
         return "HCI_CMD: %s\n" \
-               "\topcode: %04x (ogf: %02x, ocf: %02x)\n" \
+               "\topcode: 0x%04x (ogf: 0x%02x, ocf: 0x%02x)\n" \
                "\tplen: %d\n" \
-               "\tpayload: %s" \
+               "\tpayload: 0x%s" \
                % (self.name, self.opcode, self.ogf, self.ocf, self.payload_length, str(self.payload.encode('hex')))
 
     def __init__(self, ogf, ocf, payload_length, payload):
@@ -194,9 +194,9 @@ class HciEvent(object):
 
     def __str__(self):
         return "HCI_EVT: %s\n" \
-               "\tcode: %02x\n" \
+               "\tcode: 0x%02x\n" \
                "\tplen: %d\n" \
-               "\tpayload: %s" \
+               "\tpayload: 0x%s" \
                % (self.name, self.code, self.payload_length, str(self.payload.encode('hex')))
 
     def __init__(self, code, payload_length, payload):
@@ -272,10 +272,7 @@ class HTResponse(object):
 
         log.debug(self)
 
-        # if plen and payload does not match log and exit
-        # cmd_plen and event_plen are in byte, cmd_payload, event_payload in nibble
-        # FIXME does not work due to conversion of hcitool string to hex
-        #if cmd_plen*2 != len(cmd_payload) or event_plen*2 != len(event_payload):
-        #    log.critical('HCI Command plen %s (%s) or HCI Event plen %s (%s) does not match: \n%s' % (cmd_plen, len(cmd_payload), event_plen, len(event_payload), self))
-        #    exit(-1)
+        # if plen and payload do not match there might be sth wrong...
+        if cmd_plen != len(cmd_payload) or event_plen != len(event_payload):
+            log.warn('HCI Command plen %s (%s) or HCI Event plen %s (%s) does not match: \n%s' % (cmd_plen, len(cmd_payload), event_plen, len(event_payload), self))
         
