@@ -1448,6 +1448,7 @@ class InternalBlue():
                      used by Broadcom is 0x0c.
         opcode:      The LMP opcode of the LMP packet that will be injected.
         payload:     The LMP payload of the LMP packet that will be injected.
+                     Can be empty.
         extended_op: Set to True if the opcode should be interpreted as extended / escaped
                      LMP opcode.
 
@@ -1459,6 +1460,10 @@ class InternalBlue():
         if conn_handle < 0 or conn_handle > 0x0EFF:
             log.warn("sendLmpPacket: connection handle out of bounds: %d" % conn_handle)
             return False
+        
+        # must be string...
+        if payload == None:
+            payload = ''
         
         # Build the LMP packet
         # (The TID bit will later be set in the assembler code)

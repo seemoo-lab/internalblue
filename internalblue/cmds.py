@@ -1007,16 +1007,18 @@ class CmdSendLmp(Cmd):
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("--conn_handle", "-c", type=auto_int,
-                        help="Handle of the connection associated with the other device, default is 0x0C.") 
+                        help="Handle of the connection associated with the other device, default is trying to read connection handle (if supported) or setting it to 0x0C.") 
     #parser.add_argument("--nocheck", action="store_true",
     #                    help="Do not verify that connection number is valid (fast but unsafe)")
     parser.add_argument("--extended", "-e", action="store_true",
                         help="Use extended opcodes (prepend opcode with 0x7F)")
     parser.add_argument("--slave", action="store_true",
-                        help="Send as slave (default is master)")
+                        help="Send as slave (default is master if auto detection fails)")
+    parser.add_argument("--master", action="store_true",
+                        help="Send as master (override auto detection)")
     parser.add_argument("opcode", type=auto_int,
                         help="Number of the LMP opcode") 
-    parser.add_argument("data",
+    parser.add_argument("--data", "-d", default="",
                         help="Payload as hexstring.")
 
     def work(self):
@@ -1024,24 +1026,41 @@ class CmdSendLmp(Cmd):
         if args == None:
             return True
 
-        # TODO automatically get valid connection handle
+        # initially assume we are master
+        is_master = True
+        
+        # automatically get the first valid connection handle if not set
+        if args.conn_handle == None:
+            if hasattr(self.internalblue.fw, 'CONNECTION_MAX'):
+                for i in range(self.internalblue.fw.CONNECTION_MAX):
+                    connection = self.internalblue.readConnectionInformation(i+1)
+                    if connection == None:
+                        continue
+                    if connection["connection_handle"] != 0 and connection["remote_address"] != b'\x00\x00\x00\x00\x00\x00':
+                        args.conn_handle = connection["connection_handle"]
+                        is_master = connection["master_of_connection"]
+                        break
+        
+        # if still not set, typical connection handles seem to be 0x0b...0x0d
         if args.conn_handle == None:
             args.conn_handle = 0x0c
         
-        # TODO automatically determine if we are master
-        is_master = True
+        # arguments override auto detection
         if args.slave:
             is_master = False
+        if args.master:
+            is_master = True
 
         data = None
+        
         try:
             data = args.data.decode('hex')
         except TypeError as e:
             log.warn("Data string cannot be converted to hexstring: " + str(e))
             return False
 
-        log.info("Sending op=%d data=%s to connection handle=%d" %
-                (args.opcode, data.encode("hex"), args.conn_handle))
+        log.info("Sending op=%d data=%s to connection handle=0x%02x" %
+                (args.opcode, data.encode('hex'), args.conn_handle))
         return self.internalblue.sendLmpPacket(args.opcode,
                         data, is_master, args.conn_handle, extended_op=args.extended)
 
