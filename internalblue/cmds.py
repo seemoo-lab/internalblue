@@ -35,6 +35,7 @@ import textwrap
 import struct
 import time
 import select
+import json
 
 def getCmdList():
     """ Returns a list of all commands which are defined in this cmds.py file.
@@ -199,6 +200,10 @@ class CmdLogLevel(Cmd):
     keywords = ['log_level', 'loglevel', 'verbosity']
     description = "Change the verbosity of log messages."
     log_levels = ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'NOTSET', 'WARN', 'WARNING']
+
+    for keyword in list(keywords):
+        keywords.extend(['%s %s' % (keyword, log_level) for log_level in log_levels])
+
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
@@ -283,7 +288,8 @@ class CmdMonitor(Cmd):
                         PCAP_ACCUR_TIMSTAMP,
                         PCAP_MAX_LENGTH_CAP,
                         PCAP_DATA_LINK_TYPE)
-
+                
+                # TODO on Linux/hcitool we can directly run wireshark -k -i bluetooth0
                 self.wireshark_process = subprocess.Popen(
                         ["wireshark", "-k", "-i", "-"], 
                         stdin=subprocess.PIPE)
@@ -410,6 +416,12 @@ class CmdMonitor(Cmd):
         args = self.getArgs()
         if args==None:
             return True
+        
+        if (self.internalblue.__class__.__name__ == "HTCore"):
+            log.info("Running on hcitool without adb sockets. Call monitor yourself, i.e.:\n" +
+                      "\ttcpdump -i bluetooth0\n" +
+                      "\twireshark -i bluetooth0")
+            return False
 
         monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.internalblue)
         if monitorController == None:
@@ -493,10 +505,10 @@ class CmdDumpMem(Cmd):
             return True
 
         if args.ram:
-            bytes_total = sum([s.size() for s in self.sections if s.is_ram])
+            bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS if s.is_ram])
             bytes_done = 0
             self.progress_log = log.progress("Downloading RAM sections...")
-            for section in filter(lambda s: s.is_ram, self.sections):
+            for section in filter(lambda s: s.is_ram, self.internalblue.fw.SECTIONS):
                 filename = args.file + "_" + hex(section.start_addr)
                 if(os.path.exists(filename)):
                     if not yesno("Overwrite '%s'?" % filename):
@@ -1016,6 +1028,11 @@ class CmdSendLmp(Cmd):
             connection = None
             found_multiple_active = False
             log.info("Reading connection information to find active connection number...")
+            
+            if (not hasattr(self.internalblue.fw, 'CONNECTION_ARRAY_SIZE')):
+                log.warn("CONNECTION_ARRAY_SIZE not defined in fw.")
+                return False
+            
             for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
                 tmp_connection = self.internalblue.readConnectionInformation(i+1)
                 if tmp_connection != None and tmp_connection["remote_address"] != "\x00"*6:
@@ -1079,6 +1096,10 @@ class CmdInfo(Cmd):
                         help="Optional arguments for each type.")
 
     def infoConnections(self, args):
+        if (not hasattr(self.internalblue.fw, 'CONNECTION_ARRAY_SIZE')):
+            log.warn("CONNECTION_ARRAY_SIZE not defined in fw.")
+            return False
+        
         for i in range(self.internalblue.fw.CONNECTION_ARRAY_SIZE):
             connection = self.internalblue.readConnectionInformation(i+1)
             if connection == None:
@@ -1103,6 +1124,10 @@ class CmdInfo(Cmd):
         return True
 
     def infoDevice(self, args):
+        for const in ['BD_ADDR', 'DEVICE_NAME']:
+            if const not in dir(self.internalblue.fw):
+                log.warn(" '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
         bt_addr      = self.readMem(self.internalblue.fw.BD_ADDR, 6)[::-1]
         bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
         device_name  = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
@@ -1117,7 +1142,16 @@ class CmdInfo(Cmd):
         return True
 
     def infoPatchram(self, args):
-        table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
+        if (not hasattr(self.internalblue.fw, 'PATCHRAM_NUMBER_OF_SLOTS')):
+            log.warn("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")
+            return False
+        
+        try:
+            table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
+        except:
+            log.info("Invalid Patchram Table")
+            return False
+        
         log.info("### | Patchram Table ###")
         for i in range(self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS):
             if table_slots[i] == 1:
@@ -1144,6 +1178,12 @@ class CmdInfo(Cmd):
 
         progress_log = log.progress("Traversing Heap")
         heaplist = self.internalblue.readHeapInformation()  # List of BLOC structs
+        
+        if (heaplist == False):
+            log.debug("No heap returned!")
+            progress_log.failure("empty")
+            return False
+        
         log.info("  [ Idx ] @Pool-Addr  Buf-Size  Avail/Capacity  Mem-Size @ Addr")
         log.info("  -----------------------------------------------------------------")
         for heappool in heaplist:
@@ -1182,6 +1222,12 @@ class CmdInfo(Cmd):
     def infoQueue(self, args):
         progress_log = log.progress("Traversing Queues")
         queuelist = self.internalblue.readQueueInformation()  # List of QUEU structs
+        
+        if (queuelist == False):
+            log.debug("No queues returned!")
+            progress_log.failure("empty")
+            return False
+        
         log.info("[ Idx  ] @Queue-Addr  Queue-Name   Items/Free/Capacity  Item-Size  Buffer")
         log.info("--------------------------------------------------------------------------")
         for queue in queuelist:
@@ -1297,5 +1343,112 @@ class CmdConnectCmd(Cmd):
             return False
 
         self.internalblue.connectToRemoteDevice(addr) 
+
+        return True
+
+
+class CmdCustom(Cmd):
+    keywords = ['custom', 'c']
+    description = "Add custom command to internalblue"
+
+    actions = ['list', 'add', 'run', 'remove']
+
+    for keyword in list(keywords):
+        keywords.extend(['%s %s' % (keyword, action) for action in actions])
+
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+
+    parser.add_argument("do",
+                        help="one of (%s)" % ", ".join(actions))
+    parser.add_argument("alias", nargs="?", default=None,
+                        help="alias of the cmd")
+    parser.add_argument("cmd", nargs="*", default=[],
+                        help="only used with add")
+
+    file = 'custom.json'
+    custom_commands = {}
+
+    if os.path.isfile(file):
+        try:
+            with open(file, 'r') as reader:
+                custom_commands = json.loads(reader.read())
+        except:
+            log.critical("Something went wrong with loading custom commands!")
+
+    @staticmethod
+    def save(custom_commands):
+        with open(CmdCustom.file, 'w') as writer:
+            json.dump(custom_commands, writer, sort_keys=True, indent=2)
+
+    def work(self):
+        args = self.getArgs()
+
+        if args == None:
+            return True
+
+        if args.do == 'list':
+            custom_cmds= ["\t%s\t\t%s\n" % (k, v) for k, v in sorted(CmdCustom.custom_commands.iteritems())]
+            log.info("Custom commands:\n%s" % ''.join(custom_cmds))
+            return True
+
+        if args.do == 'add':
+
+            alias = args.alias
+            cmd = " ".join(args.cmd)
+
+            log.debug("Alias: " + alias)
+            log.debug("Command " + cmd)
+
+            # if cmd not found, return False
+            if not findCmd(cmd.split(" ")[0]):
+                log.warning("Custom command not found: " + cmd.split(" ")[0])
+                return False
+
+            CmdCustom.custom_commands[alias] = cmd
+            CmdCustom.save(CmdCustom.custom_commands)
+
+            log.info("Custom Command added: " + alias)
+
+        if args.do == "run":
+            alias = args.alias
+
+            # check if no cmd has been passed
+            if len(args.cmd) == 0:
+
+                if alias in CmdCustom.custom_commands:
+
+                    cmd = CmdCustom.custom_commands[alias]
+
+                    matching_cmd = findCmd(cmd.split(" ")[0])
+
+                    if matching_cmd == None:
+                        log.warn("Command unknown: " + cmd)
+                        return False
+
+                    cmd_instance = matching_cmd(cmd, self.internalblue)
+
+                    if (not cmd_instance.work()):
+                        log.warn("Command failed: " + str(cmd_instance))
+
+                    return True
+
+                log.info("Custom Command not found: " + alias)
+
+                return False
+
+            return True
+
+        if args.do == 'remove':
+            if not args.alias in CmdCustom.custom_commands:
+                log.info("Custom command not found: " + args.alias)
+                return False
+
+            CmdCustom.custom_commands.pop(args.alias, None)
+
+            log.info("Custom command removed: " + args.alias)
+
+            return True
 
         return True
