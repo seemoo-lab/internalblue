@@ -10,7 +10,7 @@ from pwn import *
 
 from core import InternalBlue
 from hci import HCI_Cmd, HCI_Event
-from htresponse import HTResponse
+#from htresponse import HTResponse
 
 
 class HTCore(InternalBlue):

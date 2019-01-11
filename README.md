@@ -54,7 +54,8 @@ so that it can be started from a command line using:
 
     internalblue
 
-It should automatically connect to your Android phone through ADB.
+It should automatically connect to your Android phone through ADB or your local Linux
+via hcitool. It might request your password via sudo each time when hcitool is used.
 Use the *help* command to display a list of available commands.
 
 Requirements on Android:
@@ -65,6 +66,7 @@ Requirements on Android:
 Requirements on Linux:
 * hcitool accessible via sudo
 * Not all features supported, but tested on Raspberry Pi 3+
+* No callbacks supported via hcitool, open wireshark directly on bluetooth0
 
 Optional Requirements:
 * LMP Wireshark Dissector Plugin (https://github.com/demantz/lmp_wireshark_dissector)
@@ -83,7 +85,7 @@ On any Broadcom Bluetooth chip:
 * Read and write RAM
 * Read and write assembly to RAM
 * Read ROM
-* Inject arbitrary LMP and LCP messages (coming soon!)
+* Inject arbitrary LMP (works) and LCP messages (coming soon!)
 * Use diagnostic features to monitor LMP and LCP (coming soon!)
 * Read AFH channel map (coming soon!)
 * Perform local RSSi sweep (coming soon!)
@@ -99,7 +101,7 @@ On selected Broadcom Bluetooth chips:
   * (Legacy) LMP injection via HCI and assembly patch
   * (Legacy) LMP monitor via HCI and assembly patch
 * CYW20735 only
-  * Full symbol and function table
+  * Full object and function symbol table
 
 
 Firmware | Devices 

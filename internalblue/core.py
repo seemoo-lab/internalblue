@@ -1475,7 +1475,13 @@ class InternalBlue():
         # Build the LMP packet
         # (The TID bit will later be set in the assembler code)
         opcode_data = p8(opcode<<1 | (not is_master)) if not extended_op else p8(0x7F<<1 | (not is_master)) + p8(opcode)
-        data = opcode_data + payload
+        
+        # Nexus 5 (2012) simply takes any length as argument, but later withdraws bytes if too many were passed.
+        # Nexus 6P, Raspi 3+ and evaulation board (2014-2018) require a fixed 20 byte length parameter to be passed!
+        #   -> 2 bytes connection handle, 1 byte length, which means 17 bytes for opcode and payload remaining
+        #   sendlmp --data 11223344556677889900112233445566 01 -> actually works
+        #   always pad to 17 data bytes...
+        data = opcode_data + payload + '\x00'*(17 - len(opcode_data) - len(payload))
         
         #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
         result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(data)) + data)
