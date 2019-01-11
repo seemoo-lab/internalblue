@@ -1218,22 +1218,29 @@ class InternalBlue():
 
         # Check if constants are defined in fw.py
         for const in ['PATCHRAM_TARGET_TABLE_ADDRESS', 'PATCHRAM_ENABLED_BITMAP_ADDRESS',
-                      'PATCHRAM_VALUE_TABLE_ADDRESS', 'PATCHRAM_NUMBER_OF_SLOTS']:
+                      'PATCHRAM_VALUE_TABLE_ADDRESS', 'PATCHRAM_NUMBER_OF_SLOTS', 'PATCHRAM_ALIGNED']:
             if const not in dir(self.fw):
                 log.warn("getPatchramState: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
         slot_count      = self.fw.PATCHRAM_NUMBER_OF_SLOTS
-        slot_dump       = self.readMemAligned(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
-        table_addr_dump = self.readMemAligned(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
+        
+        # On Nexus 5, ReadMemAligned is required, while Nexus 6P supports this memory area with ReadRAM
+        if self.fw.PATCHRAM_ALIGNED:
+            slot_dump       = self.readMemAligned(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
+            table_addr_dump = self.readMemAligned(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
+        else:
+            slot_dump       = self.readMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
+            table_addr_dump = self.readMem(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
         table_val_dump  = self.readMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS, slot_count*4)
+        
         table_addresses = []
         table_values    = []
         slot_dwords     = []
         slot_bits       = []
         for dword in range(slot_count/32):
             slot_dwords.append(slot_dump[dword*32:(dword+1)*32])
-
+        
         for dword in slot_dwords:
             slot_bits.extend(bits(dword[::-1])[::-1])
         for i in range(slot_count):

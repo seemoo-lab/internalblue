@@ -71,10 +71,11 @@ CONNECTION_MAX            = 11
 CONNECTION_STRUCT_LENGTH  = 0x168 #??
 
 # Patchram
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204 #done, seems to be be similar
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000 #done, seems to be similar
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000 #done, seems to be similar
-PATCHRAM_NUMBER_OF_SLOTS        = 192 #was 128, many 0x80 are now 0xc0   
+PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
+PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
+PATCHRAM_NUMBER_OF_SLOTS        = 192
+PATCHRAM_ALIGNED                = False #we can use standard ReadRAM HCI on Nexus 6P  
 
 
 LAUNCH_RAM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in seconds

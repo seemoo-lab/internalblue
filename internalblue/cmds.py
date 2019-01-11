@@ -1136,11 +1136,11 @@ class CmdInfo(Cmd):
             log.warn("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")
             return False
         
-        try:
-            table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
-        except:
-            log.info("Invalid Patchram Table")
-            return False
+        #try:
+        table_addresses, table_values, table_slots = self.internalblue.getPatchramState()
+        #except:
+        #    log.info("Invalid Patchram Table")
+        #    return False
         
         log.info("### | Patchram Table ###")
         for i in range(self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS):
