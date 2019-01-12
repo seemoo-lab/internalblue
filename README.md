@@ -87,7 +87,7 @@ On any Broadcom Bluetooth chip:
 * Read ROM
 * Inject arbitrary LMP (works) and LCP messages (coming soon!)
 * Use diagnostic features to monitor LMP and LCP (coming soon!)
-* Read AFH channel map (coming soon!)
+* Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
 
 On selected Broadcom Bluetooth chips:

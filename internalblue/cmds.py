@@ -894,7 +894,7 @@ class CmdExec(Cmd):
 
 class CmdSendHciCmd(Cmd):
     keywords = ['sendhcicmd']
-    description = "Send an arbitrary hci command to the BT controller"
+    description = "Send an arbitrary HCI command to the BT controller."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
@@ -1008,8 +1008,6 @@ class CmdSendLmp(Cmd):
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("--conn_handle", "-c", type=auto_int,
                         help="Handle of the connection associated with the other device, default is trying to read connection handle (if supported) or setting it to 0x0C.") 
-    #parser.add_argument("--nocheck", action="store_true",
-    #                    help="Do not verify that connection number is valid (fast but unsafe)")
     parser.add_argument("--extended", "-e", action="store_true",
                         help="Use extended opcodes (prepend opcode with 0x7F)")
     parser.add_argument("--slave", action="store_true",
@@ -1059,7 +1057,7 @@ class CmdSendLmp(Cmd):
             log.warn("Data string cannot be converted to hexstring: " + str(e))
             return False
 
-        log.info("Sending op=%d data=%s to connection handle=0x%02x" %
+        log.info("Sending op=%d data=%s to connection handle=0x%04x" %
                 (args.opcode, data.encode('hex'), args.conn_handle))
         return self.internalblue.sendLmpPacket(args.opcode,
                         data, is_master, args.conn_handle, extended_op=args.extended)
@@ -1442,3 +1440,65 @@ class CmdCustom(Cmd):
             return True
 
         return True
+
+class CmdReadAfhChannelMap(Cmd):
+    keywords = ['readafh']
+    description = "Read adaptive freuency hopping (AFH) channel map."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--conn_handle", "-c", type=auto_int,
+                        help="Handle of the connection associated with the other device, default is trying to read all connection handles (if supported) or setting it to 0x0C.") 
+
+    def work(self):
+        args = self.getArgs()
+        
+        if args == None or args.conn_handle == None:
+            # automatically get all connection handles if not set
+            if hasattr(self.internalblue.fw, 'CONNECTION_MAX'):
+                for i in range(self.internalblue.fw.CONNECTION_MAX):
+                    connection = self.internalblue.readConnectionInformation(i+1)
+                    if connection == None:
+                        continue
+                    else:
+                        self.readafh(connection["connection_handle"])
+                return True
+            # if not set but connection struct unknown, typical connection handles seem to be 0x0b...0x0d
+            else:
+                return self.readafh(0x0c)
+        
+        return self.readafh(args.conn_handle)
+    
+    def readafh(self, handle):  
+        """ This is a standard HCI command but might be useful when playing around with the physical layer.
+        """
+        response = self.internalblue.sendHciCommand(0x1406, p16(handle))
+                
+        if len(response) < 17 or response[8:] == '\x00'*9:
+            log.info("Connection 0x%04x is not established." % handle)
+            return False
+    
+        log.info("Connection Handle: 0x%04x" % handle)
+        log.info("AFH Enabled: %s" % bool(response[7] != '\x00'))
+        channels = ""
+        for c in response[8:]:
+            bits = format(ord(c), '08b')
+            for b in bits:
+                if b == "1":
+                    channels = channels + " *"
+                else:
+                    channels = channels + "  "
+        
+        log.info("AFH Channel Map:\n"
+                 "     0 1 2 3 4 5 6 7 8 9\n"
+                 "00: " + channels[0:20] + "\n"
+                 "10: " + channels[20:40] + "\n"
+                 "20: " + channels[40:60] + "\n"
+                 "30: " + channels[60:80] + "\n"
+                 "40: " + channels[80:100] + "\n"
+                 "50: " + channels[100:120] + "\n"
+                 "60: " + channels[120:140] + "\n"
+                 "70: " + channels[140:158] + "\n")
+        
+        return True
+

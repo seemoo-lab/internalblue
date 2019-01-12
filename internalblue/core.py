@@ -1440,7 +1440,7 @@ class InternalBlue():
         conn_dict["id"]                   = connection[0x0c:0x0d] #not sure if this is an id?
         return conn_dict
 
-    def sendLmpPacket(self, opcode, payload, is_master=True, conn_handle=0x0c, extended_op=False):
+    def sendLmpPacket(self, opcode, payload='', is_master=True, conn_handle=0x0c, extended_op=False):
         """
         Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
         to a remote device which is paired and connected with our local device).
@@ -1473,7 +1473,6 @@ class InternalBlue():
             payload = ''
         
         # Build the LMP packet
-        # (The TID bit will later be set in the assembler code)
         opcode_data = p8(opcode<<1 | (not is_master)) if not extended_op else p8(0x7F<<1 | (not is_master)) + p8(opcode)
         
         # Nexus 5 (2012) simply takes any length as argument, but later withdraws bytes if too many were passed.
@@ -1483,11 +1482,14 @@ class InternalBlue():
         #   always pad to 17 data bytes...
         data = opcode_data + payload + '\x00'*(17 - len(opcode_data) - len(payload))
         
+        if len(data) > 17:
+            log.warn("sendLmpPacket: Vendor specific HCI command only allows for 17 bytes LMP content.")
+        
         #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
         result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(data)) + data)
         result = u8(result[3])
         
-        if (result != 0):
+        if result != 0:
             log.warn("sendLmpPacket: got error status 0x%02x" % result)
             return False
         
