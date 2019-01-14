@@ -321,6 +321,7 @@ class InternalBlue():
 
             # Prepend UART TYPE and length
             out = p8(hci.HCI.HCI_CMD) + p16(len(payload)) + payload
+            # TODO modify queue to also handle hci.HCI.BCM_DIAG
 
             # register queue to receive the response
             recvQueue = Queue.Queue(1)
