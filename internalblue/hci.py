@@ -34,17 +34,20 @@ class HCI(object):
     """
     HCI Packet types for UART Transport layer
     Core specification 4.1 [vol 4] Part A (Section 2) - Protocol
+    Type 0x07 is Broadcom specific for diagnostics
     """
-    HCI_CMD = 0x01
+    HCI_CMD  = 0x01
     ACL_DATA = 0x02
     SCO_DATA = 0x03
-    HCI_EVT = 0x04
+    HCI_EVT  = 0x04
+    BCM_DIAG = 0x07
 
     HCI_UART_TYPE_STR = {
-        HCI_CMD : "HCI_CMD",
+        HCI_CMD  : "HCI_CMD",
         ACL_DATA : "ACL_DATA",
         SCO_DATA : "SCO_DATA",
-        HCI_EVT : "HCI_EVT"
+        HCI_EVT  : "HCI_EVT",
+        BCM_DIAG : "BCM_DIAG"
     }
 
     @staticmethod
@@ -290,22 +293,26 @@ class HCI_Cmd(HCI):
         0x201f : "COMND LE_Test_End",
         0x2020 : "COMND LE_Remote_Connection_Parameter_Request_Reply",
         0x2021 : "COMND LE_Remote_Connection_Parameter_Request_Negative_Reply",
-        # Function names extracted from CYW20735        
+        # Function names extracted from CYW20735 / Packet Logger 9  
+        0xfc00 : "COMND VSC_CustomerExtension",
         0xfc01 : "COMND VSC_WriteBdAddr",
         0xfc02 : "COMND VSC_DumpSRAM",
         0xfc03 : "COMND VSC_ChannelClassConfig",
+        0xfc08 : "COMND VSC_BTLinkQualityMode",
         0xfc0a : "COMND VSC_HandleSuper_Peek_Poke",
         0xfc0b : "COMND VSC_WriteLocalSupportedFeatures",
         0xfc0c : "COMND VSC_HandleSuper_Duper_Peek_Poke",
+        0xfc10 : "COMND VSC_Commit_BDAddr",
         0xfc12 : "COMND VSC_WriteHoppingChannels",
         0xfc13 : "COMND VSC_SleepForeverMode",
         0xfc14 : "COMND VSC_SetCarrierFrequencyArm",
         0xfc16 : "COMND VSC_SetEncryptionKeySize",
+        0xfc17 : "COMND VSC_Invalidate_Flash_and_Reboot",
         0xfc18 : "COMND VSC_HandleUpdate_UART_Baud_Rate",
         0xfc19 : "COMND VSC_GpioConfigAndWrite",
         0xfc1a : "COMND VSC_GpioRead",
         0xfc1b : "COMND VSC_SetTestModeType",
-        0xfc1c : "COMND VSC_WriteScoPcmIntParam",
+        0xfc1c : "COMND VSC_WriteScoPcmInterfaceParam",
         0xfc1d : "COMND VSC_ReadScoPcmIntParam",
         0xfc1e : "COMND VSC_WritePcmDataFormatParam",
         0xfc1f : "COMND VSC_ReadPcmDataFormatParam",
@@ -325,8 +332,13 @@ class HCI_Cmd(HCI):
         0xfc33 : "COMND VSC_ReadBtwSecurityKey",
         0xfc34 : "COMND VSC_EnableRadio",
         0xfc35 : "COMND VSC_Cosim_Set_Mode",
+        0xfc36 : "COMND VSC_GetHIDDeviceList",
+        0xfc37 : "COMND VSC_AddHIDDevice",
+        0xfc39 : "COMND VSC_RemoveHIDDevice",
         0xfc3a : "COMND VSC_EnableTca",
+        0xfc3b : "COMND VSC_EnableHIDEmulation",
         0xfc3c : "COMND VSC_WriteRfProgrammingTable",
+        0xfc43 : "COMND VSC_WriteRFAttenuationTable",
         0xfc46 : "COMND VSC_SetSleepClockAccuratyAndSettlingTime",
         0xfc47 : "COMND VSC_ConfigureSleepMode",
         0xfc48 : "COMND VSC_ReadRawRssi",
@@ -350,14 +362,14 @@ class HCI_Cmd(HCI):
         0xfc6f : "COMND VSC_WriteComfortNoiseParam",
         0xfc79 : "COMND VSC_ReadVerboseConfigVersionInfo",
         0xfc7c : "COMND VSC_BasebandFlowControlOverride",
-        0xfc7d : "COMND VSC_WriteClass1p5PowerTable",
+        0xfc7d : "COMND VSC_WriteClass15PowerTable",
         0xfc7e : "COMND VSC_EnableWbs",
         0xfc7f : "COMND VSC_WriteVadMode",
         0xfc80 : "COMND VSC_ReadVadMode",
         0xfc81 : "COMND VSC_WriteEcsiConfig",
         0xfc83 : "COMND VSC_WriteDynamicScoRouting",
         0xfc85 : "COMND VSC_EnableHciRemoteTest",
-        0xfc8b : "COMND VSC_bthci_cmd_UipcOverHci",
+        0xfc8b : "COMND VSC_bthci_cmd_UipcOverHci", # Write Coexistence Tri State Enabled
         0xfc90 : "COMND VSC_CoexBandwidthStatistics",
         0xfc91 : "COMND VSC_ReadPmuConfigFlags",
         0xfc92 : "COMND VSC_WritePmuConfigFlags",
@@ -371,22 +383,38 @@ class HCI_Cmd(HCI):
         0xfcae : "COMND VSC_Pcm2Setup",
         0xfcaf : "COMND VSC_ReadBootCrystalStatus",
         0xfcb2 : "COMND VSC_SniffSubratingMaximumLocalLatency",
+        0xfcb5 : "COMND VSC_BFC_Suspend",
+        0xfcb6 : "COMND VSC_BFC_Resume",
         0xfcba : "COMND VSC_le_read_random_address",
         0xfcbb : "COMND VSC_le_hw_setup",
         0xfcc1 : "COMND VSC_LeScanRssiThresholdSetup",
+        0xfcc2 : "COMND VSC_BFCSetParameters",
+        0xfcc3 : "COMND VSC_BFCReadParameters",
         0xfcc4 : "COMND VSC_TurnOffDynamicPowerControl",
         0xfcc5 : "COMND VSC_IncreaseDecreasePowerLevel",
         0xfcc6 : "COMND VSC_ReadRawRssiValue",
         0xfcc7 : "COMND VSC_SetProximityTable",
         0xfcc8 : "COMND VSC_SetProximityTrigger",
+        0xfcd0 : "COMND VSC_BFCCreateConnection",
         0xfcd2 : "COMND VSC_ReadGoldenRange",
         0xfce0 : "COMND VSC_ExtendedInquiryHandshake",
+        0xfce2 : "COMND VSC_Olympic",
         0xfce6 : "COMND VSC_LeTxTest",
         0xfce9 : "COMND VSC_HandleLeMetaVsc1",
         0xfced : "COMND VSC_LqStats",
+        0xfcf5 : "COMND VSC_BFCReadRemoeBPCSFeatures",
+        0xfcf7 : "COMND VSC_IgnoreUSBReset",
         0xfcf9 : "COMND VSC_AudioIPCommand",
+        0xfcfa : "COMND VSC_BFCWriteScanEnable",
+        0xfcfe : "COMND VSC_ReadLocalFirmwareInfo",
+        0xfcff : "COMND VSC_RSSIMeasurements",
+        0xfd01 : "COMND VSC_BFCReadScanEnable",
         0xfd02 : "COMND VSC_EnableWbsModified",
         0xfd03 : "COMND VSC_SetVsEventMask",
+        0xfd04 : "COMND VSC_BFCIsConnectionTBFCSuspended",
+        0xfd05 : "COMND VSC_SetUSBAutoResume",
+        0xfd08 : "COMND VSC_ChangeLNAGainCoexECI",
+        0xfd0c : "COMND VSC_LTELinkQualityMode",
         0xfd0d : "COMND VSC_LTETriggerWCI2Message",
         0xfd0e : "COMND VSC_LTEEnableWCI2Messages",
         0xfd0f : "COMND VSC_LTEEnableWCI2LoopbackTesting",
@@ -401,6 +429,8 @@ class HCI_Cmd(HCI):
         0xfd1a : "COMND VSC_WriteA2DPConnection",
         0xfd1b : "COMND VSC_Factory_Cal_Read_Table_Settings",
         0xfd1c : "COMND VSC_DBFW",
+        0xfd1d : "COMND VSC_FactoryCalibrationRxRSSITest",
+        0xfd1e : "COMND VSC_FactoryCalibrationRxRSSITest",
         0xfd23 : "COMND VSC_HandleLeMetaVsc2",
         0xfd28 : "COMND VSC_WriteLocalSupportedExtendedFeatures",
         0xfd29 : "COMND VSC_PiconetClockAdjustment",
@@ -408,6 +438,7 @@ class HCI_Cmd(HCI):
         0xfd2f : "COMND VSC_SetTransmitPowerRange",
         0xfd33 : "COMND VSC_PageInquiryTxSuppression",
         0xfd35 : "COMND VSC_RandomizeNativeClock",
+        0xfd36 : "COMND VSC_StoreFactoryCalibrationData",
         0xfd3b : "COMND VSC_ReadSupportedVSCs",
         0xfd3c : "COMND VSC_LEWriteLocalSupportedFeatures",
         0xfd3e : "COMND VSC_LEReadRemoteSupportedBRCMFeatures",
@@ -416,6 +447,14 @@ class HCI_Cmd(HCI):
         0xfd42 : "COMND VSC_ReadDynamicMemoryPoolStatistics",
         0xfd43 : "COMND VSC_HandleIop3dtvTesterConfig",
         0xfd45 : "COMND VSC_HandleAdcCapture",
+        0xfd47 : "COMND VSC_LEExtendedDuplicateFilter",
+        0xfd48 : "COMND VSC_LECreateExtendedAdvertisingInstance",
+        0xfd49 : "COMND VSC_LERemoveExtendedAdvertisingInstance",
+        0xfd4a : "COMND VSC_LESetExtendedAdvertisingParameters",
+        0xfd4b : "COMND VSC_LESetExtendedAdvertisingData",
+        0xfd4c : "COMND VSC_LESetExtendedScanResponseData",
+        0xfd4d : "COMND VSC_LESetExtendedAdvertisingEnable",
+        0xfd4e : "COMND VSC_LEUpdateExtendedAdvertisingInstance",
         0xfd53 : "COMND VSC_LEGetAndroidVendorCapabilities",
         0xfd54 : "COMND VSC_LEMultiAdvtCommand",
         0xfd55 : "COMND VSC_LeRPAOffload",
@@ -424,7 +463,10 @@ class HCI_Cmd(HCI):
         0xfd59 : "COMND VSC_GetControllerActivityEnergyInfo",
         0xfd5a : "COMND VSC_ExtendedSetScanParameters",
         0xfd5b : "COMND VSC_Getdebuginfo",
+        0xfd5c : "COMND VSC_WriteLocalHostState",
         0xfd6e : "COMND VSC_HandleConfigure_Sleep_Lines",
+        0xfd71 : "COMND VSC_SetSpecialSniffTransitionEnable",
+        0xfd73 : "COMND VSC_EnableBTSync",
         0xfd79 : "COMND VSC_hciulp_handleBTBLEHighPowerControl",
         0xfd7c : "COMND VSC_HandleCustomerEnableHALinkCommands",
         0xfd7d : "COMND VSC_DWPTestCommands",
@@ -437,6 +479,7 @@ class HCI_Cmd(HCI):
         0xfd9c : "COMND VSC_SetupRSSLocalCommands",
         0xfda1 : "COMND VSC_AudioBufferCommands",
         0xfda4 : "COMND VSC_HealthStatusReport",
+        0xfda8 : "COMND VSC_ChangeConnectionPriority",
         0xfdaa : "COMND VSC_SamSetupCommand",
         0xfdab : "COMND VSC_bthci_cmd_ble_enhancedTransmitterTest_hopping",
         0xfdaf : "COMND VSC_Handle_coex_debug_counters",
@@ -444,7 +487,8 @@ class HCI_Cmd(HCI):
         0xfdbe : "COMND VSC_Enable_PADGC_Override",
         0xfdcb : "COMND VSC_WriteTxPowerAFHMode",
         0xfdcd : "COMND VSC_setMinimumNumberOfUsedChannels",
-        0xfdce : "COMND VSC_HandleBrEdrLinkQualityStats"
+        0xfdce : "COMND VSC_HandleBrEdrLinkQualityStats",
+        0xff5e : "COMND VSC_SectorErase"
     }
 
     HCI_CMD_STR_REVERSE = {v: k for k, v in HCI_CMD_STR.iteritems()}
@@ -544,6 +588,33 @@ class HCI_Sco(HCI):
         self.ps = ps
         self.length = length
         self.data = data
+
+class HCI_Diag(HCI):
+ 
+    BCM_DIAG_STR = {
+        0x00 : "LMP Sent",
+        0x01 : "LMP Received",
+        }
+
+    @staticmethod
+    def from_data(data):        
+        return HCI_Diag(u8(data[0:1]), data[1:])
+
+    def getRaw(self):
+        return super(HCI_Diag, self).getRaw() + p8(self.opcode) + self.data
+
+    def __init__(self, opcode, data):
+        HCI.__init__(self, HCI.BCM_DIAG)
+        self.opcode = opcode
+        self.length = 63 # fixed length
+        self.data = data
+        
+    def __str__(self):
+        parent = HCI.__str__(self)
+        cmdname = "unknown"
+        if self.opcode in self.BCM_DIAG_STR:
+            cmdname = self.BCM_DIAG_STR[self.opcode]
+        return parent + "<0x%02x %s: %s>" % (self.opcode, cmdname, self.data[0:16].encode('hex'))
 
 class HCI_Event(HCI): 
 
@@ -704,10 +775,11 @@ class HCI_Event(HCI):
         return parent + "<0x%02x %s (len=%d): %s>" % (self.event_code, eventname, self.length, self.data[0:].encode('hex'))
 
 HCI_UART_TYPE_CLASS = {
-        HCI.HCI_CMD :  HCI_Cmd,
+        HCI.HCI_CMD  : HCI_Cmd,
         HCI.ACL_DATA : HCI_Acl,
         HCI.SCO_DATA : HCI_Sco,
-        HCI.HCI_EVT :  HCI_Event
+        HCI.HCI_EVT  : HCI_Event,
+        HCI.BCM_DIAG : HCI_Diag
     }
 
 def parse_hci_packet(data):
