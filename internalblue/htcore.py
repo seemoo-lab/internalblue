@@ -164,45 +164,9 @@ class HTCore(InternalBlue):
             return False
 
         # otherwise return response packet
-        event_payload = HTResponse(response).event.payload
+        event_payload = HTResponse(response).event.data
 
         return event_payload
-
-
-class HciCmd(object):
-
-    def __str__(self):
-        return "HCI_CMD: %s\n" \
-               "\topcode: 0x%04x (ogf: 0x%02x, ocf: 0x%02x)\n" \
-               "\tplen: %d\n" \
-               "\tpayload: 0x%s" \
-               % (self.name, self.opcode, self.ogf, self.ocf, self.payload_length, str(self.payload.encode('hex')))
-
-    def __init__(self, ogf, ocf, payload_length, payload):
-        self.ogf = ogf
-        self.ocf = ocf
-        self.payload_length = payload_length
-        self.payload = payload
-        self.opcode = (self.ogf << 10) | self.ocf
-        self.name = HCI_Cmd.cmd_name("0x%04x" % self.opcode)
-
-
-class HciEvent(object):
-
-    def __str__(self):
-        return "HCI_EVT: %s\n" \
-               "\tcode: 0x%02x\n" \
-               "\tplen: %d\n" \
-               "\tpayload: 0x%s" \
-               % (self.name, self.code, self.payload_length, str(self.payload.encode('hex')))
-
-    def __init__(self, code, payload_length, payload):
-        self.code = code
-        self.payload_length = payload_length
-        self.payload = payload
-
-        self.name = HCI_Event.event_name("0x%02x" % self.code)
-
 
 class HTResponse(object):
 
@@ -254,18 +218,8 @@ class HTResponse(object):
         cmd_payload = ''.join(re.findall(HTResponse.payload_pattern, command)).decode('hex')
         event_payload = ''.join(re.findall(HTResponse.payload_pattern, event)).decode('hex')
 
-        self.cmd = HciCmd(
-            int(ogf, 0),
-            int(ocf, 0),
-            cmd_plen,
-            cmd_payload
-        )
-
-        self.event = HciEvent(
-            int(event_code, 0),
-            event_plen,
-            event_payload
-        )
+        self.cmd = HCI_Cmd((int(ogf, 0) << 10) | int(ocf, 0), cmd_plen, cmd_payload)
+        self.event = HCI_Event(int(event_code, 0), event_plen, event_payload)
 
         log.debug(self)
 

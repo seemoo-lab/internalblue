@@ -594,6 +594,8 @@ class HCI_Diag(HCI):
     BCM_DIAG_STR = {
         0x00 : "LMP Sent",
         0x01 : "LMP Received",
+        0x80 : "LE LLC Sent", #Low Energy LL Control PDU LMP Message
+        0x81 : "LE LLC Received",
         }
 
     @staticmethod
@@ -694,7 +696,49 @@ class HCI_Event(HCI):
         0x55 : "EVENT Connectionless_Slave_Broadcast_Channel_Map_Change",
         0x56 : "EVENT Inquiry_Response_Notification",
         0x57 : "EVENT Authenticated_Payload_Timeout_Expired",
+        0xef : "EVENT VSC_SleepModeEvent",
+        0xff : "EVENT BroadcomVendorSpecific",
     }
+    
+    # from CYW20735 / packet logger
+    HCI_EVENT_VSC_STR = {
+        0x07 : "EVENT VSC_RadioRxTestResult",
+        0x0c : "EVENT VSC_DualStackResume",
+        0x16 : "EVENT VSC_BFCSuspendComplete",
+        0x18 : "EVENT VSC_BFCResumeComplete",
+        0x19 : "EVENT VSC_HlpsDataReady",
+        0x1b : "EVENT VSC_DBFW_TraceDump",
+        0x29 : "EVENT VSC_EirHandshakeComplete",
+        0x30 : "EVENT VSC_MulticastDataReceived",
+        0x39 : "EVENT VSC_BFCSuspend",
+        0x3e : "EVENT VSC_PhoneComesBack",
+        0x3f : "EVENT VSC_PhoneGoesAway",
+        0x40 : "EVENT VSC_AutoResumeComplete",
+        0x41 : "EVENT VSC_TxPowerChanged",
+        0x42 : "EVENT VSC_BFCSuspending",
+        0x49 : "EVENT VSC_RawRSSI",
+        0x4d : "EVENT VSC_SynchronizationTrainReceived",
+        0x4e : "EVENT VSC_StreamingPacketTransmitted",
+        0x53 : "EVENT VSC_RetransmissionStatusUpdate",
+        0x54 : "EVENT VSC_BatchScanStorageThreshBreach",
+        0x55 : "EVENT VSC_MultiAdvtStateChange",
+        0x56 : "EVENT VSC_LEAddressBasedTracking",
+        0x6a : "EVENT VSC_GetBcsTimelineData",
+        0x6d : "EVENT VSC_1SecondTimer",
+        0x74 : "EVENT VSC_RSSLocal",
+        0x77 : "EVENT VSC_AudioBufferNotificationStatsBuffer",
+        0x78 : "EVENT VSC_HSR_SendFlagsMemTest",
+        0x79 : "EVENT VSC_RadioRxTestResult",
+        0x7e : "EVENT VSC_Sam_SendSettingsSlotmap",
+        0x7f : "EVENT VSC_RSSDebug",
+        0xa3 : "EVENT VSC_AntennaSettingNotification",
+        0xa5 : "EVENT VSC_MemPoolsStats", #??
+        0xe9 : "EVENT VSC_CustomerSpecific",
+        0xf0 : "EVENT VSC_BFCSuspending_PwrConsumption",
+        0xf3 : "EVENT VSC_CustomerSpecificLocalMessages",
+        0xf7 : "EVENT VSC_CustomerSpecificDebugFramework",
+    }
+
 
     HCI_COMMAND_ERROR_STR = {
         0x00 : "Success",
@@ -745,6 +789,11 @@ class HCI_Event(HCI):
         """
 
         code_int = int(code, 16)
+
+        e = HCI_Event.HCI_EVENT_VSC_STR
+        if code_int == 0xff:
+            if code_int in e:
+                return e[int(self.data[0], 16)]
 
         d = HCI_Event.HCI_EVENT_STR
         if code_int in d:

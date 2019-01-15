@@ -322,6 +322,8 @@ class InternalBlue():
             # Prepend UART TYPE and length
             out = p8(hci.HCI.HCI_CMD) + p16(len(payload)) + payload
             # TODO modify queue to also handle hci.HCI.BCM_DIAG
+            # currently only works via:
+            #    echo -ne '\x07\xf0\x01' >/dev/ttyHS99
 
             # register queue to receive the response
             recvQueue = Queue.Queue(1)
