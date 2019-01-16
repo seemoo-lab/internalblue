@@ -167,6 +167,15 @@ class HTCore(InternalBlue):
         event_payload = HTResponse(response).event.data
 
         return event_payload
+    
+    def sendH4(self, h4type, data, timeout=2):
+        """
+        Currently not supported via hcitool, need to dig deeper into bluez...
+        """
+        
+        log.warn("Sending raw H4 UART is currently not supported with hcitool.")
+        
+        return False
 
 class HTResponse(object):
 

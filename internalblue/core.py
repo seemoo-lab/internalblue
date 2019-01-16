@@ -292,13 +292,13 @@ class InternalBlue():
     def _sendThreadFunc(self):
         """
         This is the run-function of the sendThread. It polls the sendQueue for new 'send tasks'
-        and executes them (sends HCI commands to the chip and returns the response).
+        and executes them (sends H4 commands to the chip and returns the response).
         The entries of the sendQueue are tuples representing a 'send task':
-         (opcode, data, response_queue)
-           - opcode: The HCI opcode (16 bit integer) to send
-           - data:   The HCI payload (byte string) to send
-           - response_queue: queue that is used for delivering the HCI response
-                             back to the entity that put the HCI command into the
+         (h4type, payload, response_queue)
+           - h4type: The H4 type (8 bit integer) to send
+           - data:   The H4 payload (byte string) to send
+           - response_queue: queue that is used for delivering the H4 response
+                             back to the entity that put the H4 command into the
                              sendQueue.
         Use sendHciCommand() to put 'send tasks' into the sendQueue!
         The thread stops when exit_requested is set to True.
@@ -315,31 +315,36 @@ class InternalBlue():
             except Queue.Empty:
                 continue
 
-            # Extract the components of the task and build the HCI command
-            opcode, data, queue = task
-            payload = p16(opcode) + p8(len(data)) + data
+            # Extract the components of the task and build the H4 command
+            h4type, data, queue = task
+            #payload = p16(opcode) + p8(len(data)) + data
 
-            # Prepend UART TYPE and length
-            out = p8(hci.HCI.HCI_CMD) + p16(len(payload)) + payload
-            # TODO modify queue to also handle hci.HCI.BCM_DIAG
-            # currently only works via:
+            # Prepend UART TYPE and length.
+            # On Android, sending also works via:
             #    echo -ne '\x07\xf0\x01' >/dev/ttyHS99
+            out = p8(h4type) + data
 
             # register queue to receive the response
             recvQueue = Queue.Queue(1)
             def recvFilterFunction(record):
                 hcipkt = record[0]
+                
+                # Accept diagnostic
+                if isinstance(hcipkt, hci.HCI_Diag):
+                    return True
 
-                if not isinstance(hcipkt, hci.HCI_Event):
-                    return False
+                # Interpret HCI event
+                if isinstance(hcipkt, hci.HCI_Event):
+                    
+                    opcode = out[3:5]
+                    if hcipkt.event_code == 0x0e:   # Cmd Complete event
+                        if hcipkt.data[1:3] == opcode:
+                            return True
 
-                if hcipkt.event_code == 0x0e:   # Cmd Complete event
-                    if hcipkt.data[1:3] == p16(opcode):
-                        return True
-
-                if hcipkt.event_code == 0x0f:   # Cmd Status event
-                    if hcipkt.data[2:4] == p16(opcode):
-                        return True
+                    if hcipkt.event_code == 0x0f:   # Cmd Status event
+                        if hcipkt.data[2:4] == opcode:
+                            return True
+                
                 return False
 
             self.registerHciRecvQueue(recvQueue, recvFilterFunction)
@@ -681,6 +686,7 @@ class InternalBlue():
         # Broadcom uses 0x000f as vendor ID
         if (u8(version[9]) != 0x00 or u8(version[8]) != 0x0f):
             log.critical("Not running on a Broadcom chip!")
+            return False
         else:
             log.info("Broadcom chip detected.")
             subversion = (u8(version[11]) << 8) + u8(version[10])
@@ -703,7 +709,11 @@ class InternalBlue():
         except:
             import fw_rpi3 as fw #TODO default empty firmware
             self.fw = fw
-            log.warn("Loaded default firmware information, some commands will not be supported.")            
+            log.warn("Loaded default firmware information, some commands will not be supported.")
+        
+        # TODO should not be default until we recompiled all drivers
+        log.info("Try to enable debugging on H4 (timeout if not supported)...")
+        self.sendH4(hci.HCI.BCM_DIAG, p16(2) + '\xf0\x01')
             
         return True
 
@@ -959,6 +969,17 @@ class InternalBlue():
 
     @abstractmethod
     def sendHciCommand(self, opcode, data, timeout=2):
+        """
+        Implementation of this command puts a HCI command into the sendQueue.
+        """
+        pass
+
+    @abstractmethod
+    def sendH4(self, h4type, data, timeout=2):
+        """
+        One layer above HCI, if supported by the implementation prepending data
+        with 0x04 will make a HCI command etc. - see data types in hci.HCI
+        """
         pass
 
     def recvPacket(self, timeout=None):

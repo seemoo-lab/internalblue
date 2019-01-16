@@ -3,6 +3,7 @@
 import socket
 import Queue
 import random
+import hci
 
 from pwn import *
 
@@ -81,8 +82,21 @@ class ADBCore(InternalBlue):
 
         # Disconnect the TCP sockets
         self._teardownSockets()
-
+    
     def sendHciCommand(self, opcode, data, timeout=2):
+        """
+        Puts HCI command as H4 UART message into the sendQueue.
+        """
+        
+        # standard HCI command structure
+        payload = p16(opcode) + p8(len(data)) + data
+        
+        # prepend with total length for H4 over adb 
+        payload = p16(len(payload)) + payload
+        
+        return self.sendH4(hci.HCI.HCI_CMD, payload, timeout)
+
+    def sendH4(self, h4type, data, timeout=2):
         """
         Send an arbitrary HCI packet by pushing a send-task into the
         sendQueue. This function blocks until the response is received
@@ -96,13 +110,14 @@ class ADBCore(InternalBlue):
 
         queue = Queue.Queue(1)
         try:
-            self.sendQueue.put((opcode, data, queue), timeout=timeout)
-            return queue.get(timeout=timeout)
+            self.sendQueue.put((h4type, data, queue), timeout=timeout)
+            ret = queue.get(timeout=timeout)
+            return ret
         except Queue.Empty:
-            log.warn("sendHciCommand: waiting for response timed out!")
+            log.warn("sendH4: waiting for response timed out!")
             return None
         except Queue.Full:
-            log.warn("sendHciCommand: send queue is full!")
+            log.warn("sendH4: send queue is full!")
             return None
 
     def _read_btsnoop_hdr(self):

@@ -107,8 +107,29 @@ index fc0d27838..b89e8cf83 100644
        LOG_ERROR("%s Unknown HCI message type. Dropping this byte 0x%x, min %x, max %x", __func__, type_byte, DATA_TYPE_ACL, DATA_TYPE_EVENT);
        return;
      }
+diff --git a/hci/src/hci_inject.c b/hci/src/hci_inject.c
+index 8ba5f989a..5e82ce3e3 100644
+--- a/hci/src/hci_inject.c
++++ b/hci/src/hci_inject.c
+@@ -38,6 +38,7 @@ typedef enum {
+   HCI_PACKET_ACL_DATA = 2,
+   HCI_PACKET_SCO_DATA = 3,
+   HCI_PACKET_EVENT    = 4,
++  HCI_PACKET_DIAG     = 7,
+ } hci_packet_t;
+ 
+ typedef struct {
+@@ -117,6 +118,8 @@ static int hci_packet_to_event(hci_packet_t packet) {
+       return MSG_STACK_TO_HC_HCI_ACL;
+     case HCI_PACKET_SCO_DATA:
+       return MSG_STACK_TO_HC_HCI_SCO;
++    case HCI_PACKET_DIAG:
++      return MSG_STACK_TO_LM_DIAG;
+     default:
+       LOG_ERROR("%s unsupported packet type: %d", __func__, packet);
+       return -1;
 diff --git a/hci/src/hci_layer.c b/hci/src/hci_layer.c
-index 16f72c606..55e433007 100644
+index 16f72c606..5446e0f60 100644
 --- a/hci/src/hci_layer.c
 +++ b/hci/src/hci_layer.c
 @@ -50,7 +50,7 @@
@@ -171,4 +192,13 @@ index 16f72c606..55e433007 100644
 -
            incoming->state = incoming->bytes_remaining > 0 ? BODY : FINISHED;
          }
+ 
+@@ -715,6 +724,8 @@ static serial_data_type_t event_to_data_type(uint16_t event) {
+     return DATA_TYPE_SCO;
+   else if (event == MSG_STACK_TO_HC_HCI_CMD)
+     return DATA_TYPE_COMMAND;
++  else if (event == MSG_STACK_TO_LM_DIAG)
++    return DATA_TYPE_DIAG;
+   else
+     LOG_ERROR("%s invalid event type, could not translate 0x%x", __func__, event);
  
