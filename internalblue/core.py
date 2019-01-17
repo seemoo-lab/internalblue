@@ -711,8 +711,9 @@ class InternalBlue():
             self.fw = fw
             log.warn("Loaded default firmware information, some commands will not be supported.")
         
-        # TODO should not be default until we recompiled all drivers
-        log.info("Try to enable debugging on H4 (timeout if not supported)...")
+        # Safe to turn diagnostic logging on, it just gets a timeout if the Android
+        # driver was recompiled with other flags but without applying a proper patch.
+        log.info("Try to enable debugging on H4 (warning if not supported)...")
         self.sendH4(hci.HCI.BCM_DIAG, p16(2) + '\xf0\x01')
             
         return True

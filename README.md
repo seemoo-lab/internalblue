@@ -69,7 +69,8 @@ Requirements on Linux:
 * No callbacks supported via hcitool, open wireshark directly on bluetooth0
 
 Optional Requirements:
-* LMP Wireshark Dissector Plugin (https://github.com/demantz/lmp_wireshark_dissector)
+* Patch for Android driver to support Broadcom H4 forwarding
+* Wireshark Broadcom H4 Dissector Plugin (https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 
 Supported Features
@@ -86,7 +87,7 @@ On any Broadcom Bluetooth chip:
 * Read and write assembly to RAM
 * Read ROM
 * Inject arbitrary LMP (works) and LCP messages (coming soon!)
-* Use diagnostic features to monitor LMP and LCP (coming soon!)
+* Use diagnostic features to monitor LMP and LCP (with new Android H4 driver patch)
 * Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
 
@@ -100,6 +101,7 @@ On selected Broadcom Bluetooth chips:
   * Debug firmware with tracepoints
   * (Legacy) LMP injection via HCI and assembly patch
   * (Legacy) LMP monitor via HCI and assembly patch
+  * Old LMP monitor requires different Wireshark plugin (https://github.com/demantz/lmp_wireshark_dissector)
 * CYW20735 only
   * Full object and function symbol table
 
