@@ -56,21 +56,34 @@ so that it can be started from a command line using:
 
 It should automatically connect to your Android phone through ADB or your local Linux
 via hcitool. It might request your password via sudo each time when hcitool is used.
-Use the *help* command to display a list of available commands.
+Use the *help* command to display a list of available commands. A typical set of
+actions to check if everything is working properly would be:
 
-Requirements on Android:
-* Recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE'
+    monitor hci start
+    connect ff:ff:13:37:ab:cd
+    sendlmp 01 -d 02
+
+Note that InternalBlue only displays 4 byte MAC addresses in some places. This is
+because the leading two bytes are not required by Bluetooth communication, you
+can replace them with anything you want.
+
+
+Requirements
+------------
+
+Android:
+* Recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE', see [build instructions](android_bluetooth_stack/README.md)
 * Android device connected via ADB
 * Best support is currently given for Nexus 5 / BCM4339
 
-Requirements on Linux:
+Linux:
 * hcitool accessible via sudo
 * Not all features supported, but tested on Raspberry Pi 3+
-* No callbacks supported via hcitool, open wireshark directly on bluetooth0
+* No callbacks supported via hcitool, open Wireshark directly on bluetooth0
 
 Optional Requirements:
 * Patch for Android driver to support Broadcom H4 forwarding
-* Wireshark Broadcom H4 Dissector Plugin (https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
+* Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 
 Supported Features

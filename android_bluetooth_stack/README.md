@@ -11,6 +11,44 @@ been created according to the tutorial below. You can skip the build if you
 happen to have a device for which a precompiled *bluetooth.default.so* exists.
 
 
+Installation
+------------
+
+After the build process is done, the *bluetooth.default.so* shared library can be
+found in /home/ubuntu/mnt/android/out/target/product/hammerhead/system/lib/hw/bluetooth.default.so
+and pushed onto the smartphone via ADB. To overwrite the existing library on
+the Android system partition it must first be remounted in order to make it
+writable. It is also important to verify that the new library is actually set
+to be executable, otherwise Bluetooth will not work on the device.
+
+    adb push bluetooth.default.so /sdcard/bluetooth.default.so
+    adb shell 'su -c "mount -o remount,rw /system"'
+    adb shell 'su -c "cp /sdcard/bluetooth.default.so /system/lib/hw/bluetooth.default.so"'
+    adb shell 'su -c "chmod 644 /system/lib/hw/bluetooth.default.so"'
+    adb shell 'su -c "chown root:root /system/lib/hw/bluetooth.default.so"'
+
+Finally, the *HCI snoop log* feature has to be enabled in the developer settings
+of the Android phone.
+
+On Android 7 / Nexus 6P, you might need to install busybox and run the following instead:
+    adb shell 'su -c "busybox mount -o remount,rw /system"'
+
+
+Prebuilt Library Status
+-----------------------
+
+Folder | Tag | Notes 
+------ | --- | -----
+(android6_0_1) | android-6.0.1_r81 | Includes Broadcom H4 diagnostic support. Tested on Nexus 5 (android-6.0.1_r77) and Nexus 6P, seems like the version tag can differ a bit.
+(android7_1_2) | android-7.1.2_r28 | Includes Broadcom H4 diagnostic support. Tested on Nexus 6P, but this build should also run on Nexus 5X, Nexus Player, Pixel C.
+(nexus5_lineageos14.1) | | No Broadcom H4 diagnostic support!
+(zerofltexx_lineageos14.1) | | No Broadcom H4 diagnostic support!
+
+If Broadcom H4 diagnostic support is included, the according diff is located 
+inside the folder. You can apply it inside the /bt folder with:
+    git apply android_receive_diagnostics.diff
+
+
 Build (AOSP)
 ------------
 
@@ -74,7 +112,17 @@ builds just the Bluetooth stack of the AOSP:
     source build/envsetup.sh
     lunch aosp_hammerhead-userdebug
     cd system/bt/
+    git apply android_receive_diagnostics.diff  # if available in the corresponding InternalBlue folder
     bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
+
+    
+You can check if the Bluetooth network debugging features were acutally enabled as follows:
+
+    grep bt_snoop_net  ../../out/target/product/generic/system/lib/hw/bluetooth.default.so
+    
+If this does not return a binary match, you can try:
+
+    bluetooth_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
 
 
 Build (Lineage OS)
@@ -87,28 +135,9 @@ Follow the build setup steps according to https://wiki.lineageos.org/devices/ham
 until the Start the build section. Then do:
 
     cd system/bt/
+    git apply android_receive_diagnostics.diff  # if available in the corresponding InternalBlue folder
     bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
 
 Flex crashes on Ubuntu 18.04 - [workaround](https://stackoverflow.com/questions/49301627/android-7-1-2-armv7):
 
     export LC_ALL=C
-
-
-Installation
-------------
-
-After the build process is done, the *bluetooth.default.so* shared library can be
-found in /home/ubuntu/mnt/android/out/target/product/hammerhead/system/lib/hw/bluetooth.default.so
-and pushed onto the smartphone via ADB. To overwrite the existing library on
-the Android system partition it must first be remounted in order to make it
-writable. It is also important to verify that the new library is actually set
-to be executable, otherwise Bluetooth will not work on the device.
-
-    adb push bluetooth.default.so /sdcard/bluetooth.default.so
-    adb shell 'su -c "mount -o remount,rw /system"'
-    adb shell 'su -c "cp /sdcard/bluetooth.default.so /system/lib/hw/bluetooth.default.so"'
-    adb shell 'su -c "chmod 644 /system/lib/hw/bluetooth.default.so"'
-    adb shell 'su -c "chown root:root /system/lib/hw/bluetooth.default.so"'
-
-Finally, the *HCI snoop log* feature has to be enabled in the developer settings
-of the Android phone.
