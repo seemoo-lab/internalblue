@@ -226,18 +226,17 @@ class CmdLogLevel(Cmd):
 
 class CmdMonitor(Cmd):
     keywords = ['monitor']
-    description = "Controlling the LMP monitor."
+    description = "Controlling the monitor."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("type", 
-                        help="One of: hci, lmp")
+                        help="hci (LMP monitoring has been moved to HCI)")
     parser.add_argument("command", 
                         help="One of: start, status, stop, kill")
 
     class MonitorController:
         hciInstance = None
-        lmpInstance = None
 
         @staticmethod
         def getMonitorController(name, internalblue):
@@ -249,16 +248,8 @@ class CmdMonitor(Cmd):
                     CmdMonitor.MonitorController.hciInstance.stopMonitor  = CmdMonitor.MonitorController.hciInstance.stopHciMonitor
                     CmdMonitor.MonitorController.hciInstance._callback    = CmdMonitor.MonitorController.hciInstance.hciCallback
                 return CmdMonitor.MonitorController.hciInstance
-            elif name == "lmp":
-                if CmdMonitor.MonitorController.lmpInstance == None:
-                    # TODO: pcap data link type should be 255
-                    # see: https://github.com/greatscottgadgets/ubertooth/wiki/Bluetooth-Captures-in-PCAP#linktype_bluetooth_bredr_bb
-                    CmdMonitor.MonitorController.lmpInstance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0x01)
-                    CmdMonitor.MonitorController.lmpInstance.startMonitor = CmdMonitor.MonitorController.lmpInstance.startLmpMonitor
-                    CmdMonitor.MonitorController.lmpInstance.stopMonitor  = CmdMonitor.MonitorController.lmpInstance.stopLmpMonitor
-                    CmdMonitor.MonitorController.lmpInstance._callback    = CmdMonitor.MonitorController.lmpInstance.lmpCallback
-                return CmdMonitor.MonitorController.lmpInstance
-            else:
+            else:                
+                log.warn("LMP monitoring is now implemented by parsing Broadcom H4 diagnostic messages. Use the standard HCI monitor and filter for 'hci_h4.type == 7'.")
                 return None
 
         class __MonitorController:
@@ -333,28 +324,6 @@ class CmdMonitor(Cmd):
                 log.info("HCI Monitor stopped.")
                 return True
 
-            def startLmpMonitor(self):
-                if self.running:
-                    log.warn("LMP Monitor already running!")
-                    return False
-
-                self.running = True
-                if self.wireshark_process == None:
-                    self._spawnWireshark()
-
-                self.internalblue.startLmpMonitor(self._callback)
-                log.info("LMP Monitor started.")
-                return True
-
-            def stopLmpMonitor(self):
-                if not self.running:
-                    log.warn("LMP Monitor is not running!")
-                    return False
-                self.internalblue.stopLmpMonitor()
-                self.running = False
-                log.info("LMP Monitor stopped.")
-                return True
-
             def killMonitor(self):
                 if self.running:
                     self.stopMonitor()
@@ -370,7 +339,6 @@ class CmdMonitor(Cmd):
                         log.warn("Error during wireshark process termination")
                     self.wireshark_process = None
                     
-
             def getStatus(self):
                 return self.running
 
@@ -392,26 +360,6 @@ class CmdMonitor(Cmd):
                     log.warn("HciMonitorController._callback: broken pipe. terminate.")
                     self.killMonitor()
 
-            def lmpCallback(self, lmp_packet, sendByOwnDevice, src, dest, timestamp):
-                eth_header = dest + src + "\xff\xf0"
-                meta_data  = "\x00"*6 if sendByOwnDevice else "\x01\x00\x00\x00\x00\x00"
-                packet_header = "\x19\x00\x00" + p8(len(lmp_packet)<<3 | 7)
-
-                packet = eth_header + meta_data + packet_header + lmp_packet
-                packet += "\x00\x00" # CRC
-                length = len(packet)
-                ts_sec =  timestamp.second + timestamp.minute*60 + timestamp.hour*60*60
-                ts_usec = timestamp.microsecond
-                pcap_packet = struct.pack('@ I I I I', ts_sec, ts_usec, length, length) + packet
-                try:
-                    self.wireshark_process.stdin.write(pcap_packet)
-                    self.wireshark_process.stdin.flush()
-                    log.debug("LmpMonitorController._callback: done")
-                except IOError as e:
-                    log.warn("LmpMonitorController._callback: broken pipe. terminate.")
-                    self.killMonitor()
-
-
     def work(self):
         args = self.getArgs()
         if args==None:
@@ -430,8 +378,6 @@ class CmdMonitor(Cmd):
 
         if args.command == "start":
             monitorController.startMonitor()
-        elif args.command == "status":
-            log.info("LMP Monitor is %s." % ("running" if monitorController.getStatus() else "not running"))
         elif args.command == "stop":
             monitorController.stopMonitor()
         elif args.command == "kill":

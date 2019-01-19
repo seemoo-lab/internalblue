@@ -99,7 +99,7 @@ On any Broadcom Bluetooth chip:
 * Read and write RAM
 * Read and write assembly to RAM
 * Read ROM
-* Inject arbitrary LMP (works) and LCP messages (coming soon!)
+* Inject arbitrary valid LMP (works) and LCP messages (coming soon!)
 * Use diagnostic features to monitor LMP and LCP (with new Android H4 driver patch)
 * Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
@@ -112,9 +112,6 @@ On selected Broadcom Bluetooth chips:
   * ECDH CVE-2018-5383 example
   * NiNo example
   * Debug firmware with tracepoints
-  * (Legacy) LMP injection via HCI and assembly patch
-  * (Legacy) LMP monitor via HCI and assembly patch
-  * Old LMP monitor requires different Wireshark plugin (https://github.com/demantz/lmp_wireshark_dissector)
 * CYW20735 only
   * Full object and function symbol table
 
