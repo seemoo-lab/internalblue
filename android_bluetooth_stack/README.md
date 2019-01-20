@@ -22,10 +22,11 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
-(android6_0_1) | android-6.0.1_r81 | yes | yes          | Tested on __Nexus 5__ (android-6.0.1_r77) and Nexus 6P, seems like the version tag can differ a bit.
-(android7_1_2) | android-7.1.2_r28 | yes | yes          | Tested on __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
-(nexus5_lineageos14.1) |           | yes | no           | 
-(zerofltexx_lineageos14.1) |       | yes | no           |
+(android_bluetooth_stack/android6_0_1) | android-6.0.1_r81 | yes | __yes__      | Recommended for __Nexus 5__ (android_bluetooth_stack/android-6.0.1_r77) and Nexus 6P, seems like the version tag can differ a bit.
+(android_bluetooth_stack/android7_1_2) | android-7.1.2_r28 | yes | __yes__      | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
+(android_bluetooth_stack/android8_1_0) | android-8.1.0_r1  | yes | no           | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 6P, Nexus 5X
+(android_bluetooth_stack/nexus5_lineageos14.1) |           | yes | no           | 
+(android_bluetooth_stack/zerofltexx_lineageos14.1) |       | yes | no           |
 
 If Broadcom H4 diagnostic support is included, the according diff is located 
 inside the folder. You can apply it inside the /bt folder with:
@@ -145,12 +146,36 @@ the module as follows:
 
     bluetooth_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
 
+    
+### Android 8 issues ###
+
 Android 8 did major changes to their modules. Changing compiler flags will enable HCI 
-sniffing but not HCI injection. Major parts of the injection code are still there
-but removed inside hci_layer.cc. Moreover, the Bluetooth interface is now defined
-globally and adding the H4 Broadcom diagnostic type in the interface's callbacks
-is ABI-breaking. Expect from that, the Bluetooth module itself is still very similar.
-Until fixing the driver properly, no module for Android 8 is uploaded here.
+sniffing but not HCI injection. The code for HCI injection is still there but simply
+no longer addressed in the according HCI layer implementation. To get injection working
+you already need to apply a patch:
+
+    source build/envsetup.sh
+    lunch aosp_angler-eng
+    cd system/bt/
+    git apply enable_hci_inject.diff
+    CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
+
+For installation, copy both, the 32 and 64 bit versions.
+
+    adb shell 'su -c "mount -o remount,rw /system"'
+    adb shell 'su -c "cp /sdcard/bluetooth.default.so /system/lib/hw/bluetooth.default.so"'
+    adb shell 'su -c "cp /sdcard/bluetooth.default.so.64 /system/lib64/hw/bluetooth.default.so"'
+    adb shell 'su -c "chmod 644 /system/lib/hw/bluetooth.default.so"'
+    adb shell 'su -c "chmod 644 /system/lib64/hw/bluetooth.default.so"'
+    adb shell 'su -c "chown root:root /system/lib/hw/bluetooth.default.so"'
+    adb shell 'su -c "chown root:root /system/lib64/hw/bluetooth.default.so"'
+
+Broadcom H4 support would break a couple of things. First of all, Android 8 defines
+all valid H4 messages (standard HCI only) inside the Bluetooth interface. Any change
+to the Bluetooth interface is ABI-breaking. The Bluetooth interface rejects Broadcom
+H4 responses from the chip, so enforcing diagnostic capabilities by directly
+writing to the chip's serial console causes the driver to restart. If you need to
+use diagnostic features, switch back to Android 7.
 
 
 Build (Lineage OS)

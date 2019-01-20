@@ -850,6 +850,8 @@ class StackDumpReceiver:
             return
         if hcipkt.event_code != 0xff:
             return
+         #TODO Android 8 introduced special handling for 0x57 HCI_VSE_SUBCODE_DEBUG_INFO_SUB_EVT,
+         # stackdumps might no longer work
         if hcipkt.data[0] == '\x57':
             self.handleNexus6pStackDump(hcipkt)
         if hcipkt.data[0:4] == p32(0x039200f7):

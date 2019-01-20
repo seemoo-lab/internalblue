@@ -1,0 +1,74 @@
+diff --git a/hci/src/hci_inject.cc b/hci/src/hci_inject.cc
+index 70194a5e0..ee4070419 100644
+--- a/hci/src/hci_inject.cc
++++ b/hci/src/hci_inject.cc
+@@ -65,9 +65,6 @@ static thread_t* thread;
+ static list_t* clients;
+ 
+ static bool hci_inject_open(const hci_t* hci_interface) {
+-#if (BT_NET_DEBUG != TRUE)
+-  return true;  // Disable using network sockets for security reasons
+-#endif
+ 
+   CHECK(listen_socket == NULL);
+   CHECK(thread == NULL);
+@@ -97,9 +94,6 @@ error:;
+ }
+ 
+ static void hci_inject_close(void) {
+-#if (BT_NET_DEBUG != TRUE)
+-  return;  // Disable using network sockets for security reasons
+-#endif
+ 
+   socket_free(listen_socket);
+   list_free(clients);
+diff --git a/hci/src/hci_layer.cc b/hci/src/hci_layer.cc
+index d1fa92031..af596d324 100644
+--- a/hci/src/hci_layer.cc
++++ b/hci/src/hci_layer.cc
+@@ -87,6 +87,7 @@ static hci_t interface;
+ // Modules we import and callbacks we export
+ static const allocator_t* buffer_allocator;
+ static const btsnoop_t* btsnoop;
++static const hci_inject_t *hci_inject;
+ static const packet_fragmenter_t* packet_fragmenter;
+ 
+ static future_t* startup_future;
+@@ -239,6 +240,8 @@ static future_t* hci_module_start_up(void) {
+ 
+   packet_fragmenter->init(&packet_fragmenter_callbacks);
+ 
++  hci_inject->open(&interface);
++
+   thread_post(thread, message_loop_run, NULL);
+ 
+   LOG_DEBUG(LOG_TAG, "%s starting async portion", __func__);
+@@ -252,6 +255,8 @@ error:
+ static future_t* hci_module_shut_down() {
+   LOG_INFO(LOG_TAG, "%s", __func__);
+ 
++  hci_inject->close();
++
+   // Free the timers
+   {
+     std::lock_guard<std::recursive_mutex> lock(commands_pending_response_mutex);
+@@ -702,6 +707,7 @@ void hci_layer_cleanup_interface() {
+ const hci_t* hci_layer_get_interface() {
+   buffer_allocator = buffer_allocator_get_interface();
+   btsnoop = btsnoop_get_interface();
++  hci_inject = hci_inject_get_interface();
+   packet_fragmenter = packet_fragmenter_get_interface();
+ 
+   init_layer_interface();
+@@ -712,9 +718,11 @@ const hci_t* hci_layer_get_interface() {
+ const hci_t* hci_layer_get_test_interface(
+     const allocator_t* buffer_allocator_interface,
+     const btsnoop_t* btsnoop_interface,
++    const hci_inject_t *hci_inject_interface,
+     const packet_fragmenter_t* packet_fragmenter_interface) {
+   buffer_allocator = buffer_allocator_interface;
+   btsnoop = btsnoop_interface;
++  hci_inject = hci_inject_interface;
+   packet_fragmenter = packet_fragmenter_interface;
+ 
+   init_layer_interface();
