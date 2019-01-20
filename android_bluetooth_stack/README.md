@@ -22,11 +22,11 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
-(android_bluetooth_stack/android6_0_1) | android-6.0.1_r81 | yes | __yes__      | Recommended for __Nexus 5__ (android_bluetooth_stack/android-6.0.1_r77) and Nexus 6P, seems like the version tag can differ a bit.
-(android_bluetooth_stack/android7_1_2) | android-7.1.2_r28 | yes | __yes__      | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
-(android_bluetooth_stack/android8_1_0) | android-8.1.0_r1  | yes | no           | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 6P, Nexus 5X
-(android_bluetooth_stack/nexus5_lineageos14.1) |           | yes | no           | 
-(android_bluetooth_stack/zerofltexx_lineageos14.1) |       | yes | no           |
+(android6_0_1) | android-6.0.1_r81 | yes | __yes__      | Recommended for __Nexus 5__ (android-6.0.1_r77) and Nexus 6P, seems like the version tag can differ a bit.
+(android7_1_2) | android-7.1.2_r28 | yes | __yes__      | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
+(android8_1_0) | android-8.1.0_r1  | yes | no           | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 6P, Nexus 5X
+(nexus5_lineageos14.1) |           | yes | no           | 
+(zerofltexx_lineageos14.1) |       | yes | no           |
 
 If Broadcom H4 diagnostic support is included, the according diff is located 
 inside the folder. You can apply it inside the /bt folder with:
