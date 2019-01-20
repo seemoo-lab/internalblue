@@ -22,11 +22,11 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
-(android6_0_1) | android-6.0.1_r81 | yes | __yes__      | Recommended for __Nexus 5__ (android-6.0.1_r77) and Nexus 6P, seems like the version tag can differ a bit.
-(android7_1_2) | android-7.1.2_r28 | yes | __yes__      | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
-(android8_1_0) | android-8.1.0_r1  | yes | no           | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 6P, Nexus 5X
-(nexus5_lineageos14.1) |           | yes | no           | 
-(zerofltexx_lineageos14.1) |       | yes | no           |
+android6_0_1 | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
+android7_1_2 | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
+android8_1_0 | android-8.1.0_r1     | yes | no          | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 5X.
+lineageos14_1_hammerhead | cm-14.1  | yes | __yes__     | Recommended for __Nexus 5__ 
+lineageos14_1_zerofltexx | cm-14.1  | yes | no          | Samsung Galaxy S6
 
 If Broadcom H4 diagnostic support is included, the according diff is located 
 inside the folder. You can apply it inside the /bt folder with:
@@ -189,7 +189,7 @@ until the Start the build section. Then do:
 
     cd system/bt/
     git apply android_receive_diagnostics.diff  # if available in the corresponding InternalBlue folder
-    bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
+    bluetooth_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
 
 Flex crashes on Ubuntu 18.04 - [workaround](https://stackoverflow.com/questions/49301627/android-7-1-2-armv7):
 
