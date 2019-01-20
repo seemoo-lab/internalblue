@@ -681,6 +681,11 @@ class InternalBlue():
 
         # send Read_Local_Version_Information
         version = self.sendHciCommand(0x1001, '')
+        
+        if (version == None):
+            log.warn("Failed to send a HCI command to the Bluetooth driver. Check if you installed a custom bluetooth.default.so properly on your Android device.")
+            return False
+        
         # Broadcom uses 0x000f as vendor ID
         if (u8(version[9]) != 0x00 or u8(version[8]) != 0x0f):
             log.critical("Not running on a Broadcom chip!")
@@ -712,7 +717,7 @@ class InternalBlue():
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.
         log.info("Try to enable debugging on H4 (warning if not supported)...")
-        self.sendH4(hci.HCI.BCM_DIAG, p16(2) + '\xf0\x01')
+        self.enableBroadcomDiagnosticLogging(True)
             
         return True
 
@@ -1582,3 +1587,24 @@ class InternalBlue():
                 break
         return queuelist
 
+    def enableBroadcomDiagnosticLogging(self, enable):
+        """
+        Broadcom implemented their own H4 layer protocol. Normally H4 handles HCI
+        messages like HCI commands, SCO and ACL data, and HCI events. Their types are
+        0x01-0x04. Broadcoms proprietary message type is 0x07 to handle diagnostic
+        messages.
+        
+        Diagnostic logging sets a variable checked for any LMP/LCP message when
+        sending and receiving and then forwarding its contents prepended with 0x07.
+        In principle, diagnostic logging can be enabled on Android by directly
+        writing to the serial Bluetooth device:
+        
+            echo -ne '\x07\xf0\x01' >/dev/ttyHS
+        
+        However, Androids Bluetooth driver is not properly parsing message type 0x07.
+        This causes the driver to crash when enabling diagnostics like this. A
+        custom Bluetooth driver is required, which accepts diagnostic commands
+        and also forwards diagnostic message outputs to the BT Snoop Log.
+        """
+        
+        self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))

@@ -18,6 +18,7 @@ class HTCore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
         self.hcitool = 'sudo hcitool'
+        self.hcitoollist = 'hcitool dev' # does not require root, so we ask for sudo later
 
         # wait a few seconds after reattach after crash to check if the device reappeared
         self.sanitycheckonreboot = False
@@ -30,8 +31,8 @@ class HTCore(InternalBlue):
 
         # higher timeout here to allow the user to enter sudo password initally
         # (should be cached by sudo afterwards)
-        log.info("Running hcitool with sudo...")
-        response = self._run(self.hcitool + ' dev', timeout=20).split() 
+        #log.info("Running hcitool with sudo...")
+        response = self._run(self.hcitoollist, timeout=2).split() 
 
         device_list = []
         # checks if a hci device is connected
@@ -107,7 +108,7 @@ class HTCore(InternalBlue):
 
             # how many devices? n = devices * 2 + 1
             if self.sanitycheckonreboot:
-                n = len(self._run(self.hcitool + ' dev').split())
+                n = len(self._run(self.hcitoollist).split())
 
             # need to wait a few seconds otherwise command fails
             self._process('sleep 5 && sudo systemctl restart hciuart.service', queue)
@@ -121,7 +122,7 @@ class HTCore(InternalBlue):
                 sleep(self.sanitychecksleep)
 
                 # check if device is rebooted
-                if len(self._run(self.hcitool + ' dev').split()) != n:
+                if len(self._run(self.hcitoollist).split()) != n:
                     log.critical('Could not reboot Bluetooth chip, terminating InternalBlue!')
 
                     exit(-1)

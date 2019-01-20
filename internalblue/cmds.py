@@ -1448,3 +1448,27 @@ class CmdReadAfhChannelMap(Cmd):
         
         return True
 
+class CmdSendH4Cmd(Cmd):
+    keywords = ['sendh4']
+    description = "Send an arbitrary Broadcom H4 command to the BT controller."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("data", nargs="*",
+                        help="Payload as combinations of hexstrings and hex-uint32 (starting with 0x..). Known commands so far: Reset ACL BR Stats (b9), Get ACL BR Stats (c1), Get ACL EDR Stats (c2), Get AUX Stats (c3), Get Connections (cf), Enable Link Manager Diagnostics (f001), Get Memory Peek (f1), Get Memory Poke (f2), Get Memory Dump (f3), Packet Test (f6).")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        data = ''
+        for data_part in args.data:
+            if data_part[0:2] == "0x":
+                data += p32(auto_int(data_part))
+            else:
+                data += data_part.decode('hex')
+
+        self.internalblue.sendH4(0x07, data)
+
+        return True

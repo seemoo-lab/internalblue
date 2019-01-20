@@ -90,10 +90,7 @@ class ADBCore(InternalBlue):
         
         # standard HCI command structure
         payload = p16(opcode) + p8(len(data)) + data
-        
-        # prepend with total length for H4 over adb 
-        payload = p16(len(payload)) + payload
-        
+
         return self.sendH4(hci.HCI.HCI_CMD, payload, timeout)
 
     def sendH4(self, h4type, data, timeout=2):
@@ -109,6 +106,10 @@ class ADBCore(InternalBlue):
         #      follow later and will be ignored). This should be fixed..
 
         queue = Queue.Queue(1)
+
+        # prepend with total length for H4 over adb 
+        data = p16(len(data)) + data
+
         try:
             self.sendQueue.put((h4type, data, queue), timeout=timeout)
             ret = queue.get(timeout=timeout)
