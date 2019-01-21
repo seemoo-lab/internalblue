@@ -1,0 +1,234 @@
+diff --git a/hci/include/hci_hal.h b/hci/include/hci_hal.h
+index 454c8ed3..b04bdd33 100644
+--- a/hci/include/hci_hal.h
++++ b/hci/include/hci_hal.h
+@@ -28,7 +28,8 @@ typedef enum {
+   DATA_TYPE_COMMAND = 1,
+   DATA_TYPE_ACL     = 2,
+   DATA_TYPE_SCO     = 3,
+-  DATA_TYPE_EVENT   = 4
++  DATA_TYPE_EVENT   = 4,
++  DATA_TYPE_DIAG    = 7
+ } serial_data_type_t;
+ 
+ typedef void (*data_ready_cb)(serial_data_type_t type);
+diff --git a/hci/include/hci_internals.h b/hci/include/hci_internals.h
+index 016e7202..23d7252d 100644
+--- a/hci/include/hci_internals.h
++++ b/hci/include/hci_internals.h
+@@ -39,6 +39,7 @@
+ #define HCI_SCO_PREAMBLE_SIZE 3
+ // 1 byte for event code, 1 byte for parameter length (Volume 2, Part E, 5.4.4)
+ #define HCI_EVENT_PREAMBLE_SIZE 2
++#define HCI_DIAG_PREAMBLE_SIZE 2
+ 
+ #if (defined(REMOVE_EAGER_THREADS) && (REMOVE_EAGER_THREADS == TRUE))
+ struct hci_reader_t {
+diff --git a/hci/include/hci_layer.h b/hci/include/hci_layer.h
+index aba7c093..99a50e89 100644
+--- a/hci/include/hci_layer.h
++++ b/hci/include/hci_layer.h
+@@ -46,6 +46,7 @@ static const char HCI_MODULE[] = "hci_module";
+ #define MSG_STACK_TO_HC_HCI_ACL        0x2100 /* eq. BT_EVT_TO_LM_HCI_ACL */
+ #define MSG_STACK_TO_HC_HCI_SCO        0x2200 /* eq. BT_EVT_TO_LM_HCI_SCO */
+ #define MSG_STACK_TO_HC_HCI_CMD        0x2000 /* eq. BT_EVT_TO_LM_HCI_CMD */
++#define MSG_STACK_TO_LM_DIAG           0x2c00 /* Diagnostics */
+ 
+ /* Local Bluetooth Controller ID for BR/EDR */
+ #define LOCAL_BR_EDR_CONTROLLER_ID      0
+diff --git a/hci/src/btsnoop.c b/hci/src/btsnoop.c
+index 0ef6fe00..d3469207 100644
+--- a/hci/src/btsnoop.c
++++ b/hci/src/btsnoop.c
+@@ -47,7 +47,8 @@ typedef enum {
+   kCommandPacket = 1,
+   kAclPacket = 2,
+   kScoPacket = 3,
+-  kEventPacket = 4
++  kEventPacket = 4,
++  kDiagPacket = 7
+ } packet_type_t;
+ 
+ // Epoch in microseconds since 01/01/0000.
+@@ -78,7 +79,7 @@ void btsnoop_net_open();
+ void btsnoop_net_close();
+ void btsnoop_net_write(const void *data, size_t length);
+ 
+-static void btsnoop_write_packet(packet_type_t type, const uint8_t *packet, bool is_received);
++static void btsnoop_write_packet(packet_type_t type, const uint8_t *packet, bool is_received, int length_he);
+ static void update_logging();
+ 
+ // Module lifecycle functions
+@@ -142,18 +143,21 @@ static void capture(const BT_HDR *buffer, bool is_received) {
+ 
+   switch (buffer->event & MSG_EVT_MASK) {
+     case MSG_HC_TO_STACK_HCI_EVT:
+-      btsnoop_write_packet(kEventPacket, p, false);
++      btsnoop_write_packet(kEventPacket, p, false, 0);
+       break;
+     case MSG_HC_TO_STACK_HCI_ACL:
+     case MSG_STACK_TO_HC_HCI_ACL:
+-      btsnoop_write_packet(kAclPacket, p, is_received);
++      btsnoop_write_packet(kAclPacket, p, is_received, 0);
+       break;
+     case MSG_HC_TO_STACK_HCI_SCO:
+     case MSG_STACK_TO_HC_HCI_SCO:
+-      btsnoop_write_packet(kScoPacket, p, is_received);
++      btsnoop_write_packet(kScoPacket, p, is_received, 0);
+       break;
+     case MSG_STACK_TO_HC_HCI_CMD:
+-      btsnoop_write_packet(kCommandPacket, p, true);
++      btsnoop_write_packet(kCommandPacket, p, true, 0);
++      break;
++    case MSG_STACK_TO_LM_DIAG:
++      btsnoop_write_packet(kDiagPacket, p, true, buffer->len + 1); //1 byte header 0x07 + data
+       break;
+   }
+ }
+@@ -246,8 +250,7 @@ static uint64_t time_now_us() {
+ }
+ #endif
+ 
+-static void btsnoop_write_packet(packet_type_t type, const uint8_t *packet, bool is_received) {
+-  int length_he = 0;
++static void btsnoop_write_packet(packet_type_t type, const uint8_t *packet, bool is_received, int length_he) {
+   int length;
+   int flags;
+   int drops = 0;
+@@ -276,6 +279,9 @@ static void btsnoop_write_packet(packet_type_t type, const uint8_t *packet, bool
+       length_he = packet[1] + 3;
+       flags = 3;
+       break;
++    case kDiagPacket:
++      flags = 3;
++      break;
+   }
+ 
+   uint64_t timestamp = btsnoop_timestamp();
+diff --git a/hci/src/hci_hal_h4.c b/hci/src/hci_hal_h4.c
+index e30732a1..870b3151 100644
+--- a/hci/src/hci_hal_h4.c
++++ b/hci/src/hci_hal_h4.c
+@@ -140,7 +140,7 @@ static void hal_close() {
+ }
+ 
+ static size_t read_data(serial_data_type_t type, uint8_t *buffer, size_t max_size) {
+-  if (type < DATA_TYPE_ACL || type > DATA_TYPE_EVENT) {
++  if ((type < DATA_TYPE_ACL || type > DATA_TYPE_EVENT) && type != DATA_TYPE_DIAG) {
+     LOG_ERROR(LOG_TAG, "%s invalid data type: %d", __func__, type);
+     return 0;
+   } else if (!stream_has_interpretation) {
+@@ -171,7 +171,7 @@ static void packet_finished(serial_data_type_t type) {
+   } else {
+     uint8_t type_byte;
+     type_byte = uart_stream->data_buffer[uart_stream->rd_ptr++];
+-    if (type_byte < DATA_TYPE_ACL || type_byte > DATA_TYPE_EVENT) {
++    if ((type_byte < DATA_TYPE_ACL || type_byte > DATA_TYPE_EVENT) && type_byte != DATA_TYPE_DIAG) {
+       LOG_ERROR("%s Unknown HCI message type. Dropping this byte 0x%x, min %x, max %x", __func__,
+                                                     type_byte, DATA_TYPE_ACL, DATA_TYPE_EVENT);
+       return;
+@@ -188,7 +188,7 @@ static uint16_t transmit_data(serial_data_type_t type, uint8_t *data, uint16_t l
+   assert(data != NULL);
+   assert(length > 0);
+ 
+-  if (type < DATA_TYPE_COMMAND || type > DATA_TYPE_SCO) {
++  if ((type < DATA_TYPE_COMMAND || type > DATA_TYPE_SCO) && type != DATA_TYPE_DIAG) {
+     LOG_ERROR(LOG_TAG, "%s invalid data type: %d", __func__, type);
+     return 0;
+   }
+@@ -287,7 +287,7 @@ static void event_uart_has_bytes(void *context) {
+   if (!stream_has_interpretation) {
+     type_byte = reader->data_buffer[reader->rd_ptr++];
+ 
+-    if (type_byte < DATA_TYPE_ACL || type_byte > DATA_TYPE_EVENT) {
++    if ((type_byte < DATA_TYPE_ACL || type_byte > DATA_TYPE_EVENT) && type_byte != DATA_TYPE_DIAG) {
+       LOG_ERROR("%s Unknown HCI message type. Dropping this byte 0x%x, min %x, max %x", __func__, type_byte, DATA_TYPE_ACL, DATA_TYPE_EVENT);
+       return;
+     }
+@@ -312,7 +312,7 @@ static void event_uart_has_bytes(eager_reader_t *reader, UNUSED_ATTR void *conte
+     if (stream_corrupted_during_le_scan_workaround(type_byte))
+       return;
+ 
+-    if (type_byte < DATA_TYPE_ACL || type_byte > DATA_TYPE_EVENT) {
++    if (type_byte < DATA_TYPE_ACL || type_byte > DATA_TYPE_EVENT) && type_byte != DATA_TYPE_DIAG) {
+       LOG_ERROR(LOG_TAG, "%s Unknown HCI message type 0x%x (min=0x%x max=0x%x). Aborting...",
+                 __func__, type_byte, DATA_TYPE_ACL, DATA_TYPE_EVENT);
+       LOG_EVENT_INT(BT_HCI_UNKNOWN_MESSAGE_TYPE_NUM, type_byte);
+diff --git a/hci/src/hci_inject.c b/hci/src/hci_inject.c
+index 826ffa28..c5963fc8 100644
+--- a/hci/src/hci_inject.c
++++ b/hci/src/hci_inject.c
+@@ -39,6 +39,7 @@ typedef enum {
+   HCI_PACKET_ACL_DATA = 2,
+   HCI_PACKET_SCO_DATA = 3,
+   HCI_PACKET_EVENT    = 4,
++  HCI_PACKET_DIAG     = 7,
+ } hci_packet_t;
+ 
+ typedef struct {
+@@ -118,6 +119,8 @@ static int hci_packet_to_event(hci_packet_t packet) {
+       return MSG_STACK_TO_HC_HCI_ACL;
+     case HCI_PACKET_SCO_DATA:
+       return MSG_STACK_TO_HC_HCI_SCO;
++    case HCI_PACKET_DIAG:
++      return MSG_STACK_TO_LM_DIAG;
+     default:
+       LOG_ERROR(LOG_TAG, "%s unsupported packet type: %d", __func__, packet);
+       return -1;
+diff --git a/hci/src/hci_layer.c b/hci/src/hci_layer.c
+index 10172d4f..5131880d 100644
+--- a/hci/src/hci_layer.c
++++ b/hci/src/hci_layer.c
+@@ -48,7 +48,7 @@
+ #include <hardware/bluetooth.h>
+ bt_bdaddr_t btif_local_bd_addr;
+ 
+-#define INBOUND_PACKET_TYPE_COUNT 3
++#define INBOUND_PACKET_TYPE_COUNT 6
+ #define PACKET_TYPE_TO_INBOUND_INDEX(type) ((type) - 2)
+ #define PACKET_TYPE_TO_INDEX(type) ((type) - 1)
+ 
+@@ -61,7 +61,10 @@ static const uint8_t preamble_sizes[] = {
+   HCI_COMMAND_PREAMBLE_SIZE,
+   HCI_ACL_PREAMBLE_SIZE,
+   HCI_SCO_PREAMBLE_SIZE,
+-  HCI_EVENT_PREAMBLE_SIZE
++  HCI_EVENT_PREAMBLE_SIZE,
++  0,
++  0,
++  HCI_DIAG_PREAMBLE_SIZE,
+ };
+ 
+ static const uint16_t outbound_event_types[] =
+@@ -69,7 +72,10 @@ static const uint16_t outbound_event_types[] =
+   MSG_HC_TO_STACK_HCI_ERR,
+   MSG_HC_TO_STACK_HCI_ACL,
+   MSG_HC_TO_STACK_HCI_SCO,
+-  MSG_HC_TO_STACK_HCI_EVT
++  MSG_HC_TO_STACK_HCI_EVT,
++  0x0000,
++  0x0000,
++  MSG_STACK_TO_LM_DIAG
+ };
+ 
+ typedef enum {
+@@ -713,6 +719,10 @@ static void hal_says_data_ready(serial_data_type_t type) {
+                 // For event and sco preambles, the last byte we read is the length
+                 incoming->bytes_remaining = (type == DATA_TYPE_ACL) ? RETRIEVE_ACL_LENGTH(incoming->preamble) : byte;
+ 
++                if (type == DATA_TYPE_DIAG) {
++                    incoming->bytes_remaining = HCIT_LM_DIAG_LENGTH - 2; // minus header
++                }
++
+                 size_t buffer_size = BT_HDR_SIZE + incoming->index + incoming->bytes_remaining;
+ 
+                 if (buffer_size > MCA_USER_RX_BUF_SIZE) {
+@@ -926,6 +936,8 @@ static serial_data_type_t event_to_data_type(uint16_t event) {
+     return DATA_TYPE_SCO;
+   else if (event == MSG_STACK_TO_HC_HCI_CMD)
+     return DATA_TYPE_COMMAND;
++  else if (event == MSG_STACK_TO_LM_DIAG)
++    return DATA_TYPE_DIAG;
+   else
+     LOG_ERROR(LOG_TAG, "%s invalid event type, could not translate 0x%x", __func__, event);
+ 
