@@ -694,7 +694,7 @@ class InternalBlue():
             log.info("Broadcom chip detected.")
             subversion = (u8(version[11]) << 8) + u8(version[10])
             # get LMP Subversion
-            log.info("Chip identifier (LMP subversion): 0x%04x" % subversion)
+            log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (subversion, subversion>>13, (subversion&0xf00)>>8, subversion&0xff))
             
             # TODO move this to a generic firmware file
             if   (subversion == 0x6109): # Nexus 5, Xperia Z3, Samsung Galaxy Note 3
@@ -703,7 +703,7 @@ class InternalBlue():
             elif (subversion == 0x6119): # Raspberry Pi 3+
                 import fw_rpi3p as fw #TODO rpi3/rpi3+ are different, update this along with the firmware file
                 log.info("Laoded firmware information for BCM4345C0.")
-            elif (subversion == 0x240f): # Nexus 6P
+            elif (subversion == 0x240f): # Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
                 import fw_6p as fw
                 log.info("Loaded firmware information for BCM4358A3.")
         
@@ -1039,7 +1039,7 @@ class InternalBlue():
                 log.warn("writeMem: Timeout while reading response, probably need to wait longer.")
                 return False
             elif (response[3] != '\x00'):
-                log.warn("writeMem: Got error code %x in command complete event." % response[3])
+                log.warn("writeMem: Got error code %s in command complete event." % response[3].encode('hex'))
                 return False
             write_addr += blocksize
             byte_counter += blocksize
@@ -1352,7 +1352,12 @@ class InternalBlue():
             log.warn("sendLmpPacket: Vendor specific HCI command only allows for 17 bytes LMP content.")
         
         #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
-        result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(data)) + data)
+        result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(payload + opcode_data)) + data)
+        
+        if result == None:
+            log.warn("sendLmpPacket: did not get a result from firmware, maybe crashed internally?")
+            return False
+        
         result = u8(result[3])
         
         if result != 0:
@@ -1466,6 +1471,11 @@ class InternalBlue():
             btaddr      = hcipkt.data[3:9][::-1]
             btaddr_str  = ":".join([b.encode("hex") for b in btaddr])
             log.info("[Connect Complete: Handle=0x%x  Address=%s  status=%s]" % (conn_handle, btaddr_str, status_str))
+
+        # Also show Disconnect Complete
+        if hcipkt.event_code == 0x05:
+            conn_handle = u16(hcipkt.data[1:3])
+            log.info("[Disconnect Complete: Handle=0x%x]" % (conn_handle))
 
 
     def readHeapInformation(self):

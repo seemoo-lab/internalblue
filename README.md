@@ -99,7 +99,7 @@ On any Broadcom Bluetooth chip:
 * Read and write RAM
 * Read and write assembly to RAM
 * Read ROM
-* Inject arbitrary valid LMP (works) and LCP messages (coming soon!)
+* Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
 * Use diagnostic features to monitor LMP and LCP (with new Android H4 driver patch)
 * Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
@@ -112,15 +112,16 @@ On selected Broadcom Bluetooth chips:
   * ECDH CVE-2018-5383 example
   * NiNo example
   * Debug firmware with tracepoints
+  * Fuzz invalid LMP messages (coming soon!)
 * CYW20735 only
   * Full object and function symbol table
 
 
 Firmware | Devices 
 --- | --- 
-BCM4335C0 | Nexus 5, Xperia Z3, Samsung Galaxy Note 3 (also known as BCM4339) 
+BCM4335C0 | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3 (also known as BCM4339) 
 BCM4345C0 | Raspberry Pi 3+
-BCM4358A3 | Nexus 6P
+BCM4358A3 | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
 CYW20735  | BLE/BR Bluetooth 5.0 Evaluation Kit
 
 
