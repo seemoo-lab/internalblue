@@ -1,38 +1,36 @@
 #!/usr/bin/env python2
 
-from multiprocessing import Process, Queue
-from os import popen
-from Queue import Empty as QueueEmpty
+#from multiprocessing import Process, Queue
+import subprocess
+
+#from Queue import Empty as QueueEmpty
 import re
 from time import sleep
 
 from pwn import *
 
 from core import InternalBlue
-from hci import HCI_Cmd, HCI_Event
-#from htresponse import HTResponse
+#from hci import HCI_Cmd, HCI_Event
+import hci
+import Queue
+
+
 
 
 class HTCore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='debug', fix_binutils='True', data_directory="."):
         super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
-        self.hcitool = 'sudo hcitool'
+        
+        # TODO move to a config file or solve with ioctl / HCIGETDEVLIST / 210
         self.hcitoollist = 'hcitool dev' # does not require root, so we ask for sudo later
-
-        # wait a few seconds after reattach after crash to check if the device reappeared
-        self.sanitycheckonreboot = False
-        self.sanitychecksleep = 8
 
     def device_list(self):
         """
         Return a list of connected hci devices
         """
 
-        # higher timeout here to allow the user to enter sudo password initally
-        # (should be cached by sudo afterwards)
-        #log.info("Running hcitool with sudo...")
-        response = self._run(self.hcitoollist, timeout=2).split() 
+        response = subprocess.check_output(self.hcitoollist.split()).split()
 
         device_list = []
         # checks if a hci device is connected
@@ -53,187 +51,153 @@ class HTCore(InternalBlue):
 
     def local_connect(self):
         """
-        So far no special actions to run Wireshark...
-        TODO This means currently only callbacks for specific hcitool commands
-             started via InternalBlue - open wireshark directly on the host machine!
         """
 
         if not self.interface:
             log.warn("No HCI identifier is set")
             return False
+        
+        if not self._setupSockets():
+            log.critical("bluez socket could not be established!")
+            return False
 
         return True
 
-    def _run_async(self, cmd, queue):
+    def _recvThreadFunc(self):
         """
-        Is called by _run_command and prevents the program not to hang if the bluetooth controller has crashed
-        """
-
-        log.debug('Run cmd: %s' % cmd)
-        queue.put(popen(cmd).read()) #TODO should be closed
-
-    def _process(self, cmd, queue):
-        p = Process(target=self._run_async, args=(cmd, queue,))
-        p.start()
-        return p
-
-    def _run(self, cmd, timeout=1): 
-        """
-        Runs provided cmd
+        This is the run-function of the recvThread. It receives HCI events from the
+        s_snoop socket. The HCI packets are encapsulated in btsnoop records (see RFC 1761).
+        Received HCI packets are being put into the queues inside registeredHciRecvQueues and
+        passed to the callback functions inside registeredHciCallbacks.
+        The thread stops when exit_requested is set to True. It will do that on its own
+        if it encounters a fatal error or the stackDumpReceiver reports that the chip crashed.
         """
 
-        # define output queue where hcitool response is passed
-        queue = Queue()
-
-        # define and start process
-        process = self._process(cmd, queue)
-
-        # check if process hangs (wait 1 second)
-        try:
-            log.debug('hcitool cmd: %s', cmd)
-            response = queue.get(True, timeout)
-            process.join()
-
-            log.debug('hcitool response: \n%s' % response)
-
-            return response
-
-        except QueueEmpty:
-            return None
+        log.debug("Receive Thread started.")
         
-            # FIXME on Raspi this actually kills the hci0 device :(
-            # failed because bluetooth chip crashed
-            log.warning('HCI device crashed from cmd: %s', cmd)
-            log.info('Reattach device, this will take a few seconds')
+        if (self.write_btsnooplog):
+            log.warn("Writing btsnooplog is not supported with bluez.")
 
-            # how many devices? n = devices * 2 + 1
-            if self.sanitycheckonreboot:
-                n = len(self._run(self.hcitoollist).split())
+        while not self.exit_requested:
+            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
+            #TODO context.log_level = self.log_level
 
-            # need to wait a few seconds otherwise command fails
-            self._process('sleep 5 && sudo systemctl restart hciuart.service', queue)
+            # Read the record data
+            try:
+                log.debug("recvThreadFunc: bluez socket receive")
+                record_data = self.s_snoop.recv(1024)
+            except socket.timeout:
+                continue # this is ok. just try again without error
 
-            # blocks between 5 and 10 seconds
-            queue.get(True)
 
-            if self.sanitycheckonreboot:
-                log.info('Check if the device has been reattached, this will take some seoncds')
+            # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
+            record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0)
 
-                sleep(self.sanitychecksleep)
+            log.debug("Recv: " + str(record[0]))
 
-                # check if device is rebooted
-                if len(self._run(self.hcitoollist).split()) != n:
-                    log.critical('Could not reboot Bluetooth chip, terminating InternalBlue!')
+            # Put the record into all queues of registeredHciRecvQueues if their
+            # filter function matches.
+            for queue, filter_function in self.registeredHciRecvQueues:
+                if filter_function == None or filter_function(record):
+                    try:
+                        queue.put(record, block=False)
+                    except Queue.Full:
+                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
-                    exit(-1)
+            # Call all callback functions inside registeredHciCallbacks and pass the
+            # record as argument.
+            for callback in self.registeredHciCallbacks:
+                callback(record)
 
-                log.info('device is reattached')
+            # Check if the stackDumpReceiver has noticed that the chip crashed.
+            if self.stackDumpReceiver.stack_dump_has_happend:
+                # A stack dump has happend!
+                log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
+                self.exit_requested = True
 
-        return None
+        log.debug("Receive Thread terminated.")
 
-    def sendHciCommand(self, opcode, data, timeout=2):
+    def _setupSockets(self):
         """
-        Send an arbitrary HCI packet
+        bluez already allows to open sockets to Bluetooth devices on Linux,
+        they include H4 information, we simply use it.
         """
+
+        # In order to support multiple parallel instances of InternalBlue
+        # (with multiple attached devices) we must not hard code the
+        # forwarded port numbers. Therefore we choose the port numbers
+        # randomly and hope that they are not already in use.
+
+        # TODO unload btusb module and check error messages here to give the user some output if sth fails
+
+        # Connect to HCI socket
+        self.s_snoop = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)
+        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP,1)
+        """
+        struct hci_filter {
+            uint32_t type_mask;     -> 4
+            uint32_t event_mask[2]; -> 8
+            uint16_t opcode;        -> 2
+        };
+        """
+        # TODO still seems to only forward incoming events?!
+        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_FILTER,
+ '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00') #type mask, event mask, event mask, opcode
         
-        #sleep(0.5) # required by commands like dumpmem since we don't wait for callback of previous command
-
-        log.debug("sendHciCommand: opcode %x" % opcode)
+        interface_num = int(self.interface.replace('hci', ''))
+        log.debug("Socket interface number: %s" % (interface_num))
+        self.s_snoop.bind((interface_num,))
+        self.s_snoop.settimeout(2)
         
-        # split opcode into first and second byte
-        #ogf, ocf = divmod(opcode, 0x100)
-        ogf = (opcode & 0xff00) >> 10 # HCI_GRP_LINK_CONTROL_CMDS (0x01 << 10) /* 0x0400 */ etc.
-        ocf = opcode & 0x00ff
+        # same socket for input and output (bluez is different from adb here!)
+        self.s_inject = self.s_snoop
         
-        log.debug("sendHciCommand: ogf %x ocf %x" % (ogf, ocf))
         
+        log.debug("_setupSockets: Bound socket.")
+        
+        #while True:
+        #    log.debug(self.s_snoop.recv(1024).encode('hex'))
+            
+        return True
 
-        # convert back to hex
-        ogf = hex(ogf)
-        ocf = hex(ocf)
+    def _teardownSockets(self):
+        """
+        Close s_snoop and s_inject socket. (equal)
+        """
 
-        data = ' '.join(['0x' + hex(ord(data[i]))[2:].zfill(2) for i in range(len(data))])
+        if (self.s_inject != None):
+            self.s_inject.close()
+            self.s_inject = None
 
-        # finalize cmd
-        cmd = self.hcitool + ' -i %s cmd %s %s %s' % (self.interface, ogf, ocf, data)
+        return True
 
-        response = self._run(cmd, timeout)
-
-        if not response or not HTResponse.is_valid(response):
-            # something went wrong
-            log.critical('Command failed: %s' % cmd)
-            return False
-
-        # otherwise return response packet
-        event_payload = HTResponse(response).event.data
-
-        return event_payload
-    
     def sendH4(self, h4type, data, timeout=2):
         """
-        Currently not supported via hcitool, need to dig deeper into bluez...
+        Send an arbitrary HCI packet by pushing a send-task into the
+        sendQueue. This function blocks until the response is received
+        or the timeout expires. The return value is the Payload of the
+        HCI Command Complete Event which was received in response to
+        the command or None if no response was received within the timeout.
         """
-        
-        log.warn("Sending raw H4 UART is currently not supported with hcitool.")
-        
-        return False
+        #TODO: If the response is a HCI Command Status Event, we will actually
+        #      return this instead of the Command Complete Event (which will
+        #      follow later and will be ignored). This should be fixed..
 
-class HTResponse(object):
+        queue = Queue.Queue(1)
 
-    hex_pattern = re.compile(r'(0x[0-9a-fA-F]*)')
-    plen_pattern = re.compile(r'plen (\d*)')
-    payload_pattern = re.compile(r'(?<=\s)[0-9a-fA-F]{2}(?![0-9a-fA-F])')
+        # bluez does not require a data length here
+        #data = p16(len(data)) + data #TODO
 
-    @staticmethod
-    def is_valid(response):
-        """
-        Checks if the provided input is a valid hci response
-        :param response: response from hcitool cmd ... as string
-        :return: boolean
-        """
-
-        # convert to lower case
-        response = response.lower()
-
-        if response.find('< hci command:') == -1 or response.find('> hci event:') == -1:
-            return False
-
-        return True
-
-    def __str__(self):
-        return "%s\n%s" % (self.cmd, self.event)
-
-    def __init__(self, ht_response):
-        """
-        Creates a hcitool response
-        :param ht_response: valid response from hcitool cmd ... as string
-        """
-
-        self.ht_response = ht_response
-
-        # remove lower case
-        ht_response = ht_response.lower()
-
-        ogf, ocf, event_code = re.findall(HTResponse.hex_pattern, ht_response)
-
-        cmd_plen, event_plen = re.findall(HTResponse.plen_pattern, ht_response)
-        cmd_plen = int(cmd_plen)
-        event_plen = int(event_plen)
-
-        separator = ht_response.find('>')
-
-        command = ' '.join(ht_response[0:separator].split('\n')[1:])
-        event = ' '.join(ht_response[separator:].split('\n')[1:])
-
-        cmd_payload = ''.join(re.findall(HTResponse.payload_pattern, command)).decode('hex')
-        event_payload = ''.join(re.findall(HTResponse.payload_pattern, event)).decode('hex')
-
-        self.cmd = HCI_Cmd((int(ogf, 0) << 10) | int(ocf, 0), cmd_plen, cmd_payload)
-        self.event = HCI_Event(int(event_code, 0), event_plen, event_payload)
-
-        log.debug(self)
-
-        # if plen and payload do not match there might be sth wrong...
-        if cmd_plen != len(cmd_payload) or event_plen != len(event_payload):
-            log.warn('HCI Command plen %s (%s) or HCI Event plen %s (%s) does not match: \n%s' % (cmd_plen, len(cmd_payload), event_plen, len(event_payload), self))
-        
+        try:
+            self.sendQueue.put((h4type, data, queue), timeout=timeout)
+            ret = queue.get(timeout=timeout)
+            return ret
+        except Queue.Empty:
+            log.warn("sendH4: waiting for response timed out!")
+            return None
+        except Queue.Full:
+            # seems to happen quite often on a busy stack, but most of the time
+            # messages get through
+            log.info("sendH4: send queue is full!")
+            return None
