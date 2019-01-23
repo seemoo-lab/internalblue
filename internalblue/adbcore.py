@@ -140,10 +140,6 @@ class ADBCore(InternalBlue):
                     record_hdr += recv_data
                 except socket.timeout:
                     pass # this is ok. just try again without error
-                except AttributeError:
-                    #FIXME bt_snoop socket not properly working for hcitool
-                    sleep(1)
-                    pass
 
             if not record_hdr or len(record_hdr) != 24:
                 if not self.exit_requested:

@@ -17,10 +17,10 @@ import Queue
 
 
 
-class HTCore(InternalBlue):
+class BluezCore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='debug', fix_binutils='True', data_directory="."):
-        super(HTCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
+        super(BluezCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
         
         # TODO move to a config file or solve with ioctl / HCIGETDEVLIST / 210
         self.hcitoollist = 'hcitool dev' # does not require root, so we ask for sudo later
@@ -80,29 +80,27 @@ class HTCore(InternalBlue):
 
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            #TODO context.log_level = self.log_level
+            context.log_level = self.log_level
 
             # Read the record data
             try:
-                log.debug("recvThreadFunc: bluez socket receive")
                 record_data = self.s_snoop.recv(1024)
             except socket.timeout:
                 continue # this is ok. just try again without error
 
 
             # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-            record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0)
+            record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
 
             log.debug("Recv: " + str(record[0]))
 
             # Put the record into all queues of registeredHciRecvQueues if their
             # filter function matches.
-            for queue, filter_function in self.registeredHciRecvQueues:
-                if filter_function == None or filter_function(record):
-                    try:
-                        queue.put(record, block=False)
-                    except Queue.Full:
-                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
+            for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
+                try:
+                    queue.put(record, block=False)
+                except Queue.Full:
+                    log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
             # Call all callback functions inside registeredHciCallbacks and pass the
             # record as argument.

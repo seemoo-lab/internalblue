@@ -11,8 +11,8 @@ the Bluetooth protocol stack.
 Setup and Installation
 ----------------------
 
-The framework uses ADB (Android Debug Bridge) to connect to an Android
-smartphone or hcitool to locally run on Linux. For ADB, either connect
+The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
+smartphone or __bluez__ sockets on Linux. For ADB, either connect
 the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
 
@@ -55,7 +55,8 @@ so that it can be started from a command line using:
     internalblue
 
 It should automatically connect to your Android phone through ADB or your local Linux
-via hcitool. It might request your password via sudo each time when hcitool is used.
+with bluez. With bluez, some commands can be sent by unprivileged users (i.e. version
+requests) and some commands require privileged users (i.e. establishing connections).
 Use the *help* command to display a list of available commands. A typical set of
 actions to check if everything is working properly would be:
 
@@ -75,14 +76,13 @@ Android:
 * Recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE', see [build instructions](android_bluetooth_stack/README.md)
 * Android device connected via ADB
 * Best support is currently given for Nexus 5 / BCM4339
+* Optional: Patch for Android driver to support Broadcom H4 forwarding
 
 Linux:
-* hcitool accessible via sudo
-* Not all features supported, but tested on Raspberry Pi 3+
-* No callbacks supported via hcitool, open Wireshark directly on bluetooth0
+* bluez
+* Optional: Privileged access
 
-Optional Requirements:
-* Patch for Android driver to support Broadcom H4 forwarding
+Common Optional Requirements:
 * Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 
@@ -93,6 +93,7 @@ This list is subject to change, but we give you a brief overview. You probably h
 
 On any Bluetooth chip:
 * Send HCI commands
+* Monitor HCI
 * Establish connections
 
 On any Broadcom Bluetooth chip:

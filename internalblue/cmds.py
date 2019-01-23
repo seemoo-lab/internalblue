@@ -281,8 +281,9 @@ class CmdMonitor(Cmd):
                         PCAP_DATA_LINK_TYPE)
                 
                 #On Linux/hcitool we can directly run wireshark -k -i bluetooth0
-                if (self.internalblue.__class__.__name__ == "HTCore"):
-                    self.wireshark_process = subprocess.call(
+                #FIXME move the monitor class to the according cores
+                if (self.internalblue.__class__.__name__ == "BluezCore"):
+                    self.wireshark_process = subprocess.Popen(
                         ["wireshark", "-k", "-i", "bluetooth0"]) #TODO fill in device #
                 else:
                     self.wireshark_process = subprocess.Popen(
@@ -346,6 +347,10 @@ class CmdMonitor(Cmd):
                 return self.running
 
             def hciCallback(self, record):
+                #FIXME not available in bluez, move to core 
+                if (self.internalblue.__class__.__name__ == "BluezCore"):
+                    return False
+                
                 hcipkt, orig_len, inc_len, flags, drops, recvtime = record
 
                 dummy = "\x00\x00\x00"      # TODO: Figure out purpose of these fields

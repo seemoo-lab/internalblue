@@ -35,7 +35,7 @@ import time
 import traceback
 
 from adbcore import ADBCore
-from htcore import HTCore
+from bluezcore import BluezCore
 
 import cmds
 
@@ -104,7 +104,7 @@ def internalblue_cli():
     term.readline.set_completer(readline_completer)
 
     # Initalize cores and get devices
-    connection_methods = [ADBCore(data_directory=data_directory), HTCore(data_directory=data_directory)]
+    connection_methods = [ADBCore(data_directory=data_directory), BluezCore(data_directory=data_directory)]
 
     devices = []
     for connection_method in connection_methods:
