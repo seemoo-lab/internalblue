@@ -101,7 +101,7 @@ On any Broadcom Bluetooth chip:
 * Read and write assembly to RAM
 * Read ROM
 * Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
-* Use diagnostic features to monitor LMP and LCP (with new Android H4 driver patch)
+* Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integradted into bluez)
 * Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
 
