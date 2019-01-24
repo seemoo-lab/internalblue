@@ -280,12 +280,16 @@ class CmdMonitor(Cmd):
                         PCAP_MAX_LENGTH_CAP,
                         PCAP_DATA_LINK_TYPE)
                 
-                # TODO on Linux/hcitool we can directly run wireshark -k -i bluetooth0
-                self.wireshark_process = subprocess.Popen(
+                #On Linux/hcitool we can directly run wireshark -k -i bluetooth0
+                #FIXME move the monitor class to the according cores
+                if (self.internalblue.__class__.__name__ == "BluezCore"):
+                    self.wireshark_process = subprocess.Popen(
+                        ["wireshark", "-k", "-i", "bluetooth0"]) #TODO fill in device #
+                else:
+                    self.wireshark_process = subprocess.Popen(
                         ["wireshark", "-k", "-i", "-"], 
                         stdin=subprocess.PIPE)
-
-                self.wireshark_process.stdin.write(pcap_header)
+                    self.wireshark_process.stdin.write(pcap_header)
 
                 self.poll_timer = Timer(3, self._pollTimer, ())
                 self.poll_timer.start()
@@ -343,6 +347,10 @@ class CmdMonitor(Cmd):
                 return self.running
 
             def hciCallback(self, record):
+                #FIXME not available in bluez, move to core 
+                if (self.internalblue.__class__.__name__ == "BluezCore"):
+                    return False
+                
                 hcipkt, orig_len, inc_len, flags, drops, recvtime = record
 
                 dummy = "\x00\x00\x00"      # TODO: Figure out purpose of these fields
@@ -364,12 +372,6 @@ class CmdMonitor(Cmd):
         args = self.getArgs()
         if args==None:
             return True
-        
-        if (self.internalblue.__class__.__name__ == "HTCore"):
-            log.info("Running on hcitool without adb sockets. Call monitor yourself, i.e.:\n" +
-                      "\ttcpdump -i bluetooth0\n" +
-                      "\twireshark -i bluetooth0")
-            return False
 
         monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.internalblue)
         if monitorController == None:

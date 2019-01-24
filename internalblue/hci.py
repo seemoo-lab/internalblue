@@ -293,7 +293,7 @@ class HCI_Cmd(HCI):
         0x201f : "COMND LE_Test_End",
         0x2020 : "COMND LE_Remote_Connection_Parameter_Request_Reply",
         0x2021 : "COMND LE_Remote_Connection_Parameter_Request_Negative_Reply",
-        # Function names extracted from CYW20735 / Packet Logger 9  
+        # Function names extracted from CYW20735 / Packet Logger 9 / bluez source 
         0xfc00 : "COMND VSC_CustomerExtension",
         0xfc01 : "COMND VSC_WriteBdAddr",
         0xfc02 : "COMND VSC_DumpSRAM",
@@ -308,7 +308,7 @@ class HCI_Cmd(HCI):
         0xfc14 : "COMND VSC_SetCarrierFrequencyArm",
         0xfc16 : "COMND VSC_SetEncryptionKeySize",
         0xfc17 : "COMND VSC_Invalidate_Flash_and_Reboot",
-        0xfc18 : "COMND VSC_HandleUpdate_UART_Baud_Rate",
+        0xfc18 : "COMND VSC_Update_UART_Baud_Rate",
         0xfc19 : "COMND VSC_GpioConfigAndWrite",
         0xfc1a : "COMND VSC_GpioRead",
         0xfc1b : "COMND VSC_SetTestModeType",
@@ -336,16 +336,18 @@ class HCI_Cmd(HCI):
         0xfc37 : "COMND VSC_AddHIDDevice",
         0xfc39 : "COMND VSC_RemoveHIDDevice",
         0xfc3a : "COMND VSC_EnableTca",
-        0xfc3b : "COMND VSC_EnableHIDEmulation",
+        0xfc3b : "COMND VSC_EnableUSBHIDEmulation",
         0xfc3c : "COMND VSC_WriteRfProgrammingTable",
         0xfc43 : "COMND VSC_WriteRFAttenuationTable",
+        0xfc44 : "COMND VSC_ReadUARTClockSetting",
+        0xfc45 : "COMND VSC_WriteUARTClockSetting",
         0xfc46 : "COMND VSC_SetSleepClockAccuratyAndSettlingTime",
         0xfc47 : "COMND VSC_ConfigureSleepMode",
         0xfc48 : "COMND VSC_ReadRawRssi",
         0xfc49 : "COMND VSC_ChannelClassConfig",
-        0xfc4c : "COMND VSC_HandleWrite_RAM",
-        0xfc4d : "COMND VSC_HandleRead_RAM",
-        0xfc4e : "COMND VSC_HandleLaunch_RAM",
+        0xfc4c : "COMND VSC_Write_RAM",
+        0xfc4d : "COMND VSC_Read_RAM",
+        0xfc4e : "COMND VSC_Launch_RAM",
         0xfc4f : "COMND VSC_InstallPatches",
         0xfc51 : "COMND VSC_RadioTxTest",
         0xfc52 : "COMND VSC_RadioRxTest",
@@ -360,6 +362,7 @@ class HCI_Cmd(HCI):
         0xfc6d : "COMND VSC_WriteI2sPcmInterface",
         0xfc6e : "COMND VSC_ReadControllerFeatures",
         0xfc6f : "COMND VSC_WriteComfortNoiseParam",
+        0xfc71 : "COMND VSC_WriteRamCompressed", # maybe .hcd only
         0xfc79 : "COMND VSC_ReadVerboseConfigVersionInfo",
         0xfc7c : "COMND VSC_BasebandFlowControlOverride",
         0xfc7d : "COMND VSC_WriteClass15PowerTable",
@@ -488,7 +491,9 @@ class HCI_Cmd(HCI):
         0xfdcb : "COMND VSC_WriteTxPowerAFHMode",
         0xfdcd : "COMND VSC_setMinimumNumberOfUsedChannels",
         0xfdce : "COMND VSC_HandleBrEdrLinkQualityStats",
-        0xff5e : "COMND VSC_SectorErase"
+        0xff5e : "COMND VSC_SectorErase",
+        0xffce : "COMND VSC_Chip_Erase",
+        0xffed : "COMND VSC_EnterDownloadMode"
     }
 
     HCI_CMD_STR_REVERSE = {v: k for k, v in HCI_CMD_STR.iteritems()}

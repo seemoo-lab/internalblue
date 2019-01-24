@@ -11,8 +11,8 @@ the Bluetooth protocol stack.
 Setup and Installation
 ----------------------
 
-The framework uses ADB (Android Debug Bridge) to connect to an Android
-smartphone or hcitool to locally run on Linux. For ADB, either connect
+The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
+smartphone or __bluez__ sockets on Linux. For ADB, either connect
 the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
 
@@ -55,7 +55,8 @@ so that it can be started from a command line using:
     internalblue
 
 It should automatically connect to your Android phone through ADB or your local Linux
-via hcitool. It might request your password via sudo each time when hcitool is used.
+with bluez. With bluez, some commands can be sent by unprivileged users (i.e. version
+requests) and some commands require privileged users (i.e. establishing connections).
 Use the *help* command to display a list of available commands. A typical set of
 actions to check if everything is working properly would be:
 
@@ -75,14 +76,13 @@ Android:
 * Recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE', see [build instructions](android_bluetooth_stack/README.md)
 * Android device connected via ADB
 * Best support is currently given for Nexus 5 / BCM4339
+* Optional: Patch for Android driver to support Broadcom H4 forwarding
 
 Linux:
-* hcitool accessible via sudo
-* Not all features supported, but tested on Raspberry Pi 3+
-* No callbacks supported via hcitool, open Wireshark directly on bluetooth0
+* bluez
+* Optional: Privileged access
 
-Optional Requirements:
-* Patch for Android driver to support Broadcom H4 forwarding
+Common Optional Requirements:
 * Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 
@@ -93,14 +93,15 @@ This list is subject to change, but we give you a brief overview. You probably h
 
 On any Bluetooth chip:
 * Send HCI commands
+* Monitor HCI
 * Establish connections
 
 On any Broadcom Bluetooth chip:
 * Read and write RAM
 * Read and write assembly to RAM
 * Read ROM
-* Inject arbitrary valid LMP (works) and LCP messages (coming soon!)
-* Use diagnostic features to monitor LMP and LCP (with new Android H4 driver patch)
+* Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
+* Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integradted into bluez)
 * Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
 
@@ -112,15 +113,16 @@ On selected Broadcom Bluetooth chips:
   * ECDH CVE-2018-5383 example
   * NiNo example
   * Debug firmware with tracepoints
+  * Fuzz invalid LMP messages (coming soon!)
 * CYW20735 only
   * Full object and function symbol table
 
 
 Firmware | Devices 
 --- | --- 
-BCM4335C0 | Nexus 5, Xperia Z3, Samsung Galaxy Note 3 (also known as BCM4339) 
+BCM4335C0 | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3 (also known as BCM4339) 
 BCM4345C0 | Raspberry Pi 3+
-BCM4358A3 | Nexus 6P
+BCM4358A3 | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
 CYW20735  | BLE/BR Bluetooth 5.0 Evaluation Kit
 
 

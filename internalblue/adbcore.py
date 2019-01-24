@@ -67,32 +67,6 @@ class ADBCore(InternalBlue):
 
         return True
 
-    def local_shutdown(self):
-        """
-        Shutdown the framework by stopping the send and recv threads and disconnecting
-        the TCP sockets.
-        """
-        # unregister stackDumpReceiver callback:
-        if self.stackDumpReceiver != None:
-            self.unregisterHciCallback(self.stackDumpReceiver.recvPacket)
-
-        # Wait until both threads have actually finished
-        self.recvThread.join()
-        self.sendThread.join()
-
-        # Disconnect the TCP sockets
-        self._teardownSockets()
-    
-    def sendHciCommand(self, opcode, data, timeout=2):
-        """
-        Puts HCI command as H4 UART message into the sendQueue.
-        """
-        
-        # standard HCI command structure
-        payload = p16(opcode) + p8(len(data)) + data
-
-        return self.sendH4(hci.HCI.HCI_CMD, payload, timeout)
-
     def sendH4(self, h4type, data, timeout=2):
         """
         Send an arbitrary HCI packet by pushing a send-task into the
@@ -136,6 +110,103 @@ class ADBCore(InternalBlue):
         btsnoop_hdr = (data[:8], u32(data[8:12],endian="big"),u32(data[12:16],endian="big"))
         log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
         return btsnoop_hdr
+
+    def _recvThreadFunc(self):
+        """
+        This is the run-function of the recvThread. It receives HCI events from the
+        s_snoop socket. The HCI packets are encapsulated in btsnoop records (see RFC 1761).
+        Received HCI packets are being put into the queues inside registeredHciRecvQueues and
+        passed to the callback functions inside registeredHciCallbacks.
+        The thread stops when exit_requested is set to True. It will do that on its own
+        if it encounters a fatal error or the stackDumpReceiver reports that the chip crashed.
+        """
+
+        log.debug("Receive Thread started.")
+
+        while not self.exit_requested:
+            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
+            context.log_level = self.log_level
+
+            # Read the record header
+            record_hdr = b''
+            while(not self.exit_requested and len(record_hdr) < 24):
+                try:
+                    recv_data = self.s_snoop.recv(24 - len(record_hdr))
+                    log.debug(recv_data.encode('hex'))
+                    if len(recv_data) == 0:
+                        log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping recv thread...")
+                        self.exit_requested = True
+                        break
+                    record_hdr += recv_data
+                except socket.timeout:
+                    pass # this is ok. just try again without error
+
+            if not record_hdr or len(record_hdr) != 24:
+                if not self.exit_requested:
+                    log.warn("recvThreadFunc: Cannot recv record_hdr. stopping.")
+                    self.exit_requested = True
+                break
+
+            if(self.write_btsnooplog):
+                self.btsnooplog_file.write(record_hdr)
+                self.btsnooplog_file.flush()
+
+            orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
+
+            # Read the record data
+            record_data = b''
+            while(not self.exit_requested and len(record_data) < inc_len):
+                try:
+                    recv_data = self.s_snoop.recv(inc_len - len(record_data))
+                    if len(recv_data) == 0:
+                        log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping..")
+                        self.exit_requested = True
+                        break
+                    record_data += recv_data
+                except socket.timeout:
+                    pass # this is ok. just try again without error
+
+            if not record_data or len(record_data) != inc_len:
+                if not self.exit_requested:
+                    log.warn("recvThreadFunc: Cannot recv data. stopping.")
+                    self.exit_requested = True
+                break
+            
+            if(self.write_btsnooplog):
+                self.btsnooplog_file.write(record_data)
+                self.btsnooplog_file.flush()
+
+            try:
+                parsed_time = self._parse_time(time64)
+            except OverflowError:
+                parsed_time = None
+
+            # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
+            record = (hci.parse_hci_packet(record_data), orig_len, inc_len, flags, drops, parsed_time)
+
+            log.debug("Recv: [" + str(parsed_time) + "] " + str(record[0]))
+
+            # Put the record into all queues of registeredHciRecvQueues if their
+            # filter function matches.
+            for queue, filter_function in self.registeredHciRecvQueues:
+                if filter_function == None or filter_function(record):
+                    try:
+                        queue.put(record, block=False)
+                    except Queue.Full:
+                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
+
+            # Call all callback functions inside registeredHciCallbacks and pass the
+            # record as argument.
+            for callback in self.registeredHciCallbacks:
+                callback(record)
+
+            # Check if the stackDumpReceiver has noticed that the chip crashed.
+            if self.stackDumpReceiver.stack_dump_has_happend:
+                # A stack dump has happend!
+                log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
+                self.exit_requested = True
+
+        log.debug("Receive Thread terminated.")
 
     def _setupSockets(self):
         """

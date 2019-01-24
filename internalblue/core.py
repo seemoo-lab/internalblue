@@ -156,22 +156,6 @@ class InternalBlue():
             log.warn("pwntools cannot find binutils for arm architecture. Disassembling will not work!")
             return False
 
-    def _read_btsnoop_hdr(self):
-        """
-        Read the btsnoop header (see RFC 1761) from the snoop socket (s_snoop).
-        """
-
-        data = self.s_snoop.recv(16)
-        if(len(data) < 16):
-            return None
-        if(self.write_btsnooplog):
-            self.btsnooplog_file.write(data)
-            self.btsnooplog_file.flush()
-
-        btsnoop_hdr = (data[:8], u32(data[8:12],endian="big"),u32(data[12:16],endian="big"))
-        log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
-        return btsnoop_hdr
-
     def _parse_time(self, time):
         """
         Taken from: https://github.com/joekickass/python-btsnoop
@@ -186,106 +170,10 @@ class InternalBlue():
         time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
         time_since_2000_epoch = datetime.timedelta(microseconds=time) - datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
         return datetime.datetime(2000, 1, 1) + time_since_2000_epoch
-
+    
+    @abstractmethod
     def _recvThreadFunc(self):
-        """
-        This is the run-function of the recvThread. It receives HCI events from the
-        s_snoop socket. The HCI packets are encapsulated in btsnoop records (see RFC 1761).
-        Received HCI packets are being put into the queues inside registeredHciRecvQueues and
-        passed to the callback functions inside registeredHciCallbacks.
-        The thread stops when exit_requested is set to True. It will do that on its own
-        if it encounters a fatal error or the stackDumpReceiver reports that the chip crashed.
-        """
-
-        log.debug("Receive Thread started.")
-
-        while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
-            # Read the record header
-            record_hdr = b''
-            while(not self.exit_requested and len(record_hdr) < 24):
-                try:
-                    recv_data = self.s_snoop.recv(24 - len(record_hdr))
-                    if len(recv_data) == 0:
-                        log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping recv thread...")
-                        self.exit_requested = True
-                        break
-                    record_hdr += recv_data
-                except socket.timeout:
-                    pass # this is ok. just try again without error
-                except AttributeError:
-                    #FIXME bt_snoop socket not properly working for hcitool
-                    sleep(1)
-                    pass
-
-            if not record_hdr or len(record_hdr) != 24:
-                if not self.exit_requested:
-                    log.warn("recvThreadFunc: Cannot recv record_hdr. stopping.")
-                    self.exit_requested = True
-                break
-
-            if(self.write_btsnooplog):
-                self.btsnooplog_file.write(record_hdr)
-                self.btsnooplog_file.flush()
-
-            orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
-
-            # Read the record data
-            record_data = b''
-            while(not self.exit_requested and len(record_data) < inc_len):
-                try:
-                    recv_data = self.s_snoop.recv(inc_len - len(record_data))
-                    if len(recv_data) == 0:
-                        log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping..")
-                        self.exit_requested = True
-                        break
-                    record_data += recv_data
-                except socket.timeout:
-                    pass # this is ok. just try again without error
-
-            if not record_data or len(record_data) != inc_len:
-                if not self.exit_requested:
-                    log.warn("recvThreadFunc: Cannot recv data. stopping.")
-                    self.exit_requested = True
-                break
-            
-            if(self.write_btsnooplog):
-                self.btsnooplog_file.write(record_data)
-                self.btsnooplog_file.flush()
-
-            try:
-                parsed_time = self._parse_time(time64)
-            except OverflowError:
-                parsed_time = None
-
-            # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-            record = (hci.parse_hci_packet(record_data), orig_len, inc_len, flags, drops, parsed_time)
-
-            log.debug("Recv: [" + str(parsed_time) + "] " + str(record[0]))
-
-            # Put the record into all queues of registeredHciRecvQueues if their
-            # filter function matches.
-            for queue, filter_function in self.registeredHciRecvQueues:
-                if filter_function == None or filter_function(record):
-                    try:
-                        queue.put(record, block=False)
-                    except Queue.Full:
-                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
-
-            # Call all callback functions inside registeredHciCallbacks and pass the
-            # record as argument.
-            for callback in self.registeredHciCallbacks:
-                callback(record)
-
-            # Check if the stackDumpReceiver has noticed that the chip crashed.
-            if self.stackDumpReceiver.stack_dump_has_happend:
-                # A stack dump has happend!
-                log.warn("recvThreadFunc: The controller send a stack dump. stopping..")
-                self.exit_requested = True
-
-        log.debug("Receive Thread terminated.")
+        pass
 
     def _sendThreadFunc(self):
         """
@@ -327,6 +215,9 @@ class InternalBlue():
             def recvFilterFunction(record):
                 hcipkt = record[0]
                 
+                log.debug("_sendThreadFunc.recvFilterFunction: got response")
+                log.debug(hcipkt) #todo compare hci packet content on adb/bluez
+                
                 # Accept diagnostic
                 if isinstance(hcipkt, hci.HCI_Diag):
                     return True
@@ -348,8 +239,14 @@ class InternalBlue():
             self.registerHciRecvQueue(recvQueue, recvFilterFunction)
 
             # Send command to the chip using s_inject socket
-            log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
-            self.s_inject.send(out)
+            try:
+                log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
+                self.s_inject.send(out)
+            except:
+                log.warn("_sendThreadFunc: Sending to socket failed, reestablishing connection.\nWith bluez stack, some HCI commands require root!")
+                # socket are terminated by bluez..
+                self._teardownSockets()
+                self._setupSockets()
 
             # Wait for the HCI event response by polling the recvQueue
             try:
@@ -366,77 +263,6 @@ class InternalBlue():
             self.unregisterHciRecvQueue(recvQueue)
 
         log.debug("Send Thread terminated.")
-
-    def _setupSockets(self):
-        """
-        Forward the HCI snoop and inject ports from the Android device to
-        the host (using adb). Open TCP sockets (s_snoop, s_inject) to connect
-        to the forwarded ports. Read the btsnoop header from the s_snoop
-        socket in order to verify that the connection actually works correctly.
-        """
-
-        # In order to support multiple parallel instances of InternalBlue
-        # (with multiple attached Android devices) we must not hard code the
-        # forwarded port numbers. Therefore we choose the port numbers
-        # randomly and hope that they are not already in use.
-        self.hciport = random.randint(60000, 65535)
-        log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport+1))
-
-        # Forward ports 8872 and 8873. Ignore log.info() outputs by the adb function.
-        saved_loglevel = context.log_level
-        context.log_level = 'warn'
-        try:
-            adb.adb(["forward", "tcp:%d"%(self.hciport),   "tcp:8872"])
-            adb.adb(["forward", "tcp:%d"%(self.hciport+1), "tcp:8873"])
-        except PwnlibException as e:
-            log.warn("Setup adb port forwarding failed: " + str(e))
-            return False
-        finally:
-            context.log_level = saved_loglevel
-        
-        # Connect to hci injection port
-        self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s_inject.connect(('127.0.0.1', self.hciport+1))
-        self.s_inject.settimeout(0.5)
-
-        # Connect to hci snoop log port
-        self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s_snoop.connect(('127.0.0.1', self.hciport))
-        self.s_snoop.settimeout(0.5)
-
-        # Read btsnoop header
-        if(self._read_btsnoop_hdr() == None):
-            log.warn("Could not read btsnoop header")
-            self.s_inject.close()
-            self.s_snoop.close()
-            self.s_inject = self.s_snoop = None
-            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport)])
-            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport+1)])
-            return False
-        return True
-
-    def _teardownSockets(self):
-        """
-        Close s_snoop and s_inject sockets. Remove port forwarding with adb.
-        """
-
-        if(self.s_inject != None):
-            self.s_inject.close()
-            self.s_inject = None
-        if(self.s_snoop != None):
-            self.s_snoop.close()
-            self.s_snoop = None
-
-        saved_loglevel = context.log_level
-        context.log_level = 'warn'
-        try:
-            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport)])
-            adb.adb(["forward", "--remove", "tcp:%d"%(self.hciport+1)])
-        except PwnlibException as e:
-            log.warn("Removing adb port forwarding failed: " + str(e))
-            return False
-        finally:
-            context.log_level = saved_loglevel
 
     def _tracepointHciCallbackFunction(self, record):
         hcipkt = record[0]      # get HCI Event packet
@@ -668,6 +494,7 @@ class InternalBlue():
 
         return True
 
+    @abstractmethod
     def local_connect(self):
         return True
     
@@ -683,7 +510,10 @@ class InternalBlue():
         version = self.sendHciCommand(0x1001, '')
         
         if (version == None):
-            log.warn("Failed to send a HCI command to the Bluetooth driver. Check if you installed a custom bluetooth.default.so properly on your Android device.")
+            log.warn("""initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
+            adb: Check if you installed a custom bluetooth.default.so properly on your
+              Android device. bluetooth.default.so must contain the string 'hci_inject'.
+            bluez: You might have insufficient permissions to send this type of command.""")
             return False
         
         # Broadcom uses 0x000f as vendor ID
@@ -694,7 +524,7 @@ class InternalBlue():
             log.info("Broadcom chip detected.")
             subversion = (u8(version[11]) << 8) + u8(version[10])
             # get LMP Subversion
-            log.info("Chip identifier (LMP subversion): 0x%04x" % subversion)
+            log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (subversion, subversion>>13, (subversion&0xf00)>>8, subversion&0xff))
             
             # TODO move this to a generic firmware file
             if   (subversion == 0x6109): # Nexus 5, Xperia Z3, Samsung Galaxy Note 3
@@ -703,7 +533,7 @@ class InternalBlue():
             elif (subversion == 0x6119): # Raspberry Pi 3+
                 import fw_rpi3p as fw #TODO rpi3/rpi3+ are different, update this along with the firmware file
                 log.info("Laoded firmware information for BCM4345C0.")
-            elif (subversion == 0x240f): # Nexus 6P
+            elif (subversion == 0x240f): # Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
                 import fw_6p as fw
                 log.info("Loaded firmware information for BCM4358A3.")
         
@@ -723,7 +553,8 @@ class InternalBlue():
 
     def shutdown(self):
         """
-        Shutdown the framework by stopping the send and recv threads and calling the local_shutdown function.
+        Shutdown the framework by stopping the send and recv threads. Socket shutdown
+        also terminates port forwarding if adb is used.
         """
 
         # Setting exit_requested to True will stop the send and recv threads at their
@@ -734,8 +565,16 @@ class InternalBlue():
         if self.stackDumpReceiver != None:
             self.stackDumpReceiver = None
 
-        # Call local_shutdown
-        self.local_shutdown()
+        # unregister stackDumpReceiver callback:
+        if self.stackDumpReceiver != None:
+            self.unregisterHciCallback(self.stackDumpReceiver.recvPacket)
+
+        # Wait until both threads have actually finished
+        self.recvThread.join()
+        self.sendThread.join()
+
+        # Disconnect the TCP sockets
+        self._teardownSockets()
 
         if (self.write_btsnooplog):
             self.btsnooplog_file.close()
@@ -743,9 +582,6 @@ class InternalBlue():
         self.running = False
         self.exit_requested = False
         log.info("Shutdown complete.")
-
-    def local_shutdown(self):
-        pass
 
     def registerHciCallback(self, callback):
         """
@@ -809,12 +645,15 @@ class InternalBlue():
                 return
         log.warn("registerHciRecvQueue: no such queue is registered!")
 
-    @abstractmethod
     def sendHciCommand(self, opcode, data, timeout=2):
         """
-        Implementation of this command puts a HCI command into the sendQueue.
+        Puts HCI command as H4 UART message into the sendQueue.
         """
-        pass
+        
+        # standard HCI command structure
+        payload = p16(opcode) + p8(len(data)) + data
+
+        return self.sendH4(hci.HCI.HCI_CMD, payload, timeout)
 
     @abstractmethod
     def sendH4(self, h4type, data, timeout=2):
@@ -837,6 +676,8 @@ class InternalBlue():
         a blocking manner. Consider using the registerHciCallback()
         functionality as an alternative which works asynchronously.
         """
+        
+        log.debug("recvPacket: called")
 
         if not self.check_running():
             return None
@@ -1039,7 +880,7 @@ class InternalBlue():
                 log.warn("writeMem: Timeout while reading response, probably need to wait longer.")
                 return False
             elif (response[3] != '\x00'):
-                log.warn("writeMem: Got error code %x in command complete event." % response[3])
+                log.warn("writeMem: Got error code %s in command complete event." % response[3].encode('hex'))
                 return False
             write_addr += blocksize
             byte_counter += blocksize
@@ -1352,7 +1193,12 @@ class InternalBlue():
             log.warn("sendLmpPacket: Vendor specific HCI command only allows for 17 bytes LMP content.")
         
         #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
-        result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(data)) + data)
+        result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(payload + opcode_data)) + data)
+        
+        if result == None:
+            log.warn("sendLmpPacket: did not get a result from firmware, maybe crashed internally?")
+            return False
+        
         result = u8(result[3])
         
         if result != 0:
@@ -1466,6 +1312,11 @@ class InternalBlue():
             btaddr      = hcipkt.data[3:9][::-1]
             btaddr_str  = ":".join([b.encode("hex") for b in btaddr])
             log.info("[Connect Complete: Handle=0x%x  Address=%s  status=%s]" % (conn_handle, btaddr_str, status_str))
+
+        # Also show Disconnect Complete
+        if hcipkt.event_code == 0x05:
+            conn_handle = u16(hcipkt.data[1:3])
+            log.info("[Disconnect Complete: Handle=0x%x]" % (conn_handle))
 
 
     def readHeapInformation(self):
