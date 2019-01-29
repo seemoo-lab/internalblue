@@ -22,6 +22,7 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
+android5_1_1 | android-5.1.1_r3     | rx only | no      | Tested on Nexus 5 - HCI sniffing only!
 android6_0_1 | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
 android7_1_2 | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
 android8_1_0 | android-8.1.0_r1     | yes | no          | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 5X.
@@ -146,6 +147,22 @@ From Android 6.0.1 to Android 7.2.1 flag names changed, in this case you can try
 the module as follows:
 
     bluetooth_CFLAGS='-DBT_NET_DEBUG=TRUE' mma -j4
+
+
+### Android 5 Issues ###
+Android 5 does not yet know the global flag to enable network logging. Moreover files
+are located in different paths. Java needs to be downgraded to java-7-openjdk, i.e.
+via *update-alternatives --config java*. Afterwards, compilation works as follows:
+
+    source build/envsetup.sh
+    lunch aosp_hammerhead-userdebug
+    cd external/bluetooth/bluedroid/
+    sed -i 's/BtSnoopLogOutput=false/BtSnoopLogOutput=true/' conf/bt_stack.conf
+    mma -j4
+
+However, HCI injection is not yet included in this old driver version. Hence we only support
+HCI sniffing and no Broadcom diagnostics.
+
 
     
 ### Android 8 Issues ###
