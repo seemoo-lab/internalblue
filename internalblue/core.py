@@ -1286,6 +1286,22 @@ class InternalBlue():
         #       passing 0's.
         self.sendHciCommand(0x0405, bt_addr[::-1] + '\x00\x00\x00\x00\x00\x00\x01')
 
+    def connectToRemoteLEDevice(self, bt_addr, addr_type=0x00):
+        """
+        Send a HCI LE Create Connection Command to the firmware as
+        defined in the Bluetooth Core Specification 5.0 p. 1266.
+        
+        bt_addr:  address of remote device (byte string)
+                  e.g. for 'f8:95:c7:83:f8:11' you would pass
+                  b'\xf8\x95\xc7\x83\xf8\x11'.
+        addr_type: Public Device (0x00), Random Device (0x01), Public
+                  Identity (0x02), Random static Identity (0x03).
+        """
+
+        # TODO: expose more of the connection create parameters (instead of
+        #       passing 0's.
+        self.sendHciCommand(0x200d, '\x60\x00\x30\x00\x00' + p8(addr_type) + bt_addr[::-1] + '\x01\x18\x00\x28\x00\x00\x00\xd0\x07\x00\x00\x00\x00')
+
     def connectionStatusCallback(self, record):
         """
         HCI Callback function to detect HCI Events related to

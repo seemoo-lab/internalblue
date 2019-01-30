@@ -1250,7 +1250,7 @@ class CmdTracepoint(Cmd):
 
 
 class CmdConnectCmd(Cmd):
-    keywords = ['connect']
+    keywords = ['connect', 'c']
     description = "Initiate a connection to a remote Bluetooth device"
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -1282,6 +1282,40 @@ class CmdConnectCmd(Cmd):
 
         return True
 
+class CmdConnectLeCmd(Cmd):
+    keywords = ['connectle', 'leconnect', 'cle', 'lec']
+    description = "Initiate a connection to a remote LE Bluetooth device"
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--addrtype", type=auto_int, default=0,
+                        help="Address type: Public Device (0, default), Random Device (1), Public Identity (2), Random static Identity (3)") 
+    parser.add_argument("btaddr",
+                        help="Bluetooth address of the remote device (with or without ':'.")
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        addr = args.btaddr #TODO make a helper function for converting addresses
+        if ":" in addr:
+            addr = addr.replace(":","")
+
+        if len(addr) != 12:
+            log.info("BT Address needs to be 6 hex-bytes")
+            return False
+
+        # Convert to byte string (little endian)
+        try:
+            addr = addr.decode("hex")
+        except TypeError:
+            log.info("BT Address must consist of only hex digests!")
+            return False
+
+        self.internalblue.connectToRemoteLEDevice(addr, args.addrtype) 
+
+        return True
 
 class CmdCustom(Cmd):
     keywords = ['custom', 'c']
