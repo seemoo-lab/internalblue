@@ -121,6 +121,75 @@ SENDLMP_ASM_CODE = """
         payload:        // Note: the payload will be appended here by the sendLmpPacket() function
         """
 
+
+# Snippet for fuzzLmp()
+FUZZLMP_HOOK_ADDRESS = 0x1e48c  # execute standard SendLmpPdu HCI to fill parameters
+FUZZLMP_CODE_BASE_ADDRESS = 0xd7500
+FUZZLMP_ASM_CODE = """
+        // This hook is put into the end of bthci_cmd_vs_SendLmpPdu_1E45A,
+        // so command parsing is still performed as normal. We jump in
+        // before bthci_cmd_vs_SendLmpPdu pops and calls DHM_LMPTx.
+
+        // put length argument into table_entry
+        // payload[5] holds the size argument
+        ldr   r7, =table_entry
+        add   r7, #4         // length offset within table entry
+        ldrb r6, [r4, #5]
+        strb r6, [r7]        
+
+        // we need to do the original pop...
+        pop  {r4-r8, lr}
+
+        // now we simply continue like the original DHM_LMPTx function
+        push  {r4-r10, lr}   // code at 0xF81A
+        mov   r8, r0
+        movs  r4, r1
+
+        // part of the check if hook_LMP_TxFilter_200D38 is installed
+        ldr.w r9, =0x200D80
+        sub.w r9, r9, #0x50
+        ldr.w r2, [r9, #8]
+
+        mov   r1, r4         // code at 0xF840
+        mov   r0, r8
+        bl    0x50050        // rm_getDHMAclPtr_50050
+        cmp   r0, #1
+        // skip check if we actually got a ptr 
+        // get connection struct, code at 0xF850
+        ldr   r0, =0x206eac  // table_for_bt_tx_structs_206EAC
+        ldr.w r7, [r8]
+        add.w r6, r0, r7, lsl #5
+        ldrb  r0, [r6, #0x1f]
+        cmp   r0, #1
+        // skip check in conection struct
+        ldrb  r0, [r4, #0xc] // ptr_to_opcode = buffer_cpy + 12;
+        lsrs  r1, r0, #1     // buffer_cpy[12] >> 1
+        add.w r0, r4, #0x0c
+
+        // enable for debugging: ignore the remaining code and continue like normal opcode
+        //b     0xF870
+
+        // now we regularily would call the opcode conversion table function
+        // however, we do not use lm_getLmpInfoType_3F2D8 but insert our own table here        
+        ldr    r1, =table_entry // table_ptr with exactly one entry, so no offsets included here
+        ldr    r0, =table_entry
+
+        // branch back to DHM_LMPTx position after bl lm_getLmpInfoType
+        b     0xF874
+
+        .align
+        table_entry:
+            .byte 0x35  //nullsub1+1
+            .byte 0xAC 
+            .byte 0x00
+            .byte 0x00
+            .byte 0x20  //length, will be overwritten by us anyways, but can not be longer than one buffer (0x20)  
+            .byte 0x00    
+            .byte 0x00
+            .byte 0x00
+        """
+
+
 # Assembler snippet for the readMemAligned() function
 READ_MEM_ALIGNED_ASM_LOCATION = 0xd7900
 READ_MEM_ALIGNED_ASM_SNIPPET = """

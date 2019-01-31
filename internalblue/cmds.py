@@ -65,6 +65,26 @@ def bt_addr_to_str(bt_addr):
     """
     return ":".join([b.encode("hex") for b in bt_addr])
 
+def parse_bt_addr(bt_addr):
+    """ Convert Bluetooth address argument and check lengths.
+    """
+    addr = bt_addr
+    if ":" in addr:
+        addr = addr.replace(":", "")
+
+    if len(addr) != 12:
+        log.info("BT Address needs to be 6 hex-bytes")
+        return None
+
+    # Convert to byte string (little endian)
+    try:
+        addr = addr.decode("hex")
+    except TypeError:
+        log.info("BT Address must consist of only hex digests!")
+        return None
+
+    return addr
+
 
 class Cmd:
     """ This class is the superclass of a CLI command. Every CLI command
@@ -281,13 +301,15 @@ class CmdMonitor(Cmd):
                 
                 #On Linux/hcitool we can directly run wireshark -k -i bluetooth0
                 #FIXME move the monitor class to the according cores
+                DEVNULL = open(os.devnull, 'wb')
                 if (self.internalblue.__class__.__name__ == "BluezCore"):
                     self.wireshark_process = subprocess.Popen(
-                        ["wireshark", "-k", "-i", "bluetooth0"]) #TODO fill in device #
+                        ["wireshark", "-k", "-i", "bluetooth0"],  #TODO fill in device #
+                        stderr=DEVNULL)
                 else:
                     self.wireshark_process = subprocess.Popen(
-                        ["wireshark", "-k", "-i", "-"], 
-                        stdin=subprocess.PIPE)
+                        ["wireshark", "-k", "-i", "-"],
+                        stdin=subprocess.PIPE, stderr=DEVNULL)
                     self.wireshark_process.stdin.write(pcap_header)
 
                 self.poll_timer = Timer(3, self._pollTimer, ())
@@ -1010,6 +1032,17 @@ class CmdSendLmp(Cmd):
                         data, is_master, args.conn_handle, extended_op=args.extended)
 
 
+class CmdFuzzLmp(Cmd):
+    keywords = ['fuzzlmp']
+    description = "Installs a hook to sendlmp that skips checking opcodes and lengths inside firmware. A remaining firmware constraint is the buffer allocated by lm_allocLmpBlock (32 bytes)."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+
+    def work(self):
+        return self.internalblue.fuzzLmp()
+
+
 class CmdInfo(Cmd):
     keywords = ['info', 'show', 'i']
     description = "Display various types of information parsed from live RAM"
@@ -1259,22 +1292,11 @@ class CmdConnectCmd(Cmd):
 
     def work(self):
         args = self.getArgs()
-        if args == None:
+        if not args:
             return True
 
-        addr = args.btaddr
-        if ":" in addr:
-            addr = addr.replace(":","")
-
-        if len(addr) != 12:
-            log.info("BT Address needs to be 6 hex-bytes")
-            return False
-
-        # Convert to byte string (little endian)
-        try:
-            addr = addr.decode("hex")
-        except TypeError:
-            log.info("BT Address must consist of only hex digests!")
+        addr = parse_bt_addr(args.btaddr)
+        if not addr:
             return False
 
         self.internalblue.connectToRemoteDevice(addr) 
@@ -1297,19 +1319,8 @@ class CmdConnectLeCmd(Cmd):
         if args == None:
             return True
 
-        addr = args.btaddr #TODO make a helper function for converting addresses
-        if ":" in addr:
-            addr = addr.replace(":","")
-
-        if len(addr) != 12:
-            log.info("BT Address needs to be 6 hex-bytes")
-            return False
-
-        # Convert to byte string (little endian)
-        try:
-            addr = addr.decode("hex")
-        except TypeError:
-            log.info("BT Address must consist of only hex digests!")
+        addr = parse_bt_addr(args.btaddr)
+        if not addr:
             return False
 
         self.internalblue.connectToRemoteLEDevice(addr, args.addrtype) 
@@ -1483,9 +1494,9 @@ class CmdReadAfhChannelMap(Cmd):
         
         return True
 
-class CmdSendH4Cmd(Cmd):
-    keywords = ['sendh4']
-    description = "Send an arbitrary Broadcom H4 command to the BT controller."
+class CmdSendDiagCmd(Cmd):
+    keywords = ['diag', 'sendh4']
+    description = "Send an arbitrary Broadcom H4 diagnostic command to the BT controller."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))

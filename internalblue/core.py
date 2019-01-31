@@ -1187,7 +1187,34 @@ class InternalBlue:
             return False
         
         return True
-    
+
+    def fuzzLmp(self):
+        """
+        Installs a patch inside the sendLmp HCI handler that allows sending arbitrary
+        LMP payloads. Afterwards, use sendLmpPacket as before.
+
+        Basically, this ignores LM_LmpInfoTable and LM_LmpInfoTableEsc4 contents, but
+        only via sendLmp HCI and not during normal Link Manager operation.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['FUZZLMP_CODE_BASE_ADDRESS', 'FUZZLMP_ASM_CODE', 'FUZZLMP_HOOK_ADDRESS']:
+            if const not in dir(self.fw):
+                log.warn("fuzzLmpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        # Assemble the snippet and write it to FUZZLMP_CODE_BASE_ADDRESS
+        code = asm(self.fw.FUZZLMP_ASM_CODE, vma=self.fw.FUZZLMP_CODE_BASE_ADDRESS, arch='thumb')
+        self.writeMem(self.fw.FUZZLMP_CODE_BASE_ADDRESS, code)
+
+        # Install a patch in the end of the original sendLmpPdu HCI handler
+        patch = asm("b 0x%x" % self.fw.FUZZLMP_CODE_BASE_ADDRESS, vma=self.fw.FUZZLMP_HOOK_ADDRESS)
+        if not self.patchRom(self.fw.FUZZLMP_HOOK_ADDRESS, patch):
+            log.warn("Error writing to patchram when installing fuzzLmp patch!")
+            return False
+
+        return True
+
     def sendLmpPacketLegacy(self, conn_nr, opcode, payload, extended_op=False):
         """
         Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
