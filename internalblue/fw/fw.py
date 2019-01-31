@@ -41,13 +41,13 @@ class Firmware:
             # get LMP Subversion
             log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (version, version>>13, (version&0xf00)>>8, version&0xff))
             try:
-                self.firmware = __import__('fw.fw_' + hex(version), fromlist=[''])
+                self.firmware = __import__('internalblue.fw.fw_' + hex(version), fromlist=[''])
             except:
                 self.firmware = None
                 pass
 
         if not version or not self.firmware:
-            self.firmware = __import__('fw.fw_default', fromlist=[''])
+            self.firmware = __import__('internalblue.fw.fw_default', fromlist=[''])
 
         log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
 
