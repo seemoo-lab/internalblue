@@ -26,7 +26,6 @@
 from pwn import *
 import os
 import sys
-import Queue
 import inspect
 import argparse
 import subprocess

@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# fw.py
+# fw_0x6109.py
 #
 # All firmware specific data such as address offsets are collected
 # in the fw.py file. Later versions of the framework will provide
@@ -25,22 +25,18 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from fw import MemorySection
+
+# Firmware Infos
+# This runs on Nexus 5, Xperia Z3, Samsung Galaxy Note 3
+FW_NAME = "BCM4335C0"
+
 # Device Infos
 DEVICE_NAME = 0x2178B4  # [type: 1byte] [len: 1byte] [name: len byte]
 BD_ADDR = 0x210C2C
 
 
 # Memory Sections
-class MemorySection:
-    def __init__(self, start_addr, end_addr, is_rom, is_ram):
-        self.start_addr = start_addr
-        self.end_addr = end_addr
-        self.is_rom = is_rom
-        self.is_ram = is_ram
-
-    def size(self):
-        return self.end_addr - self.start_addr
-
 #                          start,    end,      is_rom? is_ram?
 SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
              MemorySection(0xd0000,  0xd8000,  False, True ),

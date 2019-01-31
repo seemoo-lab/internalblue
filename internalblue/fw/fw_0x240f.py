@@ -25,22 +25,18 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from fw import MemorySection
+
+# Firmware Infos
+# This runs on Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
+FW_NAME = "BCM4358A3"
+
 # Device Infos
 DEVICE_NAME = 0x213994  # [type: 1byte] [len: 1byte] [name: len byte] #works
 BD_ADDR = 0x201C48 #works
 
 
 # Memory Sections
-class MemorySection:
-    def __init__(self, start_addr, end_addr, is_rom, is_ram):
-        self.start_addr = start_addr
-        self.end_addr = end_addr
-        self.is_rom = is_rom
-        self.is_ram = is_ram
-
-    def size(self):
-        return self.end_addr - self.start_addr
-
 #                          start,    end,      is_rom? is_ram?
 SECTIONS = [ MemorySection(0x0,      0x9ef00,  True , False),
              MemorySection(0xd0000,  0xd8000,  False, True ), # Patchram values with actual code / hooks

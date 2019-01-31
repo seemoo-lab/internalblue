@@ -30,8 +30,6 @@
 
 from pwn import *
 import os
-import signal
-import time
 import traceback
 
 from adbcore import ADBCore

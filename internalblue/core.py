@@ -28,16 +28,14 @@
 from abc import ABCMeta, abstractmethod
 
 from pwn import *
-import socket
+from fw.fw import Firmware
 import time
 import datetime
 import Queue
-import random
-
 import hci
 
 
-class InternalBlue():
+class InternalBlue:
     __metaclass__ = ABCMeta
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
@@ -503,46 +501,25 @@ class InternalBlue():
         Checks if we are running on a Broadcom chip and loads available firmware information based
         on LMP subversion.
         """
-        
-        global fw    # put the imported fw into global namespace #FIXME does not work for adbcmds.py
 
         # send Read_Local_Version_Information
         version = self.sendHciCommand(0x1001, '')
         
-        if (version == None):
+        if not version:
             log.warn("""initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
             adb: Check if you installed a custom bluetooth.default.so properly on your
               Android device. bluetooth.default.so must contain the string 'hci_inject'.
             bluez: You might have insufficient permissions to send this type of command.""")
             return False
-        
-        # Broadcom uses 0x000f as vendor ID
-        if (u8(version[9]) != 0x00 or u8(version[8]) != 0x0f):
-            log.critical("Not running on a Broadcom chip!")
+
+        # Broadcom uses 0x000f as vendor ID, Cypress 0x0131
+        vendor = (u8(version[9]) << 8) + u8(version[8])
+        if vendor != 0xf and vendor != 0x131:
+            log.critical("Not running on a Broadcom or Cypress chip!")
             return False
         else:
-            log.info("Broadcom chip detected.")
             subversion = (u8(version[11]) << 8) + u8(version[10])
-            # get LMP Subversion
-            log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (subversion, subversion>>13, (subversion&0xf00)>>8, subversion&0xff))
-            
-            # TODO move this to a generic firmware file
-            if   (subversion == 0x6109): # Nexus 5, Xperia Z3, Samsung Galaxy Note 3
-                import fw_5 as fw
-                log.info("Loaded firmware information for BCM4335C0.")
-            elif (subversion == 0x6119): # Raspberry Pi 3+
-                import fw_rpi3p as fw #TODO rpi3/rpi3+ are different, update this along with the firmware file
-                log.info("Laoded firmware information for BCM4345C0.")
-            elif (subversion == 0x240f): # Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
-                import fw_6p as fw
-                log.info("Loaded firmware information for BCM4358A3.")
-        
-        try:
-            self.fw = fw    # Other scripts (such as adbcmds.py) can use fw through a member variable
-        except:
-            import fw_rpi3 as fw #TODO default empty firmware
-            self.fw = fw
-            log.warn("Loaded default firmware information, some commands will not be supported.")
+            self.fw = Firmware(subversion, vendor).firmware
         
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.
@@ -1178,6 +1155,10 @@ class InternalBlue():
         # must be string...
         if payload == None:
             payload = ''
+        
+        if ((not extended_op) and opcode > (0xff>>1)) or (extended_op and opcode > 0xff):
+            log.warn("sendLmpPacket: opcode out of range!")
+            return False
         
         # Build the LMP packet
         opcode_data = p8(opcode<<1 | (not is_master)) if not extended_op else p8(0x7F<<1 | (not is_master)) + p8(opcode)
