@@ -302,18 +302,28 @@ class CmdMonitor(Cmd):
                 #On Linux/hcitool we can directly run wireshark -k -i bluetooth0
                 #FIXME move the monitor class to the according cores
                 DEVNULL = open(os.devnull, 'wb')
+                # Check if wireshark or wireshark-gtk is installed. If both are 
+                # present, default to wireshark.
+                if os.path.isfile("/usr/bin/wireshark"):
+                    wireshark_binary = "wireshark"
+                elif os.path.isfile("/usr/bin/wireshark-gtk"):
+                    wireshark_binary = "wireshark-gtk"
+                else:
+                    log.warn("Wireshark not found!")
+                    return False
                 if (self.internalblue.__class__.__name__ == "BluezCore"):
                     self.wireshark_process = subprocess.Popen(
-                        ["wireshark", "-k", "-i", "bluetooth0"],  #TODO fill in device #
+                        [wireshark_binary, "-k", "-i", "bluetooth0"],  #TODO fill in device #
                         stderr=DEVNULL)
                 else:
                     self.wireshark_process = subprocess.Popen(
-                        ["wireshark", "-k", "-i", "-"],
+                        [wireshark_binary, "-k", "-i", "-"],
                         stdin=subprocess.PIPE, stderr=DEVNULL)
                     self.wireshark_process.stdin.write(pcap_header)
 
                 self.poll_timer = Timer(3, self._pollTimer, ())
                 self.poll_timer.start()
+                return True
 
             def _pollTimer(self):
                 if self.running and self.wireshark_process != None:
@@ -327,17 +337,22 @@ class CmdMonitor(Cmd):
                         self.poll_timer = Timer(3, self._pollTimer, ())
                         self.poll_timer.start()
 
+            
             def startHciMonitor(self):
                 if self.running:
                     log.warn("HCI Monitor already running!")
                     return False
 
-                self.running = True
+                
                 if self.wireshark_process == None:
-                    self._spawnWireshark()
-
-                self.internalblue.registerHciCallback(self._callback)
-                log.info("HCI Monitor started.")
+                    if self._spawnWireshark():
+                        self.running = True
+                        self.internalblue.registerHciCallback(self._callback)
+                        log.info("HCI Monitor started.")
+                        return True
+                    else:
+                        log.info("Unable to start HCI Monitor.")
+                        return False
                 return True
 
             def stopHciMonitor(self):

@@ -62,7 +62,7 @@ class ADBCore(InternalBlue):
         # setup sockets
         if not self._setupSockets():
             log.critical("No connection to target device.")
-            log.info("Check if:\n -> Bluetooth is active\n -> Bluetooth Stack has Debug Enabled\n -> BT HCI snoop log is activated\n")
+            log.info("Check if:\n -> Bluetooth is active\n -> Bluetooth Stack has Debug Enabled\n -> BT HCI snoop log is activated\n -> USB debugging is authorized\n")
             return False
 
         return True
@@ -237,8 +237,12 @@ class ADBCore(InternalBlue):
 
         # Connect to hci injection port
         self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s_inject.connect(('127.0.0.1', self.hciport + 1))
-        self.s_inject.settimeout(0.5)
+        try:
+            self.s_inject.connect(('127.0.0.1', self.hciport + 1))
+            self.s_inject.settimeout(0.5)
+        except socket.error:
+            log.warn("Could not connect to adb. Is your device authorized?")
+            return False
 
         # Connect to hci snoop log port
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

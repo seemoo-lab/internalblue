@@ -3,13 +3,13 @@
 from setuptools import setup
 
 setup(name='internalblue',
-      version='0.1',
+      version='0.2',
       description='A Bluetooth Experimentation Framework based on the Broadcom Bluetooth Controller Family.',
       url='http://github.com/seemoo-lab/internalblue',
       author='Dennis Mantz',
       author_email='dennis.mantz@googlemail.com',
       license='MIT',
-      packages=['internalblue'],
+      packages=['internalblue', 'internalblue/fw'],
       install_requires=[
           'pwntools',
           'pyelftools==0.24',
