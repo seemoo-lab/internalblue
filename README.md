@@ -60,7 +60,7 @@ requests) and some commands require privileged users (i.e. establishing connecti
 Use the *help* command to display a list of available commands. A typical set of
 actions to check if everything is working properly would be:
 
-    monitor hci start
+    monitor start
     connect ff:ff:13:37:ab:cd
     sendlmp 01 -d 02
 

@@ -207,6 +207,7 @@ class CmdHelp(Cmd):
                         ("\n" + " "*15).join(textwrap.wrap(cmd.description, 60)))
         return True
 
+
 class CmdExit(Cmd):
     keywords = ['exit', 'quit', 'q', 'bye']
     description = "Exit the program."
@@ -214,6 +215,7 @@ class CmdExit(Cmd):
     def work(self):
         self.internalblue.exit_requested = True
         return True
+
 
 class CmdLogLevel(Cmd):
     keywords = ['log_level', 'loglevel', 'verbosity']
@@ -243,14 +245,13 @@ class CmdLogLevel(Cmd):
             log.warn("Not a valid log level: " + loglevel)
             return False
 
+
 class CmdMonitor(Cmd):
     keywords = ['monitor']
     description = "Controlling the monitor."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
-    parser.add_argument("type", 
-                        help="hci (LMP monitoring has been moved to HCI)")
     parser.add_argument("command", 
                         help="One of: start, status, stop, kill")
 
@@ -258,18 +259,14 @@ class CmdMonitor(Cmd):
         hciInstance = None
 
         @staticmethod
-        def getMonitorController(name, internalblue):
-            if name == "hci":
-                if CmdMonitor.MonitorController.hciInstance == None:
-                    #Encapsulation type: Bluetooth H4 with linux header (99) None:
-                    CmdMonitor.MonitorController.hciInstance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0xC9)
-                    CmdMonitor.MonitorController.hciInstance.startMonitor = CmdMonitor.MonitorController.hciInstance.startHciMonitor
-                    CmdMonitor.MonitorController.hciInstance.stopMonitor  = CmdMonitor.MonitorController.hciInstance.stopHciMonitor
-                    CmdMonitor.MonitorController.hciInstance._callback    = CmdMonitor.MonitorController.hciInstance.hciCallback
-                return CmdMonitor.MonitorController.hciInstance
-            else:                
-                log.warn("LMP monitoring is now implemented by parsing Broadcom H4 diagnostic messages. Use the standard HCI monitor and filter for 'hci_h4.type == 7'.")
-                return None
+        def getMonitorController(internalblue):
+            if CmdMonitor.MonitorController.hciInstance == None:
+                #Encapsulation type: Bluetooth H4 with linux header (99) None:
+                CmdMonitor.MonitorController.hciInstance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0xC9)
+                CmdMonitor.MonitorController.hciInstance.startMonitor = CmdMonitor.MonitorController.hciInstance.startHciMonitor
+                CmdMonitor.MonitorController.hciInstance.stopMonitor  = CmdMonitor.MonitorController.hciInstance.stopHciMonitor
+                CmdMonitor.MonitorController.hciInstance._callback    = CmdMonitor.MonitorController.hciInstance.hciCallback
+            return CmdMonitor.MonitorController.hciInstance
 
         class __MonitorController:
             def __init__(self, internalblue, pcap_data_link_type):
@@ -406,13 +403,10 @@ class CmdMonitor(Cmd):
 
     def work(self):
         args = self.getArgs()
-        if args==None:
+        if not args:
             return True
 
-        monitorController = CmdMonitor.MonitorController.getMonitorController(args.type, self.internalblue)
-        if monitorController == None:
-            log.warn("Unknown monitor type: " + args.type)
-            return False
+        monitorController = CmdMonitor.MonitorController.getMonitorController(self.internalblue)
 
         if args.command == "start":
             monitorController.startMonitor()
@@ -1318,6 +1312,7 @@ class CmdConnectCmd(Cmd):
 
         return True
 
+
 class CmdConnectLeCmd(Cmd):
     keywords = ['connectle', 'leconnect', 'cle', 'lec']
     description = "Initiate a connection to a remote LE Bluetooth device"
@@ -1341,6 +1336,7 @@ class CmdConnectLeCmd(Cmd):
         self.internalblue.connectToRemoteLEDevice(addr, args.addrtype) 
 
         return True
+
 
 class CmdCustom(Cmd):
     keywords = ['custom', 'c']
@@ -1448,6 +1444,7 @@ class CmdCustom(Cmd):
 
         return True
 
+
 class CmdReadAfhChannelMap(Cmd):
     keywords = ['readafh']
     description = "Read adaptive freuency hopping (AFH) channel map."
@@ -1509,6 +1506,7 @@ class CmdReadAfhChannelMap(Cmd):
         
         return True
 
+
 class CmdSendDiagCmd(Cmd):
     keywords = ['diag', 'sendh4']
     description = "Send an arbitrary Broadcom H4 diagnostic command to the BT controller."
@@ -1520,7 +1518,7 @@ class CmdSendDiagCmd(Cmd):
 
     def work(self):
         args = self.getArgs()
-        if args == None:
+        if not args or not args.data:
             return True
 
         data = ''
