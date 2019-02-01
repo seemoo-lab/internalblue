@@ -24,6 +24,7 @@
 #   Software.
 
 from pwn import *
+import sys
 
 class Firmware:
     def __init__(self, version=None, vendor=None):
@@ -41,14 +42,14 @@ class Firmware:
             # get LMP Subversion
             log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (version, version>>13, (version&0xf00)>>8, version&0xff))
             try:
-                self.firmware = __import__('internalblue.fw.fw_' + hex(version), fromlist=[''])
+                self.firmware = __import__(__name__ +'_' + hex(version), fromlist=[''])
                 log.info("Using fw_" + hex(version) + ".py")
             except ImportError:
                 self.firmware = None
                 pass
 
         if not version or not self.firmware:
-            self.firmware = __import__('internalblue.fw.fw_default', fromlist=['']) #FIXME internalblue.fw.fw_default or just fw.fw_default?!
+            self.firmware = __import__(__name__ + '_default', fromlist=[''])
 
         log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
 
