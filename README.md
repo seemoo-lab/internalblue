@@ -1,7 +1,7 @@
 InternalBlue
 ============
 
-The firmware of the BCM4339 Bluetooth controller (Nexus 5) and its firmware
+Several Broadcom/Cypress Bluetooth firmwares and their firmware
 update mechanism have been reverse engineered. Based on that we developed a
 Bluetooth experimentation framework which is able to patch the firmware and
 therefore implement monitoring and injection tools for the lower layers of
@@ -12,7 +12,7 @@ Setup and Installation
 ----------------------
 
 The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
-smartphone or __bluez__ sockets on Linux. For ADB, either connect
+smartphone or __BlueZ__ sockets on Linux. For ADB, either connect
 the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
 
@@ -56,7 +56,7 @@ so that it can be started from a command line using:
     internalblue
 
 It should automatically connect to your Android phone through ADB or your local Linux
-with bluez. With bluez, some commands can be sent by unprivileged users (i.e. version
+with BlueZ. With BlueZ, some commands can be sent by unprivileged users (i.e. version
 requests) and some commands require privileged users (i.e. establishing connections).
 Use the *help* command to display a list of available commands. A typical set of
 actions to check if everything is working properly would be:
@@ -74,13 +74,13 @@ Requirements
 ------------
 
 Android:
-* Recompiled bluetooth.default.so built with bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE', see [build instructions](android_bluetooth_stack/README.md)
+* Recompiled `bluetooth.default.so` built with `bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE'`, see [build instructions](android_bluetooth_stack/README.md)
 * Android device connected via ADB
 * Best support is currently given for Nexus 5 / BCM4339
 * Optional: Patch for Android driver to support Broadcom H4 forwarding
 
 Linux:
-* bluez
+* BlueZ
 * Optional: Privileged access
 
 Common Optional Requirements:
@@ -102,7 +102,7 @@ On any Broadcom Bluetooth chip:
 * Read and write assembly to RAM
 * Read ROM
 * Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
-* Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integradted into bluez)
+* Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integrated into BlueZ)
 * Read AFH channel map
 * Perform local RSSi sweep (coming soon!)
 

@@ -23,8 +23,8 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from pwn import *
-import sys
+from pwn import log
+
 
 class Firmware:
     def __init__(self, version=None, vendor=None):
@@ -42,7 +42,7 @@ class Firmware:
             # get LMP Subversion
             log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (version, version>>13, (version&0xf00)>>8, version&0xff))
             try:
-                self.firmware = __import__(__name__ +'_' + hex(version), fromlist=[''])
+                self.firmware = __import__(__name__ + '_' + hex(version), fromlist=[''])
                 log.info("Using fw_" + hex(version) + ".py")
             except ImportError:
                 self.firmware = None
@@ -52,8 +52,6 @@ class Firmware:
             self.firmware = __import__(__name__ + '_default', fromlist=[''])
 
         log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
-
-        #return self.firmware
 
 
 class MemorySection:

@@ -43,7 +43,7 @@ Vendor | Version | SubVersion | Firmware    | Devices
 
 Firmware Related Setup
 ----------------------
-The following steps are required to use the CYW20735B1 evaluation kit as normal HCI device on Linux with Bluez.
+The following steps are required to use the CYW20735B1 evaluation kit as normal HCI device on Linux with BlueZ.
  
 
 **1. Setup as HCI device**
@@ -66,6 +66,38 @@ Assuming that you already have a regular Bluetooth device, you new device is `hc
 You can list your HCI devices:
 
     hcitool dev
+
+**3. Command line tools for connections**
+
+Scanning for devices:
+
+    hcitool scan
+    hcitool lescan
+
+Connections and pairing:
+
+    bluetoothctl
+
+Enter into `bluetoothctl` command prompt:
+
+    power on
+    agent on
+    default-agent
+    scan on
+
+Optional - accept connections:
+
+    advertise on
+    pairable on
+    discoverable on
+
+Do a pairing and then connect:
+
+    pair aa:bb:cc:dd:ee:ff
+    connect aa:bb:cc:dd:ee:ff
+    
+    
+    
 
 License
 -------

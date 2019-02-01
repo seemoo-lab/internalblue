@@ -920,6 +920,8 @@ class StackDumpReceiver:
             self.handleNexus6pStackDump(hcipkt)
         if hcipkt.data[0:4] == p32(0x039200f7):
             self.handleNexus5StackDump(hcipkt)
+        if hcipkt.data[0:2] == p16(0x031b):
+            self.handleEvalStackDump(hcipkt)
 
 
     def verifyChecksum(self, data):
@@ -965,6 +967,7 @@ class StackDumpReceiver:
                 registers += "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n" % \
                             tuple(values[6:11])
                 log.warn(registers)
+                return True
 
         elif packet_type == 0xf0:      # RAM dump
             self.handleRamDump(hcipkt.data[10:])
@@ -996,6 +999,7 @@ class StackDumpReceiver:
                 registers += "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n" % \
                             tuple(values[6:11])
                 log.warn(registers)
+                return True
 
 
         elif packet_type == 0xf0:      # RAM dump
@@ -1009,6 +1013,45 @@ class StackDumpReceiver:
         return False
 
 
+    def handleEvalStackDump(self, hcipkt):
+        """
+        Handles a core dump from the evaluation board. To trigger a dump execute:
+            sendhcicmd 0xfc4e e81e2000
+        This executes some memory set to ffff which is an invalid command.
+        Many events like executing address 0x0 will only crash the chip but not
+        trigger a proper stack dump.
 
+        The evaluation board has quite a lot of memory, RAM dump takes ages...
 
+        :param hcipkt: stack dump packet
+        :return: returns True if dump could be decoded.
+        """
+        checksum_correct = self.verifyChecksum(hcipkt.data[3:])
+        packet_type = u8(hcipkt.data[2])
 
+        if packet_type == 0x2c: #TODO Eval board produces this twice... there seem to be more segments?
+            data = hcipkt.data[4:]
+            values = [u32(data[i:i+4]) for i in range(0, 64, 4)]
+            log.debug("Stack Dump (%s):\n%s" % ("checksum correct" if checksum_correct else "checksum NOT correct",
+                '\n'.join([hex(x) for x in values])))
+            if data[0] == '\x02':
+                # This is the second stack dump event (contains register values)
+                log.warn("Received Stack-Dump Event (contains %d registers):" % (u8(data[1])))
+                registers  = "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n" % \
+                            (values[2], values[3], values[1], values[4], values[5])
+                registers += "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n" % \
+                            tuple(values[6:11])
+                log.warn(registers)
+                return True
+
+        elif packet_type == 0xf0:
+            self.handleRamDump(hcipkt.data[13:])
+            return True
+
+        elif packet_type == 0x78:      # RAM dump (last frame), TODO not sure if this works
+            # This is the last pkt ouput:
+            log.info("End of stackdump block...")
+            self.finishStackDump()
+            return True
+
+        return False
