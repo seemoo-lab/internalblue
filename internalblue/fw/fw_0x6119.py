@@ -29,6 +29,9 @@
 # This runs on Rasperry Pi 3+
 FW_NAME = "BCM4345C0"
 
+# Device Infos
+DEVICE_NAME = 0x204954
+
 # Memory Sections
 class MemorySection:
     def __init__(self, start_addr, end_addr, is_rom, is_ram):

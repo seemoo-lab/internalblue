@@ -41,6 +41,32 @@ Vendor | Version | SubVersion | Firmware    | Devices
 [Company identifiers](https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers)
 
 
+Firmware Related Setup
+----------------------
+The following steps are required to use the CYW20735B1 evaluation kit as normal HCI device on Linux with Bluez.
+ 
+
+**1. Setup as HCI device**
+
+You need to set the baud rate to 3 Mbit/s. Replace `/dev/ttyUSB0` with your device.
+
+    btattach -B /dev/ttyUSB0 -S 3000000
+    
+If this does not work directly, use:
+
+    stty -F /dev/ttyUSB0 3000000
+    btattach -B /dev/ttyUSB0
+
+**2. Use with BlueZ**
+
+Assuming that you already have a regular Bluetooth device, you new device is `hci1`.
+
+    hciconfig hci1 up
+
+You can list your HCI devices:
+
+    hcitool dev
+
 License
 -------
 

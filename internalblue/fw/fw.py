@@ -42,12 +42,13 @@ class Firmware:
             log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (version, version>>13, (version&0xf00)>>8, version&0xff))
             try:
                 self.firmware = __import__('internalblue.fw.fw_' + hex(version), fromlist=[''])
-            except:
+                log.info("Using fw_" + hex(version) + ".py")
+            except ImportError:
                 self.firmware = None
                 pass
 
         if not version or not self.firmware:
-            self.firmware = __import__('internalblue.fw.fw_default', fromlist=[''])
+            self.firmware = __import__('internalblue.fw.fw_default', fromlist=['']) #FIXME internalblue.fw.fw_default or just fw.fw_default?!
 
         log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
 

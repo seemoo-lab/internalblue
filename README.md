@@ -30,6 +30,7 @@ with all dependencies by using the setup.py script:
 
 It will install the following dependencies:
 * pwntools
+* pyelftools
 
 The pwntools module needs the binutils package for ARM 32-bit to be installed
 on the system. This has to be installed manually by using the packet manager
@@ -106,14 +107,15 @@ On any Broadcom Bluetooth chip:
 * Perform local RSSi sweep (coming soon!)
 
 On selected Broadcom Bluetooth chips:
-* BCM4335C0, BCM4358A3
+* BCM4335C0, BCM4358A3, CYW20735
   * Write to ROM via Patchram
   * Interpret coredumps
 * BCM4335C0 only
   * ECDH CVE-2018-5383 example
   * NiNo example
   * Debug firmware with tracepoints
-  * Fuzz invalid LMP messages (coming soon!)
+* BCM4335C0 and CYW20735
+  * Fuzz invalid LMP messages
 * CYW20735 only
   * Full object and function symbol table
 
