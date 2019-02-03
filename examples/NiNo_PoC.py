@@ -5,7 +5,7 @@
 import sys
 
 from pwn import *
-from internalblue import core
+from internalblue.adbcore import ADBCore
 
 
 
@@ -66,9 +66,8 @@ ASM_SNIPPET_IO_CAP_RESP = """
 """ 
 
 
-
-
-internalblue = core.InternalBlue(log_level='info')
+internalblue = ADBCore()
+internalblue.interface = internalblue.device_list()[0][1] # just use the first device
 
 # setup sockets
 if not internalblue.connect():

@@ -27,7 +27,7 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x000f |    0x08 |     0x2248 |             | MacBook Pro 2016
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
 0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6
-0x000f |    0x08 |     0x430a |             | iPad Pro (MLMW2FD/A)
+0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 |             | iPhone 7 (A1778)
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
 0x000f |    0x08 |     0x6206 |             | iPhone SE
@@ -36,9 +36,9 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit
 
 
-[Bluetooth versions](https://www.bluetooth.com/specifications/assigned-numbers/link-manager) 
+Matching of vendor and version number see list of [Bluetooth versions](https://www.bluetooth.com/specifications/assigned-numbers/link-manager) and [company identifiers](https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers).
 
-[Company identifiers](https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers)
+There are more popular devices with Broadcom chips, i.e. many Lenovos, Acers, Sonys, Toshibas, HPs, Azurewares, ... see [this list](https://github.com/winterheart/broadcom-bt-firmware/blob/master/DEVICES.md), but we did not see these in the wild yet and do not know their LMP subversion.  
 
 
 Firmware Related Setup

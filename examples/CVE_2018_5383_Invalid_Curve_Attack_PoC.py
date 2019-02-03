@@ -3,9 +3,12 @@
 # Dennis Mantz
 
 from pwn import *
-from internalblue import core
+from internalblue.adbcore import ADBCore
 
-internalblue = core.InternalBlue()
+#internalblue = core.InternalBlue()
+
+internalblue = ADBCore()
+internalblue.interface = internalblue.device_list()[0][1] # just use the first device
 
 
 PK_RECV_HOOK_ADDRESS = 0x2FED8
