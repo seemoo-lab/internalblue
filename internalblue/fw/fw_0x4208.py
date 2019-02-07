@@ -31,22 +31,33 @@ DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longe
 BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
 
 # Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x90000,  True,  False),
-             MemorySection(0xB08A0,  0xB08E8,  True,  False), #TODO
-             MemorySection(0xd0000,  0xd8000,  False, True ),
-            #MemorySection(0xe0000,  0x1f0000, True , False),
-             MemorySection(0x200000, 0x228000, False, True ),
-             MemorySection(0x260000, 0x268000, True , False),
-            #MemorySection(0x280000, 0x2a0000, True , False),
-             MemorySection(0x318000, 0x320000, False, False),
-             MemorySection(0x324000, 0x360000, False, False),
-             MemorySection(0x362000, 0x362100, False, False),
-             MemorySection(0x363000, 0x363100, False, False),
-             MemorySection(0x600000, 0x600800, False, False),
-             MemorySection(0x640000, 0x640800, False, False),
-             MemorySection(0x650000, 0x650800, False, False),
-            #MemorySection(0x680000, 0x800000, False, False)
+#                          start,    end,           is_rom? is_ram?
+SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal ROM
+             MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
+             MemorySection(0x00270000, 0x0027ffff,  False, True),   # Internal Memory Patchram Contents
+             MemorySection(0x00280000, 0x00283fff,  False, True),   # ToRam
+             #MemorySection(0x00300000, 0x00337fff,  False, True),   # HW Regs Cortex M3 (produces errors in memdump)
+             MemorySection(0x00300000, 0x00307fff,  False, True),   # HW Regs Cortex M3 (readable)
+             MemorySection(0x00342000, 0x00342fff,  False, True),   # Pka Top
+             MemorySection(0x00370000, 0x00370000,  False, True),   # RTX FIFO (single address?)
+             MemorySection(0x00390000, 0x00397fff,  False, True),   # Power WD
+             #MemorySection(0x00404000, 0x00407fff,  False, True),   # EF Registers (seem to be sometimes unavailable)
+             MemorySection(0x00410000, 0x00413fff,  False, True),   # BT Modem Registers
+             MemorySection(0x00420000, 0x00423fff,  False, True),   # FM Modem Registers
+             MemorySection(0x00430000, 0x00433fff,  False, True),   # MAC 15.4
+             MemorySection(0x00440000, 0x00443fff,  False, True),   # SecEng Top
+             MemorySection(0x00450000, 0x00453fff,  False, True),   # Capscan Top
+             #MemorySection(0x00500000, 0x005fffff,  False, True),   # EPM RAM
+             MemorySection(0x00500000, 0x0051a000,  False, True),   # EPM RAM (readable)
+             MemorySection(0x00600000, 0x00600100,  False, True),   # RF Regs (TBD)
+             MemorySection(0x00640000, 0x00640400,  False, True),   # CLB Regs (range TBD)
+             MemorySection(0x00650000, 0x00650400,  False, True),   # GCI Regs (range TBD)
+             MemorySection(0x20000000, 0x20250000,  False, True),   # SRAM
+             MemorySection(0x42000000, 0x4207ffff,  False, True),   # ToRam Bits
+             MemorySection(0x40000000, 0x40003fff,  False, True),   # ToRam Alias / Peripherals
+             MemorySection(0x60000000, 0x60000000,  False, True),   # Extern BlueRF SRAM (range TBD)
+             MemorySection(0xa0000000, 0xa0000000,  False, True),   # Extern Device Address (range TBD)
+             MemorySection(0xe0000000, 0xe0100000,  False, True),   # Base PPB Address
             ]
 
 # Patchram
@@ -127,3 +138,4 @@ FUZZLMP_ASM_CODE = """
             .byte 0x00
             .byte 0x00
         """
+
