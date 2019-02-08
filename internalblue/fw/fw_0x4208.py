@@ -36,10 +36,11 @@ SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal R
              MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
              MemorySection(0x00270000, 0x0027ffff,  False, True),   # Internal Memory Patchram Contents
              MemorySection(0x00280000, 0x00283fff,  False, True),   # ToRam
-             #MemorySection(0x00300000, 0x00337fff,  False, True),   # HW Regs Cortex M3 (produces errors in memdump)
              MemorySection(0x00300000, 0x00307fff,  False, True),   # HW Regs Cortex M3 (readable)
-             MemorySection(0x00342000, 0x00342fff,  False, True),   # Pka Top
-             MemorySection(0x00370000, 0x00370000,  False, True),   # RTX FIFO (single address?)
+             MemorySection(0x00310000, 0x00321fff,  False, True),   # HW Regs Cortex M3 (readable)
+             MemorySection(0x00326000, 0x0032ffff,  False, True),   # HW Regs Cortex M3 (readable)
+             MemorySection(0x00338000, 0x00367fff,  False, True),   # HW Regs Cortex M3 (readable) + Pka Top
+             MemorySection(0x00370000, 0x0037ffff,  False, True),   # RTX FIFO
              MemorySection(0x00390000, 0x00397fff,  False, True),   # Power WD
              #MemorySection(0x00404000, 0x00407fff,  False, True),   # EF Registers (seem to be sometimes unavailable)
              MemorySection(0x00410000, 0x00413fff,  False, True),   # BT Modem Registers
@@ -47,16 +48,18 @@ SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal R
              MemorySection(0x00430000, 0x00433fff,  False, True),   # MAC 15.4
              MemorySection(0x00440000, 0x00443fff,  False, True),   # SecEng Top
              MemorySection(0x00450000, 0x00453fff,  False, True),   # Capscan Top
-             #MemorySection(0x00500000, 0x005fffff,  False, True),   # EPM RAM
-             MemorySection(0x00500000, 0x0051a000,  False, True),   # EPM RAM (readable)
-             MemorySection(0x00600000, 0x00600100,  False, True),   # RF Regs (TBD)
-             MemorySection(0x00640000, 0x00640400,  False, True),   # CLB Regs (range TBD)
-             MemorySection(0x00650000, 0x00650400,  False, True),   # GCI Regs (range TBD)
-             MemorySection(0x20000000, 0x20250000,  False, True),   # SRAM
-             MemorySection(0x42000000, 0x4207ffff,  False, True),   # ToRam Bits
+             MemorySection(0x00500000, 0x006007ff,  False, True),   # EPM RAM (readable) + RF Regs
+             MemorySection(0x00640000, 0x006407ff,  False, True),   # CLB Regs
+             MemorySection(0x00650000, 0x006507ff,  False, True),   # GCI Regs
+             MemorySection(0x20000000, 0x2024ffff,  False, True),   # SRAM
+             MemorySection(0x20270000, 0x20283fff,  False, True),   # SRAM
+             MemorySection(0x20500000, 0x200fffff,  False, True),   # SRAM
+             MemorySection(0x22000000, 0x2226ffff,  False, True),   # SRAM Bits?
+
              MemorySection(0x40000000, 0x40003fff,  False, True),   # ToRam Alias / Peripherals
-             MemorySection(0x60000000, 0x60000000,  False, True),   # Extern BlueRF SRAM (range TBD)
-             MemorySection(0xa0000000, 0xa0000000,  False, True),   # Extern Device Address (range TBD)
+             MemorySection(0x42000000, 0x4207ffff,  False, True),   # ToRam Bits
+             #MemorySection(0x60000000, 0x60000000,  False, True),   # Extern BlueRF SRAM (range TBD)
+             #MemorySection(0xa0000000, 0xa0000000,  False, True),   # Extern Device Address (range TBD)
              MemorySection(0xe0000000, 0xe0100000,  False, True),   # Base PPB Address
             ]
 
