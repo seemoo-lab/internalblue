@@ -30,7 +30,11 @@ class BluezCore(InternalBlue):
         Return a list of connected hci devices
         """
 
-        response = subprocess.check_output(self.hcitoollist.split()).split()
+        try:
+            response = subprocess.check_output(self.hcitoollist.split()).split()
+        except OSError as e:
+            log.warn("BluezCore.device_list: Failed to get device list (hcitool error: %s)" % str(e))
+            return []
 
         device_list = []
         # checks if a hci device is connected
