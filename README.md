@@ -131,6 +131,10 @@ CYW20735  | BLE/BR Bluetooth 5.0 Evaluation Kit
 Background
 ----------
 
+InternalBlue was initially developed and documented in this
+[Masterthesis](https://github.com/seemoo-lab/internalblue/raw/master/internalblue_thesis_dennis_mantz.pdf).
+Afterwards the development was continued by SEEMOO.
+
 The basic framework for Nexus 5 / BCM4339 was presented at the MRMCD Conference
 2018 in Darmstadt. The talk was also recorded and includes an overview of the framework as well as
 two demo usages at the end (Following a **Secure Simple Pairing procedure in
