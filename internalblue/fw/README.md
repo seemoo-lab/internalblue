@@ -24,6 +24,7 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8
 0x000f |    0x08 |     0x21a1 |             | MacBook Pro Retina 13" early 2015 
 0x000f |    0x08 |     0x21a6 |             | MacBook Pro early 2015
+0x000f |    0x08 |     0x2230 | BCM20703A2  | MacBook Pro 2016 (A1707)
 0x000f |    0x08 |     0x2248 |             | MacBook Pro 2016
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
 0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6
