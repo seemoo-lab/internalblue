@@ -33,7 +33,7 @@ class ADBCore(InternalBlue):
         except:
             adb_devices = 0
         
-        if(len(adb_devices) == 0):
+        if adb_devices == 0 or len(adb_devices) == 0:
             log.info("No adb devices found.")
             return []
 
