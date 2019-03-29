@@ -132,7 +132,7 @@ class ADBCore(InternalBlue):
             while(not self.exit_requested and len(record_hdr) < 24):
                 try:
                     recv_data = self.s_snoop.recv(24 - len(record_hdr))
-                    log.debug(recv_data.encode('hex'))
+                    log.debug("recvThreadFunc: received bt_snoop data " + recv_data.encode('hex'))
                     if len(recv_data) == 0:
                         log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping recv thread...")
                         self.exit_requested = True
@@ -147,7 +147,7 @@ class ADBCore(InternalBlue):
                     self.exit_requested = True
                 break
 
-            if(self.write_btsnooplog):
+            if self.write_btsnooplog:
                 self.btsnooplog_file.write(record_hdr)
                 self.btsnooplog_file.flush()
 
@@ -172,7 +172,7 @@ class ADBCore(InternalBlue):
                     self.exit_requested = True
                 break
             
-            if(self.write_btsnooplog):
+            if self.write_btsnooplog:
                 self.btsnooplog_file.write(record_data)
                 self.btsnooplog_file.flush()
 
@@ -184,7 +184,7 @@ class ADBCore(InternalBlue):
             # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
             record = (hci.parse_hci_packet(record_data), orig_len, inc_len, flags, drops, parsed_time)
 
-            log.debug("Recv: [" + str(parsed_time) + "] " + str(record[0]))
+            log.debug("_recvThreadFunc Recv: [" + str(parsed_time) + "] " + str(record[0]))
 
             # Put the record into all queues of registeredHciRecvQueues if their
             # filter function matches.

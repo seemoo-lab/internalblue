@@ -218,10 +218,12 @@ class InternalBlue:
                 
                 # Accept diagnostic
                 if isinstance(hcipkt, hci.HCI_Diag):
+                    log.debug("_sendThreadFunc.recvFilterFunction: Diagnostic")
                     return True
 
                 # Interpret HCI event
                 if isinstance(hcipkt, hci.HCI_Event):
+                    log.debug("_sendThreadFunc.recvFilterFunction: Event")
                     
                     opcode = out[3:5]
                     if hcipkt.event_code == 0x0e:   # Cmd Complete event
@@ -645,7 +647,7 @@ class InternalBlue:
         This function polls the recvQueue for the next available HCI
         packet and returns it. The function checks whether it is called
         from the sendThread or any other thread and respectively chooses
-        either the sendThreadrecvQueue or the recvQueue.
+        either the sendThreadrecvQueue or the recvQueue. (FIXME: no it does not?!)
 
         The recvQueue is filled by the recvThread. If the queue fills up
         the recvThread empties the queue (unprocessed packets are lost).
