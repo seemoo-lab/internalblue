@@ -1361,6 +1361,7 @@ class InternalBlue:
         - waitlist_length:  Length of the waiting list
         - prev:             Previous BLOC struct (double-linked list)
         - next:             Next BLOC struct (double-linked list)
+        - buffer_headers:   Dictionoary containing buffer headers (e.g. free linked list)
         """
 
         # Check if constants are defined in fw.py
@@ -1376,6 +1377,7 @@ class InternalBlue:
         bloclist = []
         current_bloc_struct_address = first_bloc_struct_address
         for index in range(100): # Traverse at most 100 (don't loop forever if linked-list is corrupted)
+            # Parsing BLOC struct
             bloc_struct = self.readMem(current_bloc_struct_address, 0x30)
             bloc_fields = struct.unpack("I"*12, bloc_struct)
             if bloc_fields[0] != u32("COLB"):
@@ -1394,12 +1396,24 @@ class InternalBlue:
             current_element["waitlist_length"] = bloc_fields[9]
             current_element["next"]            = bloc_fields[10]
             current_element["prev"]            = bloc_fields[11]
-            bloclist.append(current_element)
+            current_element["buffer_headers"]  = {}
 
+            # Parsing buffer headers
+            buffer_size  = current_element["buffer_size"] + 4
+            buffer_count = current_element["memory_size"] / buffer_size
+            for buf_index in range(buffer_count):
+                buffer_address = current_element["memory"] + buf_index * buffer_size
+                hdr = u32(self.readMem(buffer_address, 4))
+                current_element["buffer_headers"][buffer_address] = hdr
+
+            # Append and iterate
+            bloclist.append(current_element)
             current_bloc_struct_address = current_element["next"]
             if current_bloc_struct_address == first_bloc_struct_address:
                 break
+
         return bloclist
+
 
     def readQueueInformation(self):
         """

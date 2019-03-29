@@ -601,6 +601,8 @@ class CmdTelescope(Cmd):
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("--length", "-l", type=auto_int, default=64,
                         help="Length of the telescope dump (default: %(default)s).")
+    parser.add_argument("--depth", "-d", type=auto_int, default=4,
+                        help="Depth of the telescope dump (default: %(default)s).")
     parser.add_argument("address", type=auto_int,
                         help="Start address of the telescope dump.")
 
@@ -637,7 +639,7 @@ class CmdTelescope(Cmd):
             return False
 
         for index in range(0, len(dump)-4, 4):
-            chain = self.telescope(dump[index:], 4)
+            chain = self.telescope(dump[index:], args.depth)
             output = "0x%08x: " % (args.address+index)
             output += ' -> '.join(["0x%08x" % x for x in chain[:-1]])
             output += ' \"' + chain[-1] + '"'
@@ -1066,6 +1068,7 @@ class CmdInfo(Cmd):
     patchram:     List of patches in the patchram table.
     heap / bloc:  List of BLOC structures (Heap Pools).
                   Optional argument: BLOC index or address for more details.
+                  Optional argument: verbose Show verbose information
     queue:        List of QUEU structures (Blocking Queues).
     """)
 
@@ -1143,14 +1146,17 @@ class CmdInfo(Cmd):
         bloc_for_details = None
         bloc_address     = None
         bloc_index       = None
-        if len(args) > 0:
+        verbose          = False
+        for arg in args:
             try: 
-                if args[0].startswith("0x"):
+                if arg in ["verbose"]:
+                    verbose = True
+                elif args[0].startswith("0x"):
                     bloc_address = int(args[0], 16)
                 else:
                     bloc_index   = int(args[0])
             except TypeError:
-                log.warn("Optional argument is neither a number (decimal) nor an address (hex)")
+                log.warn("Optional argument is neither a number (decimal) nor an address (hex) nor -v")
                 return False
 
         progress_log = log.progress("Traversing Heap")
@@ -1161,6 +1167,7 @@ class CmdInfo(Cmd):
             progress_log.failure("empty")
             return False
         
+        #Print Bloc Buffer Table
         log.info("  [ Idx ] @Pool-Addr  Buf-Size  Avail/Capacity  Mem-Size @ Addr")
         log.info("  -----------------------------------------------------------------")
         for heappool in heaplist:
@@ -1177,19 +1184,40 @@ class CmdInfo(Cmd):
             log.info(marker_str + ("BLOC[{index}] @ 0x{address:06X}: {buffer_size:8d}"\
                                   "    {list_length:2d} / {capacity:2d}        "\
                                   "{memory_size:7d} @ 0x{memory:06X}").format(**heappool))
+            
+            #Print verbose heap information
+            if verbose:
+                log.info("            Buffer   : Header    Status")
+                log.info("            -------------------------------")
+                for buff in sorted(heappool["buffer_headers"].keys()):
+                    hdr = heappool["buffer_headers"][buff]
+                    info = "            0x%06x : 0x%06x  " % (buff, hdr)
+                    if hdr in heappool["buffer_headers"] or hdr == 0:
+                        info += "Free"
+                    elif hdr == heappool["address"]:
+                        info += "Used"
+                    else:
+                        info += "\033[;31mCorrupted\033[;00m"
 
+                    if buff == heappool["buffer_list"]:
+                        info += " / List Head"
+
+                    log.info(info)
+                log.info("")
+
+
+        # Print Bloc Buffer Details
         if bloc_for_details == None:
             progress_log.success("done")
             return True
 
+        # Print Buffer Details
         buffer_size  = bloc_for_details["buffer_size"] + 4
-        buffer_count = bloc_for_details["memory_size"] / buffer_size
-        for buf_index in range(buffer_count):
-            buffer_address = bloc_for_details["memory"] + buf_index * buffer_size
+        for buffer_address, buffer_hdr in bloc_for_details["buffer_headers"].iteritems():
             progress_log.status("Dumping buffers from BLOC[%d]: 0x%06X" % (bloc_for_details["index"], buffer_address))
-            buf = self.internalblue.readMem(buffer_address, buffer_size)
-            if u32(buf[0:4]) == bloc_for_details["address"]:
-                # Buffer in use!
+            # Buffer in use!
+            if buffer_hdr == bloc_for_details["address"]:
+                buf = self.internalblue.readMem(buffer_address, buffer_size)
                 log.info("dumping buffer 0x%06X from BLOC[%d]:" % (buffer_address + 4, bloc_for_details["index"]))
                 log.hexdump(buf[4:], begin=buffer_address+4)
 
