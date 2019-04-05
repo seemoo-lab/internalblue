@@ -15,7 +15,7 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
-0x000f |    0x06 |     0x4196 | BCM20702B0  | MacBook Pro mid 2014
+0x000f |    0x06 |     0x4196 | BCM20702B0  | MacBook Pro mid 2014, iMac (Retina 5k, 27", ultimo 2014)
 0x000f |    0x07 |     0x220f | BCM20736S   | Equiva Radiator Thermostat CC-RT-BLE-EQ
 0x000f |    0x07 |     0x2203 | BCM43342    | iPhone 5s
 0x000f |    0x07 |     0x2209 | BCM43430A1  | Raspberry Pi 3
@@ -26,6 +26,7 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x000f |    0x08 |     0x21a1 |             | MacBook Pro Retina 13" early 2015 
 0x000f |    0x08 |     0x21a6 | BCM20703A1  | MacBook Pro early 2015
 0x000f |    0x08 |     0x21a7 | BCM20703A1  | MacBook Pro early 2015 (with security fix)
+0x000f |    0x08 |     0x220b | BCM20707    | Fitbit Ionic 
 0x000f |    0x08 |     0x2230 | BCM20703A2  | MacBook Pro 2016 (A1707)
 0x000f |    0x08 |     0x2246 | BCM20703A2  | MacBook Pro 2016
 0x000f |    0x08 |     0x2247 | BCM20703A2  | MacBook Pro 2016 (with security fix)
@@ -35,7 +36,10 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 |             | iPhone 7 (A1778)
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
+0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12"), MacBook Pro (13", 2016)
 0x000f |    0x08 |     0x6206 |             | iPhone SE
+0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
+0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
 0x000f |    0x09 |     0x411a |             | Samsung Galaxy S8
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit
