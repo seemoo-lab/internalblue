@@ -521,7 +521,7 @@ class InternalBlue:
             return False
         else:
             subversion = (u8(version[11]) << 8) + u8(version[10])
-            self.fw = Firmware(subversion, vendor).firmware
+            self.fw = Firmware(subversion).firmware
         
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.

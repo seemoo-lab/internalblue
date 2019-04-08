@@ -27,12 +27,11 @@ from pwn import log
 
 
 class Firmware:
-    def __init__(self, version=None, vendor=None):
+    def __init__(self, version=None):
         """
         Load and initialize the actual firmware add-ons for Nexus 5, Raspi3, etc.
 
         :param version: LMP subversion that identifies the firmware.
-        :param vendor:  Vendor ID, 0xf is Broadcom and 0x131 is Cypress
         """
 
         self.version = version
@@ -40,7 +39,8 @@ class Firmware:
 
         if version:
             # get LMP Subversion
-            log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" % (version, version>>13, (version&0xf00)>>8, version&0xff))
+            log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" %
+                     (version, version >> 13, (version & 0xf00) >> 8, version & 0xff))
             try:
                 self.firmware = __import__(__name__ + '_' + hex(version), fromlist=[''])
                 log.info("Using fw_" + hex(version) + ".py")

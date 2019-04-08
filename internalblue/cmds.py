@@ -11,7 +11,7 @@
 # this software and associated documentation files (the "Software"), to deal in
 # the Software without restriction, including without limitation the rights to
 # use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-# the Software, and to permit persons to whom the Software is furnished to do so,
+# the Software, and to permit persons to whom the Software is furnished to do so,version
 # subject to the following conditions:
 # - The above copyright notice and this permission notice shall be included in
 #   all copies or substantial portions of the Software.
@@ -99,7 +99,8 @@ class Cmd:
     def __init__(self, cmdline, internalblue):
         self.cmdline = cmdline
         self.internalblue = internalblue
-        self.memory_image_template_filename = internalblue.data_directory + "/_memdump_template.bin"
+        self.memory_image_template_filename = internalblue.data_directory + "/memdump_" + \
+                                              self.internalblue.fw.__name__[6:12] + "_template.bin"
 
     def __str__(self):
         return self.cmdline
@@ -137,9 +138,14 @@ class Cmd:
         return self.internalblue.writeMem(address, data, progress_log, bytes_done, bytes_total)
 
     def initMemoryImage(self):
+        """
+        Initially read out a chip's memory, all sections (RAM+ROM).
+        :return:
+        """
         bytes_done = 0
-        if(not os.path.exists(self.memory_image_template_filename)):
+        if not os.path.exists(self.memory_image_template_filename):
             log.info("No template found. Need to read ROM sections as well!")
+            log.info("Writing chip-specific template to " + self.memory_image_template_filename + "...")
             bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS])
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
@@ -152,11 +158,15 @@ class Cmd:
             f.write(Cmd.memory_image)
             f.close()
         else:
-            log.info("Template found. Only read non-ROM sections!")
+            log.info(self.memory_image_template_filename + " already exists. Only read and updating non-ROM sections!")
             Cmd.memory_image = read(self.memory_image_template_filename)
             self.refreshMemoryImage()
 
     def refreshMemoryImage(self):
+        """
+        Update an existing memory dump, only RAM sections.
+        :return:
+        """
         bytes_done = 0
         bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS if not s.is_rom])
         self.progress_log = log.progress("Refresh internal memory image")
@@ -168,7 +178,7 @@ class Cmd:
         self.progress_log.success("Received Data: complete")
 
     def getMemoryImage(self, refresh=False):
-        if Cmd.memory_image == None:
+        if Cmd.memory_image is None:
             self.initMemoryImage()
         elif refresh:
             self.refreshMemoryImage()
@@ -479,17 +489,18 @@ class CmdDumpMem(Cmd):
 
     def work(self):
         args = self.getArgs()
-        if args==None:
+        if args is None:
             return True
 
+        # Store pure RAM image
         if args.ram:
             bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS if s.is_ram])
             bytes_done = 0
             self.progress_log = log.progress("Downloading RAM sections...")
             for section in filter(lambda s: s.is_ram, self.internalblue.fw.SECTIONS):
                 filename = args.file + "_" + hex(section.start_addr)
-                if(os.path.exists(filename)):
-                    if not yesno("Overwrite '%s'?" % filename):
+                if os.path.exists(filename):
+                    if not yesno("Update '%s'?" % filename):
                         log.info("Skipping section @%s" % hex(section.start_addr))
                         bytes_done += section.size()
                         continue
@@ -501,8 +512,9 @@ class CmdDumpMem(Cmd):
             self.progress_log.success("Done")
             return True
 
-        if(os.path.exists(args.file)):
-            if not yesno("Overwrite '%s'?" % os.path.abspath(args.file)):
+        # Get complete memory image
+        if os.path.exists(args.file):
+            if not yesno("Update '%s'?" % os.path.abspath(args.file)):
                 return False
         
         dump = self.getMemoryImage(refresh=not args.norefresh)
