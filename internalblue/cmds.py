@@ -99,7 +99,9 @@ class Cmd:
     def __init__(self, cmdline, internalblue):
         self.cmdline = cmdline
         self.internalblue = internalblue
-        self.memory_image_template_filename = internalblue.data_directory + "/memdump_" + \
+        self.memory_image_template_filename = internalblue.data_directory + "/memdump__template.bin"
+        if self.internalblue.fw:
+            self.memory_image_template_filename = internalblue.data_directory + "/memdump_" + \
                                               self.internalblue.fw.__name__[6:12] + "_template.bin"
 
     def __str__(self):
