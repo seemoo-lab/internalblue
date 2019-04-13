@@ -395,6 +395,7 @@ class InternalBlue:
         table_addresses, _, _ = self.getPatchramState()
         patchram_slot = table_addresses.index(address)
         log.info("Using patchram slot %d for tracepoint." % patchram_slot)
+        self.disableRomPatch(address)  # Eval board requires to delete patch before installing it again
 
         # compile assembler snippet containing the stage-1 hook code:
         stage1_hook_code = asm(self.fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,

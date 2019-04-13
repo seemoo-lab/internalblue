@@ -122,7 +122,10 @@ class Cmd:
             return None
 
     def isAddressInSections(self, address, length=0, sectiontype=""):
-        for section in self.internalblue.fw.SECTIONS: #FIXME check if sections are defined
+        if not self.internalblue.fw:
+            return False
+
+        for section in self.internalblue.fw.SECTIONS:
             if (sectiontype.upper() == "ROM" and not section.is_rom) or (sectiontype.upper() == "RAM" and not section.is_ram):
                 continue
 
