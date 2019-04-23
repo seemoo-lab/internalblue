@@ -218,10 +218,12 @@ class InternalBlue:
                 
                 # Accept diagnostic
                 if isinstance(hcipkt, hci.HCI_Diag):
+                    log.debug("_sendThreadFunc.recvFilterFunction: Diagnostic")
                     return True
 
                 # Interpret HCI event
                 if isinstance(hcipkt, hci.HCI_Event):
+                    log.debug("_sendThreadFunc.recvFilterFunction: Event")
                     
                     opcode = out[3:5]
                     if hcipkt.event_code == 0x0e:   # Cmd Complete event
@@ -393,6 +395,7 @@ class InternalBlue:
         table_addresses, _, _ = self.getPatchramState()
         patchram_slot = table_addresses.index(address)
         log.info("Using patchram slot %d for tracepoint." % patchram_slot)
+        self.disableRomPatch(address)  # Eval board requires to delete patch before installing it again
 
         # compile assembler snippet containing the stage-1 hook code:
         stage1_hook_code = asm(self.fw.TRACEPOINT_HOOK_ASM % (address, patchram_slot,
@@ -519,7 +522,7 @@ class InternalBlue:
             return False
         else:
             subversion = (u8(version[11]) << 8) + u8(version[10])
-            self.fw = Firmware(subversion, vendor).firmware
+            self.fw = Firmware(subversion).firmware
         
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.
@@ -645,7 +648,7 @@ class InternalBlue:
         This function polls the recvQueue for the next available HCI
         packet and returns it. The function checks whether it is called
         from the sendThread or any other thread and respectively chooses
-        either the sendThreadrecvQueue or the recvQueue.
+        either the sendThreadrecvQueue or the recvQueue. (FIXME: no it does not?!)
 
         The recvQueue is filled by the recvThread. If the queue fills up
         the recvThread empties the queue (unprocessed packets are lost).

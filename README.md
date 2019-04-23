@@ -113,19 +113,14 @@ On selected Broadcom Bluetooth chips:
 * BCM4335C0 only
   * ECDH CVE-2018-5383 example
   * NiNo example
+  * MAC address filter example
   * Debug firmware with tracepoints
 * BCM4335C0 and CYW20735
   * Fuzz invalid LMP messages
 * CYW20735 only
   * Full object and function symbol table
 
-
-Firmware | Devices 
---- | --- 
-BCM4335C0 | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3 (also known as BCM4339) 
-BCM4345C0 | Raspberry Pi 3+
-BCM4358A3 | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge
-CYW20735  | BLE/BR Bluetooth 5.0 Evaluation Kit
+A comprehensive list of chips and which devices have them can be found in the [firmware](internalblue/fw/README.md) module documentation.
 
 
 Background
