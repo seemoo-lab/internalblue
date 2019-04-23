@@ -30,6 +30,10 @@ FW_NAME = "CYW27035B1"
 DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended
 BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
 
+#Heap
+BLOC_HEAD = 0x200474
+BLOC_NG = True                          # Next Generation Bloc Buffer
+
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
 SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal ROM

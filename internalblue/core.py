@@ -1377,29 +1377,52 @@ class InternalBlue:
         for index in range(100): # Traverse at most 100 (don't loop forever if linked-list is corrupted)
             # Parsing BLOC struct
             bloc_struct = self.readMem(current_bloc_struct_address, 0x30)
-            bloc_fields = struct.unpack("I"*12, bloc_struct)
-            if bloc_fields[0] != u32("COLB"):
-                log.warn("readHeapInformation: BLOC double-linked list contains non-BLOC element. abort.")
-                return None
-            current_element = {}
-            current_element["index"]           = index
-            current_element["address"]         = current_bloc_struct_address
-            current_element["list_length"]     = bloc_fields[2]
-            current_element["capacity"]        = bloc_fields[3]
-            current_element["buffer_list"]     = bloc_fields[4]
-            current_element["memory"]          = bloc_fields[5]
-            current_element["memory_size"]     = bloc_fields[6]
-            current_element["buffer_size"]     = bloc_fields[7]
-            current_element["thread_waitlist"] = bloc_fields[8]
-            current_element["waitlist_length"] = bloc_fields[9]
-            current_element["next"]            = bloc_fields[10]
-            current_element["prev"]            = bloc_fields[11]
-            current_element["buffer_headers"]  = {}
+
+            # New Bloc Struct since ~2014
+            if "BLOC_NG" in dir(self.fw):
+                bloc_fields = struct.unpack("IHBBIIBB", bloc_struct[:18])
+                current_element = {}
+                current_element["index"]           = index
+                current_element["address"]         = current_bloc_struct_address
+                current_element["next"]            = bloc_fields[0]
+                current_element["buffer_size"]     = bloc_fields[1]
+                current_element["capacity"]        = bloc_fields[2]
+                current_element["memory"]          = bloc_fields[4]
+                current_element["buffer_list"]     = bloc_fields[5]
+                current_element["list_length"]     = bloc_fields[6]
+
+                current_element["memory_size"]     = current_element["capacity"] * (4+current_element["buffer_size"])
+
+                #current_element["memory_size"]     = bloc_fields[6]
+                #current_element["thread_waitlist"] = bloc_fields[8]
+                #current_element["waitlist_length"] = bloc_fields[9]
+                #current_element["prev"]            = bloc_fields[11]
+                current_element["buffer_headers"]  = {}
+
+            # Old BLOC Struct
+            else:
+                bloc_fields = struct.unpack("I"*12, bloc_struct)
+                if bloc_fields[0] != u32("COLB"):
+                    log.warn("readHeapInformation: BLOC double-linked list contains non-BLOC element. abort.")
+                    return None
+                current_element = {}
+                current_element["index"]           = index
+                current_element["address"]         = current_bloc_struct_address
+                current_element["list_length"]     = bloc_fields[2]
+                current_element["capacity"]        = bloc_fields[3]
+                current_element["buffer_list"]     = bloc_fields[4]
+                current_element["memory"]          = bloc_fields[5]
+                current_element["memory_size"]     = bloc_fields[6]
+                current_element["buffer_size"]     = bloc_fields[7]
+                current_element["thread_waitlist"] = bloc_fields[8]
+                current_element["waitlist_length"] = bloc_fields[9]
+                current_element["next"]            = bloc_fields[10]
+                current_element["prev"]            = bloc_fields[11]
+                current_element["buffer_headers"]  = {}
 
             # Parsing buffer headers
             buffer_size  = current_element["buffer_size"] + 4
-            buffer_count = current_element["memory_size"] / buffer_size
-            for buf_index in range(buffer_count):
+            for buf_index in range(current_element["capacity"]):
                 buffer_address = current_element["memory"] + buf_index * buffer_size
                 hdr = u32(self.readMem(buffer_address, 4))
                 current_element["buffer_headers"][buffer_address] = hdr
@@ -1407,7 +1430,7 @@ class InternalBlue:
             # Append and iterate
             bloclist.append(current_element)
             current_bloc_struct_address = current_element["next"]
-            if current_bloc_struct_address == first_bloc_struct_address:
+            if current_bloc_struct_address == first_bloc_struct_address or current_bloc_struct_address == 0:
                 break
 
         return bloclist

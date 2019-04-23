@@ -1187,6 +1187,9 @@ class CmdInfo(Cmd):
             
             #Print verbose heap information
             if verbose:
+                if hasattr(self.internalblue.fw, 'BLOC_NG'):
+                    log.warn("            Corruption warning might be wrong for allocated buffers!")
+
                 log.info("            Buffer   : Header    Status")
                 log.info("            -------------------------------")
                 for buff in sorted(heappool["buffer_headers"].keys()):

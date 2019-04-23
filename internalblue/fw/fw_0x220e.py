@@ -1,6 +1,4 @@
-#!/usr/bin/env python2
-
-# MacBook 15" early 2011 tested with Ubuntu 
+# fw_default.py
 #
 # Generic firmware file in case we do not know something...
 #
@@ -25,13 +23,17 @@
 from fw import MemorySection
 
 # Firmware Infos
-FW_NAME = "BCM2070B0 (MacBook Pro 2011)"
-# Build date: Jul 9 2008
+# Evaluation Kit CYW927035
+FW_NAME = "BCM20702A1"
+
+# Device Infos
+#DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended
+#BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
 
 # Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x58000,  True , False),
-             MemorySection(0x80000,  0x9b000,  False, True ),
-           ]
+#                          start,    end,           is_rom? is_ram?
+SECTIONS = [   MemorySection(0x00000000, 0x5ffff,  True,  False),  # Internal ROM
+               MemorySection(0x80000, 0x9bfff,  False,  True),  # Internal RAM
+            ]
+BLOC_HEAD = 0x3166c
 
-BLOC_HEAD = 0x88518
