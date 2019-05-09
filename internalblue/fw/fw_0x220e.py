@@ -1,10 +1,10 @@
 #!/usr/bin/env python2
-
+#
 # fw_0x220e.py
 #
 # Generic firmware file in case we do not know something...
 #
-# Copyright (c) 2019 Jiska Classen. (MIT License)
+# Copyright (c) 2019 Jan Ruge and Jiska Classen. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -27,8 +27,14 @@ from fw import MemorySection
 # Firmware Infos
 FW_NAME = "BCM20702A1 (Asus USB Bluetooth dongle)"
 
+# Device Infos
+#DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended
+#BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
+
 # Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x60000,  True , False),
-             MemorySection(0x80000,  0x9c000,  False, True ),
+#                          start,    end,           is_rom? is_ram?
+SECTIONS = [   MemorySection(0x00000000, 0x5ffff,  True,  False),  # Internal ROM
+               MemorySection(0x80000, 0x9bfff,  False,  True),  # Internal RAM
             ]
+BLOC_HEAD = 0x3166c
+

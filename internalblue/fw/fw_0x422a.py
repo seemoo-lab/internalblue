@@ -33,3 +33,5 @@ FW_NAME = "BCM2070B0 (MacBook Pro 2011)"
 SECTIONS = [ MemorySection(0x0,      0x58000,  True , False),
              MemorySection(0x80000,  0x9b000,  False, True ),
            ]
+
+BLOC_HEAD = 0x88518
