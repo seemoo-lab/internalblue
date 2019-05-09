@@ -214,8 +214,4 @@ TRACEPOINT_BODY_ASM_SNIPPET = """
         mov  lr, r8      // restore lr from r8
         bx   lr          // return
         
-
-
-//0x00218561
-        
 """

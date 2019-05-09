@@ -112,9 +112,9 @@ class BluezCore(InternalBlue):
                 callback(record)
 
             # Check if the stackDumpReceiver has noticed that the chip crashed.
-            if self.stackDumpReceiver.stack_dump_has_happend:
+            # if self.stackDumpReceiver.stack_dump_has_happend:
                 # A stack dump has happend!
-                log.warn("recvThreadFunc: The controller send a stack dump.")
+                # log.warn("recvThreadFunc: The controller send a stack dump.")
                 # self.exit_requested = True
 
         log.debug("Receive Thread terminated.")

@@ -13,6 +13,7 @@ Vendor | Version | SubVersion | Firmware    | Devices
 0x000f |    0x04 |     0x21d0 | BCM2046     | iMac 27" late 2009 
 0x000f |    0x04 |     0x422a | BCM4331     | MacBook Pro early 2011
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
+0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
 0x000f |    0x06 |     0x4196 | BCM20702B0  | MacBook Pro mid 2014, iMac (Retina 5k, 27", ultimo 2014)
@@ -59,7 +60,9 @@ There is a couple of issues causing trouble running *InternalBlue*, which are re
   * Diagnostic messages lack behind by one. If you send `diag c1` you will not get a response. Followed by `diag c2` you will get a response for `c1`, and so on. This issue is independent from the Android driver patch, i.e. a Nexus 6P works perfectly with the same LineageOS 14.1 patch that causes this issue on a Nexus 5. 
 * BCM4358A3
   * `Launch_RAM` crashes the firmware if it received another HCI command within the next ~6 seconds. When patching and launching scripts, close the Bluetooth overview from the operating system to prevent scanning and hope that nothing else interacts with this. 
-
+* CYW20735B1
+  * `Launch_RAM` works in principle, but threading seems to be broken if the executed code generates other HCI events.
+  A hook at `0xB0316` is a nice spot to implement a function that generates HCI events and can be called via the HCI command `0xfc19`.
 
 Firmware Related Setup
 ----------------------

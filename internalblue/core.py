@@ -112,6 +112,7 @@ class InternalBlue:
 
         # Register callbacks which handle specific HCI Events:
         self.registerHciCallback(self.connectionStatusCallback)
+        self.registerHciCallback(self.coexStatusCallback)
 
     def check_binutils(self, fix=True):
         """
@@ -508,7 +509,7 @@ class InternalBlue:
         # send Read_Local_Version_Information
         version = self.sendHciCommand(0x1001, '')
         
-        if not version:
+        if not version or len(version) < 11:
             log.warn("""initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
             adb: Check if you installed a custom bluetooth.default.so properly on your
               Android device. bluetooth.default.so must contain the string 'hci_inject'.
@@ -1345,6 +1346,25 @@ class InternalBlue:
             conn_handle = u16(hcipkt.data[1:3])
             log.info("[Disconnect Complete: Handle=0x%x]" % (conn_handle))
 
+    def coexStatusCallback(self, record):
+        """
+        Coexistence Callback Function
+        Interprets debug counters for coexistence with WiFi/LTE
+        """
+
+        hcipkt    = record[0]   # get HCI Event packet
+        timestamp = record[5]   # get timestamp
+
+        if not issubclass(hcipkt.__class__, hci.HCI_Event):
+            return
+
+        # Command complete event with stats
+        if hcipkt.event_code == 0x0e:
+            if u16(hcipkt.data[1:3]) == 0xfc90: # Coex Statistics Cmd
+                coex_grant = u32(hcipkt.data[4:8])
+                coex_reject= u32(hcipkt.data[8:12])
+                log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, coex_reject/float(coex_grant)))
+                return
 
     def readHeapInformation(self):
         """

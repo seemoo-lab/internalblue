@@ -262,7 +262,7 @@ class CmdLogLevel(Cmd):
 
 
 class CmdMonitor(Cmd):
-    keywords = ['monitor']
+    keywords = ['monitor', 'wireshark']
     description = "Controlling the monitor."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -436,7 +436,7 @@ class CmdMonitor(Cmd):
 
 
 class CmdRepeat(Cmd):
-    keywords = ['repeat']
+    keywords = ['repeat', 'watch']
     description = "Repeat a given command until user stops it."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -576,7 +576,7 @@ class CmdSearchMem(Cmd):
         return True
 
 class CmdHexdump(Cmd):
-    keywords = ['hexdump', 'hd']
+    keywords = ['hexdump', 'hd', 'readmem']
     description = "Display a hexdump of a specified region in the memory."
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -736,9 +736,7 @@ class CmdWriteMem(Cmd):
         data = data * args.repeat
 
         if not self.isAddressInSections(args.address, len(data), sectiontype="RAM"):
-            answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?" % (args.address, len(args.data)))
-            if not answer:
-                return False
+            log.warn("Warning: Address 0x%08x (len=0x%x) is not inside a RAM section." % (args.address, len(args.data)))
 
         self.progress_log = log.progress("Writing Memory")
         if self.writeMem(args.address, data, self.progress_log, bytes_done=0, bytes_total=len(data)):
@@ -1250,11 +1248,11 @@ class CmdInfo(Cmd):
             progress_log.failure("empty")
             return False
         
-        log.info("[ Idx  ] @Queue-Addr  Queue-Name   Items/Free/Capacity  Item-Size  Buffer")
-        log.info("--------------------------------------------------------------------------")
+        log.info("[ Idx  ] @Queue-Addr  Queue-Name          Items/Free/Capacity  Item-Size  Buffer")
+        log.info("------------------------------------------------------------______--------------")
         for queue in queuelist:
             # TODO: waitlist
-            log.info(("QUEU[{index:2d}] @ 0x{address:06X}:  {name:14s} {available_items:2d} /"
+            log.info(("QUEU[{index:2d}] @ 0x{address:06X}:  {name:21s} {available_items:2d} /"
                       " {free_slots:2d} / {capacity:2d}      {item_size:2d} Bytes    0x{queue_buf_start:06X}").format(**queue))
 
         # TODO: output all queued items
@@ -1575,4 +1573,22 @@ class CmdSendDiagCmd(Cmd):
 
         self.internalblue.sendH4(0x07, data)
 
+        return True
+
+
+class CmdLaunch(Cmd):
+    keywords = ['launch']
+    description = "Executes launch RAM HCI command. Note that this causes threading issues on some chips."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("address", type=auto_int,
+                        help="Execute this address.")
+
+    def work(self):
+        args = self.getArgs()
+        if not args:
+            return False
+
+        self.internalblue.launchRam(args.address)
         return True
