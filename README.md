@@ -42,6 +42,10 @@ of your Linux distribution:
     # for Ubuntu
     sudo apt install binutils-arm-linux-gnueabi
     
+Dependencies on a plain Ubuntu 18.04:
+
+    sudo apt install git python-setuptools binutils-arm-linux-gnueabi adb
+    
 
 Usage
 -----
@@ -61,7 +65,7 @@ requests) and some commands require privileged users (i.e. establishing connecti
 Use the *help* command to display a list of available commands. A typical set of
 actions to check if everything is working properly would be:
 
-    monitor start
+    wireshark start
     connect ff:ff:13:37:ab:cd
     sendlmp 01 -d 02
 
@@ -126,32 +130,46 @@ A comprehensive list of chips and which devices have them can be found in the [f
 Background
 ----------
 
-InternalBlue was initially developed and documented in this
-[Masterthesis](https://github.com/seemoo-lab/internalblue/raw/master/internalblue_thesis_dennis_mantz.pdf).
-Afterwards the development was continued by SEEMOO.
+* **Master Thesis** (07/2018)
+  
+  InternalBlue was initially developed and documented in the
+[Masterthesis](https://github.com/seemoo-lab/internalblue/raw/master/internalblue_thesis_dennis_mantz.pdf) by Dennis Mantz.
+Afterwards the development was continued by SEEMOO. It was awarded with the [CAST Förderpreis](https://www.cysec.tu-darmstadt.de/cysec/start_news_details_136448.en.jsp).
 
-The basic framework for Nexus 5 / BCM4339 was presented at the MRMCD Conference
-2018 in Darmstadt. The talk was also recorded and includes an overview of the framework as well as
+* **MRMCD Talk** (09/2018)
+
+  The basic framework for Nexus 5 / BCM4339 was presented at the MRMCD Conference
+2018 in Darmstadt. The talk was also [recorded](https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware) and includes an overview of the framework as well as
 two demo usages at the end (Following a **Secure Simple Pairing procedure in
-Wireshark** and implementing a **proof of concept for CVE-2018-5383**):
+Wireshark** and implementing a **proof of concept for CVE-2018-5383**).
 
-[![MRMCD 2018: InternalBlue](https://static.media.ccc.de/media/conferences/mrmcd/mrmcd18/154-hd_preview.jpg)](https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware)
-(Video-Link: https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware)
 
-More extensions were presented at 35C3 2018 in Leipzig. New features include 
+* **35C3 Talk** (12/2018)
+
+  More extensions were [presented](https://media.ccc.de/v/35c3-9498-dissecting_broadcom_bluetooth) at 35C3 2018 in Leipzig. New features include 
 creating connections to non-discoverable devices. Moreover, we gave a **demo of
 CVE-2018-19860**, which can crash Bluetooth on several Broadcom chips. This talk
 was also recorded and gives a more high level overview.
 
-[![35C3 2018: Dissecting Broadcom Bluetooth](https://static.media.ccc.de/media/congress/2018/9498-hd_preview.jpg)](https://media.ccc.de/v/35c3-9498-dissecting_broadcom_bluetooth)
-(Video-Link: https://media.ccc.de/v/35c3-9498-dissecting_broadcom_bluetooth)
+* **TROOPERS Talk** (03/2019)
+
+* **WiSec Paper** (05/2019)
+
+  Our WiSec paper [Inside Job: Diagnosing Bluetooth Lower Layers Using Off-the-Shelf Devices](https://arxiv.org/abs/1905.00634) on reversing the
+  Broadcom Bluetooth diagnostics protocol was accepted, demonstrated and got the replicability label.
+
+* **MobiSys Paper** (06/2019)
+
+  Our MobiSys paper [InternalBlue - Bluetooth Binary Patching and Experimentation Framework
+](https://arxiv.org/abs/1905.00631) on the complete *InternalBlue* ecosystem got accepted.
+
 
 
 
 License
 -------
 
-Copyright 2018 Dennis Mantz
+Copyright 2018-2019 Dennis Mantz, Jiska Classen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
