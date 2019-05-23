@@ -27,7 +27,7 @@ android6_0_1 | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexu
 android7_1_2 | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
 android8_1_0 | android-8.1.0_r1     | yes | no          | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 5X.
 lineageos14_1_hammerhead | cm-14.1  | yes | __yes__     | Recommended for __Nexus 5__ 
-lineageos14_1_zerofltexx | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6__
+lineageos14_1_zerofltexx | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6__. Works on official Lineage OS build from January 2019, also verified on lineage-14.1-20170103-UNOFFICIAL-zerofltexx.zip
 lineageos14_1_zeroltexx  | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6 edge__
 
 If Broadcom H4 diagnostic support is included, the according diff is located 
@@ -212,3 +212,14 @@ until the Start the build section. Then do:
 Flex crashes on Ubuntu 18.04 - [workaround](https://stackoverflow.com/questions/49301627/android-7-1-2-armv7):
 
     export LC_ALL=C
+    
+    
+Empty Device List
+-----------------
+
+If `adb devices` returns something, but *InternalBlue* cannot find your device, you might try to comment out the following 
+lines in `pwnlib/adb/adb.py`:
+
+        #for field in fields[2:]:
+        #    k,v = field.split(':', 1)
+        #    kwargs[k] = v

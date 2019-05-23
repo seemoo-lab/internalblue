@@ -30,6 +30,9 @@ class ADBCore(InternalBlue):
         # Check for connected adb devices
         try:
             adb_devices = adb.devices()
+        except ValueError:
+            log.info("Could not find devices with pwnlib. If you see devices with `adb devices`, try to remove the lines 'for field in fields[2:]:... = v' in `pwnlib/adb/adb.py`.")
+            adb_devices = 0
         except:
             adb_devices = 0
         
