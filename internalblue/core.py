@@ -48,7 +48,6 @@ class InternalBlue:
 
 
         self.data_directory = data_directory
-        self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.s_inject = None    # This is the TCP socket to the HCI inject port
         self.s_snoop = None     # This is the TCP socket to the HCI snoop port
 
