@@ -283,20 +283,17 @@ class CmdMonitor(Cmd):
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
     parser.add_argument("command", 
-                        help="One of: start, status, stop, kill")
+                        help="One of: start, stop, kill")
 
     class MonitorController:
-        hciInstance = None
+        instance = None
 
         @staticmethod
         def getMonitorController(internalblue):
-            if CmdMonitor.MonitorController.hciInstance == None:
+            if CmdMonitor.MonitorController.instance == None:
                 #Encapsulation type: Bluetooth H4 with linux header (99) None:
-                CmdMonitor.MonitorController.hciInstance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0xC9)
-                CmdMonitor.MonitorController.hciInstance.startMonitor = CmdMonitor.MonitorController.hciInstance.startHciMonitor
-                CmdMonitor.MonitorController.hciInstance.stopMonitor  = CmdMonitor.MonitorController.hciInstance.stopHciMonitor
-                CmdMonitor.MonitorController.hciInstance._callback    = CmdMonitor.MonitorController.hciInstance.hciCallback
-            return CmdMonitor.MonitorController.hciInstance
+                CmdMonitor.MonitorController.instance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0xC9)
+            return CmdMonitor.MonitorController.instance
 
         class __MonitorController:
             def __init__(self, internalblue, pcap_data_link_type):
@@ -339,8 +336,10 @@ class CmdMonitor(Cmd):
                     log.warn("Wireshark not found!")
                     return False
                 if (self.internalblue.__class__.__name__ == "BluezCore"):
+                    wireshark_interface = self.internalblue.interface.replace("hci", "bluetooth")
+                    log.info("Starting Wireshark on interface %s" % wireshark_interface)
                     self.wireshark_process = subprocess.Popen(
-                        [wireshark_binary, "-k", "-i", "bluetooth0"],  #TODO fill in device #
+                        [wireshark_binary, "-k", "-i", wireshark_interface],
                         stderr=DEVNULL)
                 else:
                     self.wireshark_process = subprocess.Popen(
@@ -365,16 +364,15 @@ class CmdMonitor(Cmd):
                         self.poll_timer.start()
 
             
-            def startHciMonitor(self):
+            def startMonitor(self):
                 if self.running:
                     log.warn("HCI Monitor already running!")
                     return False
 
-                
                 if self.wireshark_process == None:
                     if self._spawnWireshark():
                         self.running = True
-                        self.internalblue.registerHciCallback(self._callback)
+                        self.internalblue.registerHciCallback(self.hciCallback)
                         log.info("HCI Monitor started.")
                         return True
                     else:
@@ -382,11 +380,11 @@ class CmdMonitor(Cmd):
                         return False
                 return True
 
-            def stopHciMonitor(self):
+            def stopMonitor(self):
                 if not self.running:
                     log.warn("HCI Monitor is not running!")
                     return False
-                self.internalblue.unregisterHciCallback(self._callback)
+                self.internalblue.unregisterHciCallback(self.hciCallback)
                 self.running = False
                 log.info("HCI Monitor stopped.")
                 return True
@@ -405,9 +403,6 @@ class CmdMonitor(Cmd):
                     except OSError:
                         log.warn("Error during wireshark process termination")
                     self.wireshark_process = None
-                    
-            def getStatus(self):
-                return self.running
 
             def hciCallback(self, record):
                 #FIXME not available in bluez, move to core 
