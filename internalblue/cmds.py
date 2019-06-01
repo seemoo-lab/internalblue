@@ -232,6 +232,21 @@ class CmdExit(Cmd):
         return True
 
 
+class CmdIPython(Cmd):
+    keywords = ['ipython']
+    description = "Drop into an IPython shell (for debugging internalblue)"
+
+    def work(self):
+        print("\n\tDropping into IPython shell!\n\tUse 'self.internalblue' to access the framework.")
+        print("\tUse 'quit' or 'exit' to return to the InternalBlue CLI.\n")
+        try:
+            from IPython import embed
+            embed()
+        except Exception as e:
+            log.warn("Error when dropping into IPython shell: " + str(e))
+        return True
+
+
 class CmdLogLevel(Cmd):
     keywords = ['log_level', 'loglevel', 'verbosity']
     description = "Change the verbosity of log messages."
