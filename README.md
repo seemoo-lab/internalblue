@@ -24,13 +24,14 @@ precompiled stacks for some devices. InternalBlue does not work without the
 debug Bluetooth stack.
 
 The InternalBlue framework is written in Python 2. You can install it together
-with all dependencies by using the setup.py script:
+with all dependencies by using pip:
 
-    python2 setup.py install
+    git clone https://github.com/seemoo-lab/internalblue.git
+    cd internalblue
+    pip2 install .
 
 It will install the following dependencies:
 * pwntools
-* pyelftools
 
 The pwntools module needs the binutils package for ARM 32-bit to be installed
 on the system. This has to be installed manually by using the packet manager
@@ -41,11 +42,11 @@ of your Linux distribution:
 
     # for Ubuntu
     sudo apt install binutils-arm-linux-gnueabi
-    
+
 Dependencies on a plain Ubuntu 18.04:
 
     sudo apt install git python-setuptools binutils-arm-linux-gnueabi adb
-    
+
 
 Usage
 -----

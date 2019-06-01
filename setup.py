@@ -12,7 +12,6 @@ setup(name='internalblue',
       packages=['internalblue', 'internalblue/fw'],
       install_requires=[
           'pwntools',
-          'pyelftools==0.24',
       ],
       entry_points = {
         'console_scripts': ['internalblue=internalblue.cli:internalblue_cli']
