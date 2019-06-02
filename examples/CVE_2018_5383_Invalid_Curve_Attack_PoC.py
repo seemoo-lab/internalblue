@@ -8,7 +8,11 @@ from internalblue.adbcore import ADBCore
 #internalblue = core.InternalBlue()
 
 internalblue = ADBCore()
-internalblue.interface = internalblue.device_list()[0][1] # just use the first device
+device_list = internalblue.device_list()
+if len(device_list) == 0:
+    log.warn("No ADB devices connected!")
+    exit(-1)
+internalblue.interface = device_list[0][1] # just use the first device
 
 
 PK_RECV_HOOK_ADDRESS = 0x2FED8
@@ -64,6 +68,11 @@ generate:
 # setup sockets
 if not internalblue.connect():
     log.critical("No connection to target device.")
+    exit(-1)
+
+if internalblue.fw.FW_NAME != "BCM4335C0":
+    log.info("This PoC was written for the BCM4345C0 chip (e.g. Nexus 5)")
+    log.info("It does not work on other firmwares (wrong offsets).")
     exit(-1)
 
 # Install hooks
