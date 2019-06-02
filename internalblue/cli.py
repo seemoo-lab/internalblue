@@ -31,9 +31,10 @@
 from pwn import *
 import os
 import traceback
+import argparse
 
 from adbcore import ADBCore
-from bluezcore import BluezCore
+from hcicore import HCICore
 
 import cmds
 
@@ -89,9 +90,23 @@ def commandLoop(internalblue):
 # Main Program Start
 def internalblue_cli():
     print_banner()
-    data_directory = os.path.expanduser("~") + "/.internalblue"
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-directory", "-d", help="Set data directory. Default: ~/.internalblue")
+    parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
+    args = parser.parse_args()
+
+    if args.data_directory != None:
+        data_directory = args.data_directory
+    else:
+        data_directory = os.path.expanduser("~") + "/.internalblue"
     if not os.path.exists(data_directory):
         os.mkdir(data_directory)
+
+    if args.verbose:
+        log_level = "debug"
+    else:
+        log_level = "info"
 
     # Readline Completions
     cmd_keywords = []
@@ -102,7 +117,9 @@ def internalblue_cli():
     term.readline.set_completer(readline_completer)
 
     # Initalize cores and get devices
-    connection_methods = [ADBCore(data_directory=data_directory), BluezCore(data_directory=data_directory)]
+    connection_methods = [
+            ADBCore(log_level=log_level, data_directory=data_directory),
+            HCICore(log_level=log_level, data_directory=data_directory)]
 
     devices = []
     for connection_method in connection_methods:

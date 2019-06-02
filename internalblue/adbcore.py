@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+import datetime
 import socket
 import Queue
 import random
@@ -13,7 +14,7 @@ from core import InternalBlue
 class ADBCore(InternalBlue):
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        super(ADBCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
+        super(ADBCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
         self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
 
     def device_list(self):
@@ -71,34 +72,6 @@ class ADBCore(InternalBlue):
 
         return True
 
-    def sendH4(self, h4type, data, timeout=2):
-        """
-        Send an arbitrary HCI packet by pushing a send-task into the
-        sendQueue. This function blocks until the response is received
-        or the timeout expires. The return value is the Payload of the
-        HCI Command Complete Event which was received in response to
-        the command or None if no response was received within the timeout.
-        """
-        #TODO: If the response is a HCI Command Status Event, we will actually
-        #      return this instead of the Command Complete Event (which will
-        #      follow later and will be ignored). This should be fixed..
-
-        queue = Queue.Queue(1)
-
-        # prepend with total length for H4 over adb 
-        data = p16(len(data)) + data
-
-        try:
-            self.sendQueue.put((h4type, data, queue), timeout=timeout)
-            ret = queue.get(timeout=timeout)
-            return ret
-        except Queue.Empty:
-            log.warn("sendH4: waiting for response timed out!")
-            return None
-        except Queue.Full:
-            log.warn("sendH4: send queue is full!")
-            return None
-
     def _read_btsnoop_hdr(self):
         """
         Read the btsnoop header (see RFC 1761) from the snoop socket (s_snoop).
@@ -107,13 +80,28 @@ class ADBCore(InternalBlue):
         data = self.s_snoop.recv(16)
         if(len(data) < 16):
             return None
-        if(self.write_btsnooplog):
+        if(self.write_btsnooplog) and self.btsnooplog_file.tell() == 0:
             self.btsnooplog_file.write(data)
             self.btsnooplog_file.flush()
 
         btsnoop_hdr = (data[:8], u32(data[8:12],endian="big"),u32(data[12:16],endian="big"))
         log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
         return btsnoop_hdr
+
+    def _btsnoop_parse_time(self, time):
+        """
+        Taken from: https://github.com/joekickass/python-btsnoop
+
+        Record time is a 64-bit signed integer representing the time of packet arrival,
+        in microseconds since midnight, January 1st, 0 AD nominal Gregorian.
+
+        In order to avoid leap-day ambiguity in calculations, note that an equivalent
+        epoch may be used of midnight, January 1st 2000 AD, which is represented in
+        this field as 0x00E03AB44A676000.
+        """
+        time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
+        time_since_2000_epoch = datetime.timedelta(microseconds=time) - datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
+        return datetime.datetime(2000, 1, 1) + time_since_2000_epoch
 
     def _recvThreadFunc(self):
         """
@@ -181,7 +169,7 @@ class ADBCore(InternalBlue):
                 self.btsnooplog_file.flush()
 
             try:
-                parsed_time = self._parse_time(time64)
+                parsed_time = self._btsnoop_parse_time(time64)
             except OverflowError:
                 parsed_time = None
 

@@ -335,7 +335,7 @@ class CmdMonitor(Cmd):
                 else:
                     log.warn("Wireshark not found!")
                     return False
-                if (self.internalblue.__class__.__name__ == "BluezCore"):
+                if (self.internalblue.__class__.__name__ == "HCICore"):
                     wireshark_interface = self.internalblue.interface.replace("hci", "bluetooth")
                     log.info("Starting Wireshark on interface %s" % wireshark_interface)
                     self.wireshark_process = subprocess.Popen(
@@ -370,21 +370,26 @@ class CmdMonitor(Cmd):
                     return False
 
                 if self.wireshark_process == None:
-                    if self._spawnWireshark():
-                        self.running = True
-                        self.internalblue.registerHciCallback(self.hciCallback)
-                        log.info("HCI Monitor started.")
-                        return True
-                    else:
+                    if not self._spawnWireshark():
                         log.info("Unable to start HCI Monitor.")
                         return False
+
+                self.running = True
+
+                # If we are running on adbcore, we need to forward all HCI packets
+                # to wireshark (-> use an hci callback):
+                if (self.internalblue.__class__.__name__ == "ADBCore"):
+                    self.internalblue.registerHciCallback(self.adbhciCallback)
+
+                log.info("HCI Monitor started.")
                 return True
 
             def stopMonitor(self):
                 if not self.running:
                     log.warn("HCI Monitor is not running!")
                     return False
-                self.internalblue.unregisterHciCallback(self.hciCallback)
+                if (self.internalblue.__class__.__name__ == "ADBCore"):
+                    self.internalblue.unregisterHciCallback(self.adbhciCallback)
                 self.running = False
                 log.info("HCI Monitor stopped.")
                 return True
@@ -404,11 +409,7 @@ class CmdMonitor(Cmd):
                         log.warn("Error during wireshark process termination")
                     self.wireshark_process = None
 
-            def hciCallback(self, record):
-                #FIXME not available in bluez, move to core 
-                if (self.internalblue.__class__.__name__ == "BluezCore"):
-                    return False
-                
+            def adbhciCallback(self, record):
                 hcipkt, orig_len, inc_len, flags, drops, recvtime = record
 
                 dummy = "\x00\x00\x00"      # TODO: Figure out purpose of these fields

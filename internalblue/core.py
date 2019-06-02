@@ -29,8 +29,8 @@ from abc import ABCMeta, abstractmethod
 
 from pwn import *
 from fw.fw import Firmware
-import time
 import datetime
+import time
 import Queue
 import hci
 
@@ -59,18 +59,25 @@ class InternalBlue:
             self.write_btsnooplog = False
 
         # The sendQueue connects the core framework to the sendThread. With the
-        # function sendHciCommand, the core framework (or a CLI command / user script)
-        # can put a HCI Command into this queue. The queue entry should be a tuple:
-        # (opcode, data, response_queue)
-        #   - opcode: The HCI opcode (16 bit integer)
-        #   - data:   The HCI payload (byte string)
-        #   - response_queue: queue that is used for delivering the HCI response
-        #                     back to the entity that put the HCI command into the
-        #                     sendQueue.
+        # function sendH4 or sendHciCommand, the core framework (or a CLI command / user script)
+        # can put an H4 packet or HCI Command into this queue. The queue entry should be a tuple:
+        # (h4type, data, response_queue, response_hci_filter_function)
+        #   - h4type: The H4 packet type (e.g. 1 for HCI Command or 7 for Broadcom Diagnostic)
+        #   - data:   The H4 payload (byte string)
+        #   - response_queue: queue that is used for delivering the H4 response
+        #                     back to the entity that put the H4 command into the
+        #                     sendQueue. May be None if no response is expected/needed.
+        #                     If a response_queue is specified, it is also necessary to
+        #                     specify a response_hci_filter_function.
+        #   - response_hci_filter_function: An hci callback function (see registerHciCallback())
+        #                     that is used to test whether incomming H4 packets are the
+        #                     response to the packet that was sent. May be None if response_queue
+        #                     is also None.
         # The sendThread polls the queue, gets the above mentioned tuple, sends the
-        # HCI command to the firmware and then waits for the response from the
-        # firmware. Once the response arrived, it puts the response into the
-        # response_queue from the tuple. See sendHciCommand().
+        # H4 command to the firmware and then waits for the response from the
+        # firmware (the response is recognized with the help of the filter function).
+        # Once the response arrived, it puts the response into the response_queue from
+        # the tuple. See sendH4() and sendHciCommand().
         self.sendQueue = Queue.Queue(queue_size)
 
         self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
@@ -199,68 +206,65 @@ class InternalBlue:
             except Queue.Empty:
                 continue
 
-            # Extract the components of the task and build the H4 command
-            h4type, data, queue = task
-            #payload = p16(opcode) + p8(len(data)) + data
+            # Extract the components of the task
+            h4type, data, queue, filter_function = task
+
+            # Special handling of ADBCore and HCICore
+            # ADBCore: adb transport requires to prepend the H4 data with its length
+            # HCICore: need to manually save the data to btsnoop log as it is not
+            #          reflected to us as with adb
+            if   self.__class__.__name__ == "ADBCore":
+                # prepend with total length for H4 over adb
+                data = p16(len(data)) + data
+            elif self.__class__.__name__ == "HCICore":
+                if self.write_btsnooplog:
+                    # btsnoop record header data:
+                    btsnoop_data     = p8(h4type) + data
+                    btsnoop_orig_len = len(btsnoop_data)
+                    btsnoop_inc_len  = len(btsnoop_data)
+                    btsnoop_flags    = 0
+                    btsnoop_drops    = 0
+                    btsnoop_time     = datetime.datetime.now()
+                    btsnoop_record_hdr = struct.pack(">IIIIq", btsnoop_orig_len, btsnoop_inc_len, btsnoop_flags,
+                                                        btsnoop_drops, self._btsnoop_pack_time(btsnoop_time))
+                    with self.btsnooplog_file_lock:
+                        self.btsnooplog_file.write(btsnoop_record_hdr)
+                        self.btsnooplog_file.write(btsnoop_data)
+                        self.btsnooplog_file.flush()
 
             # Prepend UART TYPE and length.
-            # On Android, sending also works via:
-            #    echo -ne '\x07\xf0\x01' >/dev/ttyHS99
             out = p8(h4type) + data
 
-            # register queue to receive the response
-            recvQueue = Queue.Queue(1)
-            def recvFilterFunction(record):
-                hcipkt = record[0]
-                
-                log.debug("_sendThreadFunc.recvFilterFunction: got response")
-                log.debug(hcipkt) #todo compare hci packet content on adb/bluez
-                
-                # Accept diagnostic
-                if isinstance(hcipkt, hci.HCI_Diag):
-                    log.debug("_sendThreadFunc.recvFilterFunction: Diagnostic")
-                    return True
-
-                # Interpret HCI event
-                if isinstance(hcipkt, hci.HCI_Event):
-                    log.debug("_sendThreadFunc.recvFilterFunction: Event")
-                    
-                    opcode = out[3:5]
-                    if hcipkt.event_code == 0x0e:   # Cmd Complete event
-                        if hcipkt.data[1:3] == opcode:
-                            return True
-
-                    if hcipkt.event_code == 0x0f:   # Cmd Status event
-                        if hcipkt.data[2:4] == opcode:
-                            return True
-                
-                return False
-
-            self.registerHciRecvQueue(recvQueue, recvFilterFunction)
+            # if the caller expects a response: register a queue to receive the response
+            if queue != None and filter_function != None:
+                recvQueue = Queue.Queue(1)
+                self.registerHciRecvQueue(recvQueue, filter_function)
 
             # Send command to the chip using s_inject socket
             try:
                 log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
                 self.s_inject.send(out)
             except:
-                log.warn("_sendThreadFunc: Sending to socket failed, reestablishing connection.\nWith bluez stack, some HCI commands require root!")
-                # socket are terminated by bluez..
+                log.warn("_sendThreadFunc: Sending to socket failed, reestablishing connection.\nWith HCI sockets, some HCI commands require root!")
+                # socket are terminated by hcicore..
                 self._teardownSockets()
                 self._setupSockets()
 
+            # if the caller expects a response:
             # Wait for the HCI event response by polling the recvQueue
-            try:
-                record = recvQueue.get(timeout=2)
-                hcipkt = record[0]
-                data   = hcipkt.data
-            except Queue.Empty:
-                log.warn("_sendThreadFunc: No response from the firmware.")
-                data = None
-                self.unregisterHciRecvQueue(recvQueue)
-                continue
+            if queue != None and filter_function != None:
+                try:
+                    record = recvQueue.get(timeout=2)
+                    hcipkt = record[0]
+                    data   = hcipkt.data
+                except Queue.Empty:
+                    log.warn("_sendThreadFunc: No response from the firmware.")
+                    data = None
+                    self.unregisterHciRecvQueue(recvQueue)
+                    continue
 
-            queue.put(data)
-            self.unregisterHciRecvQueue(recvQueue)
+                queue.put(data)
+                self.unregisterHciRecvQueue(recvQueue)
 
         log.debug("Send Thread terminated.")
 
@@ -489,7 +493,9 @@ class InternalBlue:
         # register hci callback:
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
         
-        self.initialize_fimware()
+        if not self.initialize_fimware():
+            log.warn("connect: Failed to initialize firmware!")
+            return False
 
         self.running = True
 
@@ -512,7 +518,7 @@ class InternalBlue:
             log.warn("""initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
             adb: Check if you installed a custom bluetooth.default.so properly on your
               Android device. bluetooth.default.so must contain the string 'hci_inject'.
-            bluez: You might have insufficient permissions to send this type of command.""")
+            hci: You might have insufficient permissions to send this type of command.""")
             return False
 
         # Broadcom uses 0x000f as vendor ID, Cypress 0x0131
@@ -627,21 +633,67 @@ class InternalBlue:
 
     def sendHciCommand(self, opcode, data, timeout=2):
         """
-        Puts HCI command as H4 UART message into the sendQueue.
+        Send an arbitrary HCI command packet by pushing a send-task into the
+        sendQueue. This function blocks until the response is received
+        or the timeout expires. The return value is the Payload of the
+        HCI Command Complete Event which was received in response to
+        the command or None if no response was received within the timeout.
         """
-        
+        #TODO: If the response is a HCI Command Status Event, we will actually
+        #      return this instead of the Command Complete Event (which will
+        #      follow later and will be ignored). This should be fixed..
+
+        queue = Queue.Queue(1)
+
         # standard HCI command structure
         payload = p16(opcode) + p8(len(data)) + data
 
-        return self.sendH4(hci.HCI.HCI_CMD, payload, timeout)
+        # define a filter function which recognizes the response (command complete
+        # or command status event).
+        def recvFilterFunction(record):
+            hcipkt = record[0]
 
-    @abstractmethod
+            log.debug("sendHciCommand.recvFilterFunction: got response")
+
+            # Interpret HCI event
+            if isinstance(hcipkt, hci.HCI_Event):
+                if hcipkt.event_code == 0x0e:   # Cmd Complete event
+                    if u16(hcipkt.data[1:3]) == opcode:
+                        return True
+
+                if hcipkt.event_code == 0x0f:   # Cmd Status event
+                    if u16(hcipkt.data[2:4]) == opcode:
+                        return True
+
+            return False
+
+        try:
+            self.sendQueue.put((hci.HCI.HCI_CMD, payload, queue, recvFilterFunction),
+                               timeout=timeout)
+            ret = queue.get(timeout=timeout)
+            return ret
+        except Queue.Empty:
+            log.warn("sendHciCommand: waiting for response timed out!")
+            return None
+        except Queue.Full:
+            log.warn("sendHciCommand: send queue is full!")
+            return None
+
     def sendH4(self, h4type, data, timeout=2):
         """
-        One layer above HCI, if supported by the implementation prepending data
-        with 0x04 will make a HCI command etc. - see data types in hci.HCI
+        Send an arbitrary H4 packet by pushing a send-task into the
+        sendQueue. This function does not wait for a response! If you
+        need to receive a response, register an hciRecvQueue or -callback.
+        The return value is True if the send-task could be put inside the
+        queue and False if it was not possible within the timeout.
         """
-        pass
+
+        try:
+            self.sendQueue.put((h4type, data, None, None), timeout=timeout)
+            return True
+        except Queue.Full:
+            log.warn("sendH4: send queue is full!")
+            return False
 
     def recvPacket(self, timeout=None):
         """

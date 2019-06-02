@@ -1,11 +1,13 @@
 #!/usr/bin/env python2
 
 import subprocess
+import datetime
 from pwn import *
 import fcntl
 from core import InternalBlue
 import hci
 import Queue
+import threading
 
 # from /usr/include/bluetooth/hci.h:
 #define HCIDEVUP	_IOW('H', 201, int)
@@ -23,10 +25,11 @@ HCIGETDEVLIST = _IOR(ord('H'), 210, 4)
 HCIGETDEVINFO = _IOR(ord('H'), 211, 4)
 
 
-class BluezCore(InternalBlue):
+class HCICore(InternalBlue):
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        super(BluezCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
+        super(HCICore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
+        self.btsnooplog_file_lock = threading.Lock()
 
     def getHciDeviceList(self):
         """
@@ -130,10 +133,28 @@ class BluezCore(InternalBlue):
             return False
         
         if not self._setupSockets():
-            log.critical("bluez socket could not be established!")
+            log.critical("HCI socket could not be established!")
             return False
 
         return True
+
+    def _btsnoop_pack_time(self, time):
+        """
+        Takes datetime object and returns microseconds since 2000-01-01.
+
+        see https://github.com/joekickass/python-btsnoop
+
+        Record time is a 64-bit signed integer representing the time of packet arrival,
+        in microseconds since midnight, January 1st, 0 AD nominal Gregorian.
+
+        In order to avoid leap-day ambiguity in calculations, note that an equivalent
+        epoch may be used of midnight, January 1st 2000 AD, which is represented in
+        this field as 0x00E03AB44A676000.
+        """
+        time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
+        time_since_2000_epoch = time - datetime.datetime(2000,1,1)
+        packed_time = time_since_2000_epoch + datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
+        return int(packed_time.total_seconds() * 1000 * 1000)
 
     def _recvThreadFunc(self):
         """
@@ -146,9 +167,6 @@ class BluezCore(InternalBlue):
         """
 
         log.debug("Receive Thread started.")
-        
-        if (self.write_btsnooplog):
-            log.warn("Writing btsnooplog is not supported with bluez.")
 
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
@@ -160,19 +178,37 @@ class BluezCore(InternalBlue):
             except socket.timeout:
                 continue # this is ok. just try again without error
 
+            # btsnoop record header data:
+            btsnoop_orig_len = len(record_data)
+            btsnoop_inc_len  = len(record_data)
+            btsnoop_flags    = 0
+            btsnoop_drops    = 0
+            btsnoop_time     = datetime.datetime.now()
 
             # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-            record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
+            record = (hci.parse_hci_packet(record_data), btsnoop_orig_len, btsnoop_inc_len,
+                      btsnoop_flags, btsnoop_drops, btsnoop_time)
 
-            log.debug("Recv: " + str(record[0]))
+            log.debug("_recvThreadFunc Recv: [" + str(btsnoop_time) + "] " + str(record[0]))
+
+            # Write to btsnoop file:
+            if self.write_btsnooplog:
+                btsnoop_record_hdr = struct.pack(">IIIIq", btsnoop_orig_len, btsnoop_inc_len, btsnoop_flags,
+                                                    btsnoop_drops, self._btsnoop_pack_time(btsnoop_time))
+                with self.btsnooplog_file_lock:
+                    self.btsnooplog_file.write(btsnoop_record_hdr)
+                    self.btsnooplog_file.write(record_data)
+                    self.btsnooplog_file.flush()
 
             # Put the record into all queues of registeredHciRecvQueues if their
             # filter function matches.
-            for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
-                try:
-                    queue.put(record, block=False)
-                except Queue.Full:
-                    log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
+            for queue, filter_function in self.registeredHciRecvQueues:
+                if filter_function == None or filter_function(record):
+                    print("insert record into queue!")
+                    try:
+                        queue.put(record, block=False)
+                    except Queue.Full:
+                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
             # Call all callback functions inside registeredHciCallbacks and pass the
             # record as argument.
@@ -223,21 +259,24 @@ class BluezCore(InternalBlue):
         # TODO still seems to only forward incoming events?!
         self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_FILTER,
  '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00') #type mask, event mask, event mask, opcode
-        
-        interface_num = int(self.interface.replace('hci', ''))
+
+        interface_num = device["dev_id"]
         log.debug("Socket interface number: %s" % (interface_num))
         self.s_snoop.bind((interface_num,))
         self.s_snoop.settimeout(2)
-        
-        # same socket for input and output (bluez is different from adb here!)
-        self.s_inject = self.s_snoop
-        
-        
         log.debug("_setupSockets: Bound socket.")
-        
-        #while True:
-        #    log.debug(self.s_snoop.recv(1024).encode('hex'))
-            
+
+        # same socket for input and output (this is different from adb here!)
+        self.s_inject = self.s_snoop
+
+        # Write Header to btsnoop file (if file is still empty):
+        if self.write_btsnooplog and self.btsnooplog_file.tell() == 0:
+            # BT Snoop Header: btsnoop\x00, version: 1, data link type: 1002
+            btsnoop_hdr = "btsnoop\x00" + p32(1,endian="big") + p32(1002,endian="big")
+            with self.btsnooplog_file_lock:
+                self.btsnooplog_file.write(btsnoop_hdr)
+                self.btsnooplog_file.flush()
+
         return True
 
     def _teardownSockets(self):
@@ -248,35 +287,6 @@ class BluezCore(InternalBlue):
         if (self.s_inject != None):
             self.s_inject.close()
             self.s_inject = None
+            self.s_snoop  = None
 
         return True
-
-    def sendH4(self, h4type, data, timeout=2):
-        """
-        Send an arbitrary HCI packet by pushing a send-task into the
-        sendQueue. This function blocks until the response is received
-        or the timeout expires. The return value is the Payload of the
-        HCI Command Complete Event which was received in response to
-        the command or None if no response was received within the timeout.
-        """
-        #TODO: If the response is a HCI Command Status Event, we will actually
-        #      return this instead of the Command Complete Event (which will
-        #      follow later and will be ignored). This should be fixed..
-
-        queue = Queue.Queue(1)
-
-        # bluez does not require a data length here
-        #data = p16(len(data)) + data #TODO
-
-        try:
-            self.sendQueue.put((h4type, data, queue), timeout=timeout)
-            ret = queue.get(timeout=timeout)
-            return ret
-        except Queue.Empty:
-            log.warn("sendH4: waiting for response timed out!")
-            return None
-        except Queue.Full:
-            # seems to happen quite often on a busy stack, but most of the time
-            # messages get through
-            log.info("sendH4: send queue is full!")
-            return None
