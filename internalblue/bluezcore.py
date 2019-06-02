@@ -1,55 +1,123 @@
 #!/usr/bin/env python2
 
-#from multiprocessing import Process, Queue
 import subprocess
-
-#from Queue import Empty as QueueEmpty
-import re
-from time import sleep
-
 from pwn import *
-
+import fcntl
 from core import InternalBlue
-#from hci import HCI_Cmd, HCI_Event
 import hci
 import Queue
 
+# from /usr/include/bluetooth/hci.h:
+#define HCIDEVUP	_IOW('H', 201, int)
+#define HCIGETDEVLIST	_IOR('H', 210, int)
+#define HCIGETDEVINFO	_IOR('H', 211, int)
 
+# ioctl numbers. see http://code.activestate.com/recipes/578225-linux-ioctl-numbers-in-python/
+def _IOR(type, nr, size):
+    return 2 << 30 | type << 8 | nr << 0 | size << 16
+def _IOW(type, nr, size):
+    return 1 << 30 | type << 8 | nr << 0 | size << 16
+
+HCIDEVUP      = _IOW(ord('H'), 201, 4)
+HCIGETDEVLIST = _IOR(ord('H'), 210, 4)
+HCIGETDEVINFO = _IOR(ord('H'), 211, 4)
 
 
 class BluezCore(InternalBlue):
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(BluezCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
-        
-        # TODO move to a config file or solve with ioctl / HCIGETDEVLIST / 210
-        self.hcitoollist = 'hcitool dev' # does not require root, so we ask for sudo later
+
+    def getHciDeviceList(self):
+        """
+        Get a list of available HCI devices. The list is obtained by executing
+        ioctl syscalls HCIGETDEVLIST and HCIGETDEVINFO. The returned list 
+        contains dictionaries with the following fields:
+            dev_id          : Internal ID of the device (e.g. 0)
+            dev_name        : Name of the device (e.g. "hci0")
+            dev_bdaddr      : MAC address (e.g. "00:11:22:33:44:55")
+            dev_flags       : Device flags as decimal number
+            dev_flags_str   : Device flags as String (e.g. "UP RUNNING" or "DOWN")
+        """
+
+        # Open bluetooth socket to execute ioctl's:
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+
+        # Do ioctl(s,HCIGETDEVLIST,arg) to get the number of available devices:
+        # arg is struct hci_dev_list_req (/usr/include/bluetooth/hci.h)
+        arg =  p32(16) # dl->dev_num = HCI_MAX_DEV which is 16 (little endian)
+        arg += "\x00"*(8*16)
+        devices_raw = fcntl.ioctl(s.fileno(), HCIGETDEVLIST, arg)
+        num_devices = u16(devices_raw[:2])
+        log.debug("Found %d HCI devices via ioctl(HCIGETDEVLIST)!" % num_devices)
+
+        device_list = []
+        for dev_nr in range(num_devices):
+            dev_struct_start = 4 + 8*dev_nr
+            dev_id = u16(devices_raw[dev_struct_start:dev_struct_start+2])
+            # arg is struct hci_dev_info (/usr/include/bluetooth/hci.h)
+            arg =  p16(dev_id) # di->dev_id = <device_id>
+            arg += "\x00"*20   # Enough space for name, bdaddr and flags
+            dev_info_raw = fcntl.ioctl(s.fileno(), HCIGETDEVINFO, arg)
+            dev_name   = dev_info_raw[2:10].replace("\x00","")
+            dev_bdaddr = ":".join(["%02X" % ord(x) for x in dev_info_raw[10:16][::-1]])
+            dev_flags  = u32(dev_info_raw[16:20])
+            if dev_flags == 0:
+                dev_flags_str = "DOWN"
+            else:
+                dev_flags_str = " ".join([name for flag,name in zip(
+                                bin(dev_flags)[2:][::-1],
+                                ["UP", "INIT", "RUNNING", "PSCAN", "ISCAN", "AUTH",
+                                 "ENCRYPT" , "INQUIRY" , "RAW" , "RESET"]) if flag=="1"])
+
+            device_list.append({"dev_id":        dev_id,
+                                "dev_name":      dev_name,
+                                "dev_bdaddr":    dev_bdaddr,
+                                "dev_flags":     dev_flags,
+                                "dev_flags_str": dev_flags_str})
+        s.close()
+        return device_list
+
+    def bringHciDeviceUp(self, dev_id):
+        """
+        Uses HCIDEVUP ioctl to bring HCI device with id dev_id up.
+        Requires root priviledges (CAP_NET_ADMIN).
+        """
+
+        if dev_id < 0 or dev_id > 16:
+            log.warn("bringHciDeviceUp: Invalid device id: %d." % dev_id)
+            return False
+
+        # Open bluetooth socket to execute ioctl's:
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+
+        # Do ioctl(s, HCIDEVUP, dev_id) to bring device up:
+        try:
+            fcntl.ioctl(s.fileno(), HCIDEVUP, dev_id)
+            s.close()
+            log.info("Device with id=%d was set up successfully!" % dev_id)
+            return True
+        except IOError as e:
+            s.close()
+            log.warn("Error returned by ioctl: %s" % str(e))
+            return False
+
 
     def device_list(self):
         """
-        Return a list of connected hci devices
+        Return a list of connected hci devices.
         """
 
-        try:
-            response = subprocess.check_output(self.hcitoollist.split()).split()
-        except OSError as e:
-            log.warn("BluezCore.device_list: Failed to get device list (hcitool error: %s)" % str(e))
-            return []
-
         device_list = []
-        # checks if a hci device is connected
-        if len(response) > 1 and len(response) % 2 == 1:
-            response = response[1:]
-            for interface, address in zip(response[0::2], response[1::2]):
-                device_list.append([self, interface, 'hci: %s (%s)' % (address, interface)])
+        for dev in self.getHciDeviceList():
+            log.info("HCI device: %s  [%s]  flags=%d<%s>" %
+                    (dev["dev_name"], dev["dev_bdaddr"],
+                     dev["dev_flags"], dev["dev_flags_str"]))
+            device_list.append([self, dev["dev_name"], 'hci: %s (%s) <%s>' %
+                    (dev["dev_bdaddr"], dev["dev_name"], dev["dev_flags_str"])])
 
         if len(device_list) == 0:
             log.info('No connected HCI device found')
-            return []
-        elif len(device_list) == 1:
-            log.info('Found one HCI device, %s' % device_list[0][2])
-        else:
-            log.info('Found multiple HCI devices')
 
         return device_list
 
@@ -121,14 +189,23 @@ class BluezCore(InternalBlue):
 
     def _setupSockets(self):
         """
-        bluez already allows to open sockets to Bluetooth devices on Linux,
+        Linux already allows to open HCI sockets to Bluetooth devices,
         they include H4 information, we simply use it.
         """
 
-        # In order to support multiple parallel instances of InternalBlue
-        # (with multiple attached devices) we must not hard code the
-        # forwarded port numbers. Therefore we choose the port numbers
-        # randomly and hope that they are not already in use.
+        # Check if hci device is in state "UP". If not, set it to "UP" (requires root)
+        device = [dev for dev in self.getHciDeviceList() if dev["dev_name"] == self.interface]
+        if len(device) == 0:
+            log.warn("Device not found: " + self.interface)
+            return False
+        device = device[0]
+
+        if device["dev_flags"] == 0:
+            log.warn("Device %s is DOWN!" % self.interface)
+            log.info("Trying to set %s to state 'UP' (requires root)" % self.interface)
+            if not self.bringHciDeviceUp(device["dev_id"]):
+                log.warn("Failed to bring up %s." % self.interface)
+                return False
 
         # TODO unload btusb module and check error messages here to give the user some output if sth fails
 
