@@ -42,10 +42,24 @@ of your Linux distribution:
 
     # for Ubuntu
     sudo apt install binutils-arm-linux-gnueabi
+    
+All steps on a plain Ubuntu 18.04:
 
-Dependencies on a plain Ubuntu 18.04:
+    sudo apt install git python-setuptools binutils-arm-linux-gnueabi adb pip python-dev gcc
+    git clone https://github.com/seemoo-lab/internalblue
+    cd internalblue
+    sudo pip2 install .
+    cd ..
+    
+    sudo apt-get install wireshark-dev wireshark cmake
+    git clone https://github.com/seemoo-lab/h4bcm_wireshark_dissector
+    cd h4bcm_wireshark_dissector
+    mkdir build
+    cd build
+    cmake ..
+    make
+    make install
 
-    sudo apt install git python-setuptools binutils-arm-linux-gnueabi adb
 
 
 Usage
