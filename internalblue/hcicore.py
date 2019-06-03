@@ -204,7 +204,6 @@ class HCICore(InternalBlue):
             # filter function matches.
             for queue, filter_function in self.registeredHciRecvQueues:
                 if filter_function == None or filter_function(record):
-                    print("insert record into queue!")
                     try:
                         queue.put(record, block=False)
                     except Queue.Full:

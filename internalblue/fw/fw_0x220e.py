@@ -2,7 +2,8 @@
 #
 # fw_0x220e.py
 #
-# Generic firmware file in case we do not know something...
+# Firmware file for BCM20702A1 chipsets. These chipsets are typically used for
+# Bluetooth USB dongles.
 #
 # Copyright (c) 2019 Jan Ruge and Jiska Classen. (MIT License)
 #
@@ -25,7 +26,7 @@
 from fw import MemorySection
 
 # Firmware Infos
-FW_NAME = "BCM20702A1 (Asus USB Bluetooth dongle)"
+FW_NAME = "BCM20702A1 (USB Bluetooth dongle)"
 
 # Device Infos
 #DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended
