@@ -31,7 +31,7 @@ DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longe
 BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
 
 #Heap
-BLOC_HEAD = 0x200474
+BLOC_HEAD = 0x200474                    # g_dynamic_memory_GeneralUsePools
 BLOC_NG = True                          # Next Generation Bloc Buffer
 
 # Memory Sections
