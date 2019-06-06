@@ -42,6 +42,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
 0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
+0x0131 |    0x09 |     0x4208 | CYW20819A1  | ULP BLE/BR/EDR Bluetooth 5 Wireless MCU Evaluation Kit CYW920819EVB-02 | May 22 2018
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
 0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+ 
@@ -70,6 +71,18 @@ There is a couple of issues causing trouble running *InternalBlue*, which are re
 * CYW20735B1
   * `Launch_RAM` works in principle, but threading seems to be broken if the executed code generates other HCI events.
   A hook at `0xB0316` is a nice spot to implement a function that generates HCI events and can be called via the HCI command `0xfc19`.
+  
+Firmware Version and Build Date
+-------------------------------
+
+Broadcom internally uses different firmware versions than chip names. For example, the *BCM4339* chip in the *Nexus 5* 
+is internally called *BCM4335C0*. It is known to be a revision of the older *BCM4335* chip.
+
+On newer chips, the build information is located in the beginning of the stack. To see it, simply enter
+
+    hd 0x200400
+   
+
 
 Firmware Related Setup
 ----------------------
