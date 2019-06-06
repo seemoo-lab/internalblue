@@ -14,3 +14,6 @@ _internalblue.hist
 _internalblue.log
 btsnoop.log
 
+# xcode
+xcuserdata
+*.xcworkspace
