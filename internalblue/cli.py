@@ -35,6 +35,7 @@ import argparse
 
 from adbcore import ADBCore
 from hcicore import HCICore
+from ioscore import iOSCore
 
 import cmds
 
@@ -94,6 +95,7 @@ def internalblue_cli():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-directory", "-d", help="Set data directory. Default: ~/.internalblue")
     parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
+    parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port")
     args = parser.parse_args()
 
     if args.data_directory != None:
@@ -117,7 +119,11 @@ def internalblue_cli():
     term.readline.set_completer(readline_completer)
 
     # Initalize cores and get devices
-    connection_methods = [
+    if args.ios_device:
+        connection_methods = [iOSCore(args.ios_device, log_level=log_level,
+            data_directory=data_directory)]
+    else:
+        connection_methods = [
             ADBCore(log_level=log_level, data_directory=data_directory),
             HCICore(log_level=log_level, data_directory=data_directory)]
 
