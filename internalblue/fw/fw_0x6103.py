@@ -29,9 +29,6 @@ FW_NAME = "BCM4355C0"
 # Device Infos
 DEVICE_NAME = 0x204c60
 
-# Patchram
-PATCHRAM_NUMBER_OF_SLOTS = 128
-
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
 SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
