@@ -7,7 +7,7 @@ Open the project with xcode and compile it. Xcode will create a single binary th
 ## Installing internalblue-ios-proxy
 1. Right-click the `internalblue-ios-proxy` binary and click "Show in Finder". This will open the location the compiled binary resides in.
 2. Move the binary onto the device (e.g. with scp) at a location where applications are allowed to be executed (e.g. `/bin` or `/sbin`).
-3. The binary needs the `platform-binary` entitlement. This is achieved by signing the binary with the included `entitlements.xml` file. Sign it using `ldid -Sentitlements.xml internalblue-ios-proxy`. `ldid` should be on a jailbroken device with Cydia by default.
+3. The binary needs the `platform-application` entitlement. This is achieved by signing the binary with the included `entitlements.xml` file. Sign it using `ldid -Sentitlements.xml internalblue-ios-proxy`. `ldid` should be on a jailbroken device with Cydia by default.
 
 ## Running internalblue-ios-proxy
 Run the proxy by executing `internalblue-ios-proxy <port-number>`. The phone will then listen on this port and can be accessed either when on the same WiFi or by proxying the port through USB (using [usbmuxd](https://iphonedevwiki.net/index.php/SSH_Over_USB)).
