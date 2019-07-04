@@ -13,6 +13,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x04 |     0x21d0 | BCM2046     | iMac 27" late 2009 
 0x000f |    0x04 |     0x422a | BCM4331     | MacBook Pro early 2011
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
+0x000f |    0x05 |     0x610d |             | iPad A1395
 0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
@@ -45,7 +46,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x0131 |    0x09 |     0x4208 | CYW20819A1  | ULP BLE/BR/EDR Bluetooth 5 Wireless MCU Evaluation Kit CYW920819EVB-02 | May 22 2018
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
-0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+ 
+0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+  (local version is 0x1111) | April 13 2018
 0x000f |    0x09 |     0x420e |             | iPhone XR, iPhone X
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max
