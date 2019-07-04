@@ -12,8 +12,8 @@ Setup and Installation
 ----------------------
 
 The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
-smartphone or __BlueZ__ sockets on Linux. For ADB, either connect
-the phone via USB or setup ADB over TCP and make sure you
+smartphone, __BlueZ__ sockets on Linux, or the included __iOS Proxy__ on iOS.
+For ADB, either connect the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
 
 The Android device needs to run a Bluetooth stack that was compiled with
@@ -101,6 +101,11 @@ Android:
 Linux:
 * BlueZ
 * Optional: Privileged access
+
+iOS:
+* A jailbroken iOS device
+* The included ios-proxy (instructions in [here](ios-proxy/README.md))
+* Optional: a Mac with xcode to compile the proxy yourself
 
 Common Optional Requirements:
 * Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)

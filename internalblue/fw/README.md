@@ -36,7 +36,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
 0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
-0x000f |    0x08 |     0x6103 |             | iPhone 7 (A1778)
+0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
 0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12"), MacBook Pro (13", 2016)
 0x000f |    0x08 |     0x6206 |             | iPhone SE
