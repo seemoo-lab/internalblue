@@ -51,6 +51,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9+
+0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 4 with Bluetooth 5 patches, same ROM as 3+ | Aug 19 2014
 
 
 

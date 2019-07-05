@@ -207,7 +207,12 @@ class InternalBlue:
                 continue
 
             # Extract the components of the task
-            h4type, data, queue, filter_function = task
+            try:
+                h4type, data, queue, filter_function = task
+            except ValueError:
+                # might happen if H4 is not supported
+                log.debug("Failed to unpack queue item.")
+                continue
 
             # Special handling of ADBCore and HCICore
             # ADBCore: adb transport requires to prepend the H4 data with its length

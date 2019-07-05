@@ -43,8 +43,13 @@ class HCICore(InternalBlue):
             dev_flags_str   : Device flags as String (e.g. "UP RUNNING" or "DOWN")
         """
 
-        # Open bluetooth socket to execute ioctl's:
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        # Open Bluetooth socket to execute ioctl's:
+        try:
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        # Ticket 6: does not run on Windows with Kali subsystem
+        except socket.error:
+            log.warn("Opening a local Bluetooth socket failed. Not running on native Linux?")
+            return []
 
         # Do ioctl(s,HCIGETDEVLIST,arg) to get the number of available devices:
         # arg is struct hci_dev_list_req (/usr/include/bluetooth/hci.h)

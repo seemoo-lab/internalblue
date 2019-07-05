@@ -184,6 +184,12 @@ was also recorded and gives a more high level overview.
 ](https://arxiv.org/abs/1905.00631) on the complete *InternalBlue* ecosystem got accepted.
 
 
+* **REcon Talk** (06/2019)
+
+  We gave a talk at REcon, [Reversing and Exploiting Broadcom Bluetooth](https://cfp.recon.cx/reconmtl2019/talk/EQTRGU/).
+  It gives a first intuition on how to do binary patching in C with Nexmon to change Bluetooth functionality.
+
+
 
 
 License
