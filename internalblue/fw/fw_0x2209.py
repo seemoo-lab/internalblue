@@ -31,6 +31,7 @@ FW_NAME = "BCM43430A1"
 
 # Device Infos
 DEVICE_NAME = 0x20401C
+BD_ADDR = 0x201C64
 
 # Memory Sections
 class MemorySection:
