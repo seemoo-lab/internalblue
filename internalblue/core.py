@@ -46,6 +46,8 @@ class InternalBlue:
         self.interface = None   # holds the context.device / hci interaface which is used to connect, is set in cli
         self.fw = None          # holds the firmware file
 
+        self.last_nesn_sn = None # TODO
+
 
         self.data_directory = data_directory
         self.s_inject = None    # This is the TCP socket to the HCI inject port
@@ -313,25 +315,6 @@ class InternalBlue:
             self.tracepoint_memdump_address = None
             self.tracepoint_memdump_parts = {}
 
-
-        elif hcipkt.data[0:6] == "RAM___": # My custom header (see hook code)
-            dump_address = u32(hcipkt.data[6:10])
-            data = hcipkt.data[10:]
-
-            if self.tracepoint_memdump_address == None:
-                self.tracepoint_memdump_address = dump_address
-            normalized_address = dump_address - self.tracepoint_memdump_address 
-            self.tracepoint_memdump_parts[normalized_address] = data
-
-            # Check if this was the last packet
-            if len(self.tracepoint_memdump_parts) == self.fw.TRACEPOINT_RAM_DUMP_PKT_COUNT:
-                dump = fit(self.tracepoint_memdump_parts)
-                #TODO: use this to start qemu
-                filename = self.data_directory + "/" + "internalblue_tracepoint_0x%x_%s.bin" % (self.tracepoint_memdump_address, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-                log.info("Captured Ram Dump for Tracepoint 0x%x to %s" % (self.tracepoint_memdump_address, filename))
-                f = open(filename, "wb")
-                f.write(dump)
-                f.close()
 
 
     def addTracepoint(self, address):
@@ -1421,6 +1404,30 @@ class InternalBlue:
                 coex_reject= u32(hcipkt.data[8:12])
                 log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, coex_reject/float(coex_grant)))
                 return
+
+        # TODO
+        elif hcipkt.data[0:4] == "RXDN": # TODO
+            data = hcipkt.data[4:]
+
+            curr_nesn_sn = u8(data[0xa4])
+
+            if self.last_nesn_sn and ((self.last_nesn_sn ^ curr_nesn_sn) & 0b1100) !=0b1100:
+                log.warn("TRANSMISSION ERROR (of *previous* packet)")
+
+            self.last_nesn_sn = curr_nesn_sn
+
+            log.debug("RXDN header byte 1: 0x%x \n" % u8(data[0xa4]))
+            log.debug("RXDN channel:       %d \n" % u8(data[0x83]))
+            log.debug("RXDN event:         %d \n" % u16(data[0x8e:0x90]))
+
+
+        elif hcipkt.data[0:4] == "LEPR": # TODO
+            data = hcipkt.data[4:]
+            log.debug("LEPR header byte 1: 0x%x \n" % u8(data[0xa4]))
+
+        elif hcipkt.data[0:4] == "RSSI":  # TODO
+            data = hcipkt.data[4:]
+            log.debug("RSSI: 0x%x \n" % u8(data[0]))
 
     def readHeapInformation(self):
         """

@@ -149,8 +149,8 @@ FUZZLMP_ASM_CODE = """
 
 # Assembler snippet for tracepoints
 # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
-TRACEPOINT_BODY_ASM_LOCATION = 0x00218500
-TRACEPOINT_HOOKS_LOCATION = 0x00218700
+TRACEPOINT_BODY_ASM_LOCATION = 0x00218950
+TRACEPOINT_HOOKS_LOCATION = 0x00218900
 TRACEPOINT_HOOK_SIZE = 40
 TRACEPOINT_HOOK_ASM = """
         push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
