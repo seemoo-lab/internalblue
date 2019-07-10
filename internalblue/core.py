@@ -1405,20 +1405,33 @@ class InternalBlue:
                 log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, coex_reject/float(coex_grant)))
                 return
 
-        # TODO
-        elif hcipkt.data[0:4] == "RXDN": # TODO
+        # TODO move to a new project / callback
+        elif self.fw and hcipkt.data[0:4] == "RXDN":
             data = hcipkt.data[4:]
 
-            curr_nesn_sn = u8(data[0xa4])
+            if self.fw.FW_NAME == "BCM43430A1":
+                curr_nesn_sn = u8(data[0xa0])
 
-            if self.last_nesn_sn and ((self.last_nesn_sn ^ curr_nesn_sn) & 0b1100) !=0b1100:
-                log.warn("TRANSMISSION ERROR (of *previous* packet)")
+                if self.last_nesn_sn and ((self.last_nesn_sn ^ curr_nesn_sn) & 0b1100) !=0b1100:
+                    log.warn("TRANSMISSION ERROR (of *previous* packet)")
 
-            self.last_nesn_sn = curr_nesn_sn
+                self.last_nesn_sn = curr_nesn_sn
 
-            log.debug("RXDN header byte 1: 0x%x \n" % u8(data[0xa4]))
-            log.debug("RXDN channel:       %d \n" % u8(data[0x83]))
-            log.debug("RXDN event:         %d \n" % u16(data[0x8e:0x90]))
+                log.debug("RXDN header byte 1: 0x%x \n" % u8(data[0xa0]))
+                log.debug("     channel, RSSI:       %d, 0x%x \n" % (u8(data[0x83]), u8(data[0])))
+                log.debug("     event:         %d \n" % u16(data[0x8e:0x90]))
+
+            elif self.fw.FW_NAME == "CYW20735B1":
+                curr_nesn_sn = u8(data[0xa4])
+
+                if self.last_nesn_sn and ((self.last_nesn_sn ^ curr_nesn_sn) & 0b1100) !=0b1100:
+                    log.warn("TRANSMISSION ERROR (of *previous* packet)")
+
+                self.last_nesn_sn = curr_nesn_sn
+
+                log.debug("RXDN header byte 1: 0x%x \n" % u8(data[0xa4]))
+                log.debug("RXDN channel:       %d \n" % u8(data[0x83]))
+                log.debug("RXDN event:         %d \n" % u16(data[0x8e:0x90]))
 
 
         elif hcipkt.data[0:4] == "LEPR": # TODO

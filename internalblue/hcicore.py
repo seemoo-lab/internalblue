@@ -194,7 +194,7 @@ class HCICore(InternalBlue):
             record = (hci.parse_hci_packet(record_data), btsnoop_orig_len, btsnoop_inc_len,
                       btsnoop_flags, btsnoop_drops, btsnoop_time)
 
-            log.debug("_recvThreadFunc Recv: [" + str(btsnoop_time) + "] " + str(record[0]))
+            #log.debug("_recvThreadFunc Recv: [" + str(btsnoop_time) + "] " + str(record[0]))
 
             # Write to btsnoop file:
             if self.write_btsnooplog:
