@@ -1473,7 +1473,7 @@ class InternalBlue:
             if packet_rssi < 0xc8:
                 color = '\033[93m'      # yellow
             elif packet_rssi < 0xc0:
-                color = '\033[31m'      # red
+                color = '\033[91m'      # red
 
             channels_total = u8(packet_channel_map[37])
             channel_map = 0x0000000000
