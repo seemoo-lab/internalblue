@@ -86,3 +86,5 @@ if not internalblue.patchRom(RX_DONE_HOOK_ADDRESS, patch):
     exit(-1)
 
 
+log.info("--------------------")
+log.info("To see statistics, execute 'internalblue' and run 'log_level debug'.")

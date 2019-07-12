@@ -46,8 +46,9 @@ class InternalBlue:
         self.interface = None   # holds the context.device / hci interaface which is used to connect, is set in cli
         self.fw = None          # holds the firmware file
 
-        self.last_nesn_sn = None # TODO
-
+        # RXDN statistics callback variables
+        self.last_nesn_sn = None
+        self.last_success_event = None
 
         self.data_directory = data_directory
         self.s_inject = None    # This is the TCP socket to the HCI inject port
@@ -121,6 +122,7 @@ class InternalBlue:
         # Register callbacks which handle specific HCI Events:
         self.registerHciCallback(self.connectionStatusCallback)
         self.registerHciCallback(self.coexStatusCallback)
+        self.registerHciCallback(self.lereceiveStatusCallback)
 
     def check_binutils(self, fix=True):
         """
@@ -1405,42 +1407,81 @@ class InternalBlue:
                 log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, coex_reject/float(coex_grant)))
                 return
 
-        # TODO move to a new project / callback
-        elif self.fw and hcipkt.data[0:4] == "RXDN":
+    def lereceiveStatusCallback(self, record):
+        """
+        RXDN Callback Function
+        
+        Depends on the raspi3_rxdn.py or eval_rxdn.py script,
+        which patches the _connTaskRxDone() function and copies
+        info from the LE connection struct to HCI.
+        """
+
+        hcipkt    = record[0]   # get HCI Event packet
+
+        if not issubclass(hcipkt.__class__, hci.HCI_Event):
+            return
+
+        # Only do something when we have the correct firmware
+        if not self.fw:
+            return
+
+        raspi = False
+        eval = False
+        if self.fw.FW_NAME == "BCM43430A1":
+            raspi = True
+        elif self.fw.FW_NAME == "CYW27035B1":
+            eval = True
+        else:
+            return
+
+        if self.fw and hcipkt.data[0:4] == "RXDN":
             data = hcipkt.data[4:]
 
-            if self.fw.FW_NAME == "BCM43430A1":
-                curr_nesn_sn = u8(data[0xa0])
+            if raspi:
+                packet_curr_nesn_sn = u8(data[0xa0])
 
-                if self.last_nesn_sn and ((self.last_nesn_sn ^ curr_nesn_sn) & 0b1100) !=0b1100:
-                    log.warn("TRANSMISSION ERROR (of *previous* packet)")
+            elif eval:
+                packet_curr_nesn_sn = u8(data[0xa4])
 
-                self.last_nesn_sn = curr_nesn_sn
-
-                log.debug("RXDN header byte 1: 0x%x \n" % u8(data[0xa0]))
-                log.debug("     channel, RSSI:       %d, 0x%x \n" % (u8(data[0x83]), u8(data[0])))
-                log.debug("     event:         %d \n" % u16(data[0x8e:0x90]))
-
-            elif self.fw.FW_NAME == "CYW20735B1":
-                curr_nesn_sn = u8(data[0xa4])
-
-                if self.last_nesn_sn and ((self.last_nesn_sn ^ curr_nesn_sn) & 0b1100) !=0b1100:
-                    log.warn("TRANSMISSION ERROR (of *previous* packet)")
-
-                self.last_nesn_sn = curr_nesn_sn
-
-                log.debug("RXDN header byte 1: 0x%x \n" % u8(data[0xa4]))
-                log.debug("RXDN channel:       %d \n" % u8(data[0x83]))
-                log.debug("RXDN event:         %d \n" % u16(data[0x8e:0x90]))
+            packet_channel = u8(data[0x83])
+            packet_event_ctr = u16(data[0x8e:0x90])
+            packet_channel_map = data[0x54:0x7b]
+            packet_rssi = u8(data[0])
 
 
-        elif hcipkt.data[0:4] == "LEPR": # TODO
+
+            if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) !=0b1100:
+                log.debug("             ^----------------------------- ERROR --------------------------------")
+
+            # currently only supported by eval board: check if we also went into the process payload routine,
+            # which probably corresponds to a correct CRC
+            #if self.last_success_event and (self.last_success_event + 1) != packet_event_ctr:
+            #    log.debug("             ^----------------------------- MISSED -------------------------------")
+
+                # TODO example for setting the channel map
+                # timeout needs to be zero, because we are already in an event reception routine!
+                # self.sendHciCommand(0x2014, '\x00\x00\xff\x00\x00', timeout=0)
+
+            self.last_nesn_sn = packet_curr_nesn_sn
+
+            # draw channel with rssi color
+            color = '\033[92m'          # green
+            if packet_rssi < 0xc8:
+                color = '\033[93m'      # yellow
+            elif packet_rssi < 0xc0:
+                color = '\033[31m'      # red
+
+            channels_total = u8(packet_channel_map[37])
+            channel_map = 0x0000000000
+            for channel in range(0, channels_total):
+                channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
+
+            log.debug("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
+                            (packet_rssi & 0x7f) - (128*(packet_rssi >>7)), color, ' '*packet_channel))
+
+        if self.fw and hcipkt.data[0:4] == "LEPR":
             data = hcipkt.data[4:]
-            log.debug("LEPR header byte 1: 0x%x \n" % u8(data[0xa4]))
-
-        elif hcipkt.data[0:4] == "RSSI":  # TODO
-            data = hcipkt.data[4:]
-            log.debug("RSSI: 0x%x \n" % u8(data[0]))
+            self.last_success_event = u16(data[0x8e:0x90])
 
     def readHeapInformation(self):
         """
