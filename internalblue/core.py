@@ -1447,9 +1447,9 @@ class InternalBlue:
             elif eval:
                 packet_curr_nesn_sn = u8(data[0xa4])
 
+            packet_channel_map = data[0x54:0x7b]
             packet_channel = u8(data[0x83])
             packet_event_ctr = u16(data[0x8e:0x90])
-            packet_channel_map = data[0x54:0x7b]
             packet_rssi = u8(data[0])
 
 
@@ -1477,8 +1477,9 @@ class InternalBlue:
 
             channels_total = u8(packet_channel_map[37])
             channel_map = 0x0000000000
-            for channel in range(0, channels_total):
-                channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
+            if channels_total <=37: # raspi 3 messes up with this during blacklisting
+                for channel in range(0, channels_total):
+                    channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
 
             log.debug("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
                             (packet_rssi & 0x7f) - (128*(packet_rssi >>7)), color, ' '*packet_channel))
