@@ -1470,7 +1470,7 @@ class InternalBlue:
 
             # draw channel with rssi color
             color = '\033[92m'          # green
-            if packet_rssi < 0xc8:
+            if 0xc8 > packet_rssi >= 0xc0:
                 color = '\033[93m'      # yellow
             elif packet_rssi < 0xc0:
                 color = '\033[91m'      # red
