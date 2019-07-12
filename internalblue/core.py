@@ -1437,6 +1437,10 @@ class InternalBlue:
         if self.fw and hcipkt.data[0:4] == "RXDN":
             data = hcipkt.data[4:]
 
+            # Raspi 3 gets errors
+            if len(data) < 239:
+                return
+
             if raspi:
                 packet_curr_nesn_sn = u8(data[0xa0])
 
