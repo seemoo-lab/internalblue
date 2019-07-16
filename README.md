@@ -60,6 +60,11 @@ All steps on a plain Ubuntu 18.04:
     make
     make install
 
+Packets required on a current (July 2019) Raspian:
+     
+     sudo apt-get --allow-releaseinfo-change update
+     sudo apt-get install git python-setuptools binutils-arm-none-eabi adb python-pip python-dev gcc libffi-dev
+
 
 
 Usage
