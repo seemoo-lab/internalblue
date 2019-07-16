@@ -13,15 +13,21 @@ Setup and Installation
 
 The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
 smartphone, __BlueZ__ sockets on Linux, or the included __iOS Proxy__ on iOS.
-For ADB, either connect the phone via USB or setup ADB over TCP and make sure you
-enable USB debugging in the developer settings of Android.
 
+For [Android](android_bluetooth_stack) with ADB, either connect the phone via USB or setup ADB over TCP and make sure you
+enable USB debugging in the developer settings of Android.
 The Android device needs to run a Bluetooth stack that was compiled with
 debugging features enabled. A detailed description on how to compile the
 Bluetooth stack for your device can be found in the *README.md* file inside the
 *android_bluetooth_stack* directory of this repository. It also contains
 precompiled stacks for some devices. InternalBlue does not work without the
 debug Bluetooth stack.
+
+If you have a jailbroken [iOS](ios-proxy) device, you need to install a proxy that locally connects
+to the Bluetooth device and forwards HCI commands and events.
+
+On [Linux](linux_bluez) with *BlueZ*, everything should work out of the box, but
+you need to execute *InternalBlue* as root for most features.
 
 The InternalBlue framework is written in Python 2. You can install it together
 with all dependencies by using pip:
@@ -102,9 +108,10 @@ Android:
 * Android device connected via ADB
 * Best support is currently given for Nexus 5 / BCM4339
 * Optional: Patch for Android driver to support Broadcom H4 forwarding
+* Optional: Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 Linux:
-* BlueZ
+* BlueZ, instructions see [here](linux_bluez/README.md)
 * Optional: Privileged access
 
 iOS:
@@ -112,8 +119,7 @@ iOS:
 * The included ios-proxy (instructions in [here](ios-proxy/README.md))
 * Optional: a Mac with xcode to compile the proxy yourself
 
-Common Optional Requirements:
-* Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
+
 
 
 Supported Features
