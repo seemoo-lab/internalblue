@@ -51,3 +51,77 @@ PATCHRAM_ALIGNED                = False
 # only seems to work 4-byte aligned here ...
 
 
+# Assembler snippet for tracepoints
+# In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
+TRACEPOINT_BODY_ASM_LOCATION = 0x00223100
+TRACEPOINT_HOOKS_LOCATION = 0x00223200
+TRACEPOINT_HOOK_SIZE = 40
+TRACEPOINT_HOOK_ASM = """
+        push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
+        ldr  r6, =0x%x          // addTracepoint() injects pc of original tracepoint here
+        mov  r0, %d             // addTracepoint() injects the patchram slot of the hook patch
+        bl   0x34964            // patch_uninstallPatchEntry(slot)
+        bl   0x%x               // addTracepoint() injects TRACEPOINT_BODY_ASM_LOCATION here
+        pop  {r0-r12, lr}       // restore registers
+
+        // branch back to the original instruction
+        b 0x%x                  // addTracepoint() injects the address of the tracepoint
+"""
+
+TRACEPOINT_BODY_ASM_SNIPPET = """
+        mov   r8, lr     // save link register in r8
+
+        // dump registers like before
+
+        // save status register in r5
+        mrs  r5, cpsr
+
+        // malloc HCI event buffer
+        mov  r0, 0xff    // event code is 0xff (vendor specific HCI Event)
+        mov  r1, 76      // buffer size: size of registers (68 bytes) + type and length + 'TRACE_'
+        bl   0xF7B6      // hci_allocateEventBlockWithLen(0xff, 78)
+        mov  r4, r0      // save pointer to the buffer in r4
+
+        // append our custom header (the word 'TRACE_') after the event code and event length field
+        add  r0, 2            // write after the length field
+        ldr  r1, =0x43415254  // 'TRAC'
+        str  r1, [r0]
+        add  r0, 4            // advance the pointer.
+        ldr  r1, =0x5f45      // 'E_'
+        strh r1, [r0]
+        add  r0, 2            // advance the pointer. r0 now points to the start of the register values
+
+        // store pc
+        str  r6, [r0]    // r6 still contains the address of the original pc
+        add  r0, 4       // advance the pointer.
+
+        // store sp
+        mov  r1, 56      // 14 saved registers * 4
+        add  r1, sp
+        str  r1, [r0]
+        add  r0, 4       // advance the pointer.
+
+        // store status register
+        str  r5, [r0]
+        add  r0, 4       // advance the pointer.
+
+        // store other registers
+        mov  r1, sp
+        mov  r2, 56
+        bl   0xAF0BC     // memcpy(dst, src, len)
+
+        // send HCI buffer to the host
+        mov  r0, r4      // r4 still points to the beginning of the HCI buffer
+        bl   0xF782      // hci_sendEvent
+
+        // restore status register
+        msr  cpsr_f, r5
+
+        bl 0x2D702       // bthci_event_vs_DBFW_CoreDumpRAMImageEvent
+
+        mov  lr, r8      // restore lr from r8
+        bx   lr          // return
+
+"""
+
+

@@ -1406,6 +1406,7 @@ class InternalBlue:
         """
         Coexistence Callback Function
         Interprets debug counters for coexistence with WiFi/LTE
+        Call with "sendhcicmd 0xfc90"
         """
 
         hcipkt    = record[0]   # get HCI Event packet
@@ -1419,7 +1420,10 @@ class InternalBlue:
             if u16(hcipkt.data[1:3]) == 0xfc90: # Coex Statistics Cmd
                 coex_grant = u32(hcipkt.data[4:8])
                 coex_reject= u32(hcipkt.data[8:12])
-                log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, coex_reject/float(coex_grant)))
+                ratio = 0
+                if coex_grant > 0:
+                    ratio = coex_reject/float(coex_grant)
+                log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, ratio))
                 return
 
     def readHeapInformation(self):
