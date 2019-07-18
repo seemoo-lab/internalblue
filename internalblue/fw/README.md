@@ -34,7 +34,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x2247 | BCM20703A2  | MacBook Pro 2016 (with security fix)
 0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
-0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6
+0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6 | 2013
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
@@ -43,7 +43,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
 0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
-0x0131 |    0x09 |     0x4208 | CYW20819A1  | ULP BLE/BR/EDR Bluetooth 5 Wireless MCU Evaluation Kit CYW920819EVB-02 | May 22 2018
+0x0131 |    0x09 |     0x220c | CYW20819A1  | ULP BLE/BR/EDR Bluetooth 5 Wireless MCU Evaluation Kit CYW920819EVB-02 | May 22 2018
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
 0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+  (local version is 0x1111) | April 13 2018

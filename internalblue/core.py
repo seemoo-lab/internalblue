@@ -1046,7 +1046,7 @@ class InternalBlue:
                 slot = i
                 log.info("patchRom: Reusing slot for address 0x%x: %d" % (address,slot))
                 # Write new value to patchram value table at 0xd0000
-                self.writeMem(0xd0000 + slot*4, patch)
+                self.writeMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS + slot*4, patch)
                 return True
 
         if slot == None:
@@ -1098,7 +1098,7 @@ class InternalBlue:
             if address == None:
                 log.warn("disableRomPatch: address is None.")
                 return False
-            for i in range(128):
+            for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] == address:
                     slot = i
                     log.info("Slot for address 0x%x is: %d" % (address,slot))

@@ -956,8 +956,8 @@ class CmdPatch(Cmd):
             return True
 
         if args.slot != None:
-            if args.slot < 0 or args.slot > 128:
-                log.warn("Slot has to be in the range 0 to 128!")
+            if args.slot < 0 or args.slot > self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS:
+                log.warn("Slot has to be in the range 0 to %i!" % self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS)
                 return False
 
         # Patch Deletion
