@@ -1080,6 +1080,37 @@ class CmdFuzzLmp(Cmd):
         return self.internalblue.fuzzLmp()
 
 
+class CmdSendLcp(Cmd):
+    keywords = ['sendlcp']
+    description = "Send LCP packet to another device."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--conn_index", "-c", type=auto_int,
+                        help="Connection index, starts at 0 for first connection.")
+    parser.add_argument("data",
+                        help="Payload as hexstring.")
+
+    def work(self):
+        args = self.getArgs()
+        if not args:
+            return True
+
+        # if not set, just use 0
+        if not args.conn_index:
+            args.conn_index = 0
+
+        try:
+            data = args.data.decode('hex')
+        except TypeError as e:
+            log.warn("Data string cannot be converted to hexstring: " + str(e))
+            return False
+
+        log.info("Sending data=%s to connection index=0x%04x" %
+                 (data.encode('hex'), args.conn_index))
+        return self.internalblue.sendLcpPacket(args.conn_index, data)
+
+
 class CmdInfo(Cmd):
     keywords = ['info', 'show', 'i']
     description = "Display various types of information parsed from live RAM"

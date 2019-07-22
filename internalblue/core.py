@@ -1327,6 +1327,42 @@ class InternalBlue:
             log.warn("sendLmpPacket: launchRam failed!")
             return False
 
+    def sendLcpPacket(self, conn_idx, payload):
+        """
+        Inject a LCP packet into a Bluetooth LE connection (i.e. send a LCP packet
+        to a remote device which is paired and connected with our local device).
+        This is code requires assembly patches.
+
+        conn_idx:     The connection index specifying the connection into which the
+                     packet will be injected, starting at 0.
+        payload:     The LCP opcode and payload of the LCP packet that will be injected.
+
+        Returns True on success and False on failure.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['SENDLCP_CODE_BASE_ADDRESS', 'SENDLCP_ASM_CODE']:
+            if const not in dir(self.fw):
+                log.warn("sendLcpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        # Prepare the assembler snippet by injecting the connection number
+        # and appending the LMP packet data.
+        asm_code = self.fw.SENDLCP_ASM_CODE % (conn_idx, len(payload))
+        asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x)
+                for x in payload.ljust(20, "\x00")])
+
+        # Assemble the snippet and write it to SENDLCP_CODE_BASE_ADDRESS
+        code = asm(asm_code_with_data, vma=self.fw.SENDLCP_CODE_BASE_ADDRESS, arch='thumb')
+        self.writeMem(self.fw.SENDLCP_CODE_BASE_ADDRESS, code)
+
+        # Invoke the snippet
+        if self.launchRam(self.fw.SENDLCP_CODE_BASE_ADDRESS):
+            return True
+        else:
+            log.warn("sendLcpPacket: launchRam failed!")
+            return False
+
     def connectToRemoteDevice(self, bt_addr):
         """
         Send a HCI Connect Command to the firmware. This will setup
