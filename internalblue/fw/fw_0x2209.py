@@ -49,7 +49,7 @@ class MemorySection:
 SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
              MemorySection(0xd0000,  0xd8000,  False, True ),
             #MemorySection(0xe0000,  0x1f0000, True , False),
-             MemorySection(0x200000, 0x228000, False, True ),
+             MemorySection(0x200000, 0x21ffff, False, True ),
              MemorySection(0x260000, 0x268000, True , False),
             #MemorySection(0x280000, 0x2a0000, True , False),
              MemorySection(0x318000, 0x320000, False, False),
@@ -75,7 +75,7 @@ PATCHRAM_NUMBER_OF_SLOTS        = 128
 PATCHRAM_ALIGNED                = False
 
 # Snippet for sendLcpPacket()
-SENDLCP_CODE_BASE_ADDRESS = 0x00211900
+SENDLCP_CODE_BASE_ADDRESS = 0x21a000
 SENDLCP_ASM_CODE = """
         push {r4,lr}
 
