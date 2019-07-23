@@ -83,7 +83,7 @@ SENDLCP_ASM_CODE = """
         mov r0,  %d     // connection index, starts at 0
         ldr r1, =payload
         mov r2, %d      // length
-        bl  0xC3CE2     // lmulp_sendLcp
+        bl  0x92062     // lmulp_sendLcp
 
         pop {r4,pc}     // go back
 
