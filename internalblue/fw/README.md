@@ -9,7 +9,7 @@ Results are based on real world testing, this list is very incomplete. If you kn
 
 Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 -------| ------- | ---------- | ----------- | ------- | ----------
-0x000f |    0x04 |     0x4217 | BCM4329B1   | iPhone 4
+0x000f |    0x04 |     0x4217 | BCM4329B1   | iPhone 4, Nexus One, iPod touch (A1367)
 0x000f |    0x04 |     0x21d0 | BCM2046     | iMac 27" late 2009 
 0x000f |    0x04 |     0x422a | BCM4331     | MacBook Pro early 2011
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
@@ -17,13 +17,16 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
+0x000f |    0x06 |     0x410d |             | BlackBerry Q5
 0x000f |    0x06 |     0x4196 | BCM20702B0  | MacBook Pro mid 2014, iMac (Retina 5k, 27", ultimo 2014)
+0x000f |    0x06 |     0x6109 |             | Samsung Galaxy Note 10.1 2014 WiFi (SM-P600) 
 0x000f |    0x07 |     0x220f | BCM20736S   | Equiva Radiator Thermostat CC-RT-BLE-EQ
 0x000f |    0x07 |     0x2203 | BCM43342    | iPhone 5s
 0x000f |    0x07 |     0x2209 | BCM43430A1  | Raspberry Pi 3 | Jun 2 2014
 0x000f |    0x07 |     0x230f | BCM4356A2   | Xperia Z5
 0x000f |    0x07 |     0x410d | BCM4334     | iPhone 5 (A1429)
-0x000f |    0x07 |     0x6109 | BCM4335C0 (BCM4339) | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3, LG G4 (LG-h815), Samsung Galaxy Note 10.1 2014 WiFi (SM-P600) | Dec 11 2012
+0x000f |    0x07 |     0x4606 | BCM4324     | iPad Air (A1474)
+0x000f |    0x07 |     0x6109 | BCM4335C0 (BCM4339) | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3, LG G4 (LG-h815) | Dec 11 2012
 0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8 | Aug 19 2014
 0x000f |    0x08 |     0x21a1 |             | MacBook Pro Retina 13" early 2015 
 0x000f |    0x08 |     0x21a6 | BCM20703A1  | MacBook Pro early 2015
