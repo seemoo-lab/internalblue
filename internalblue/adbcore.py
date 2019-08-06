@@ -16,6 +16,7 @@ class ADBCore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(ADBCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
         self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
+        self.serial = False     # not running with serial scripting interface
 
     def device_list(self):
         """
@@ -42,12 +43,12 @@ class ADBCore(InternalBlue):
             log.info("No adb devices found.")
             return []
 
-        # At least one device fonund
+        # At least one device found
         log.info("Found multiple adb devices")
 
         # Enumerate over found devices and put them into an array of tupple
         # First index is a self reference of the class
-        # Scond index is the identifier which is passed to connect()
+        # Second index is the identifier which is passed to connect()
         # Third index is the label which is shown in options(...)
         device_list = []
         for d in adb_devices:
@@ -65,6 +66,15 @@ class ADBCore(InternalBlue):
         context.device = self.interface
 
         # setup sockets
+        if not self._setupSockets():
+            log.info("Could not connect using Bluetooth module.")
+            log.info("Trying to set up connection for rooted smartphone with busybox installed.")
+
+            if not self._setupSerialSu():
+                log.critical("Failed to setup scripts for rooted devices.")
+                return False
+
+        # try again
         if not self._setupSockets():
             log.critical("No connection to target device.")
             log.info("Check if:\n -> Bluetooth is active\n -> Bluetooth Stack has Debug Enabled\n -> BT HCI snoop log is activated\n -> USB debugging is authorized\n")
@@ -193,7 +203,7 @@ class ADBCore(InternalBlue):
                 callback(record)
 
             # Check if the stackDumpReceiver has noticed that the chip crashed.
-            if self.stackDumpReceiver.stack_dump_has_happend:
+            if self.stackDumpReceiver and self.stackDumpReceiver.stack_dump_has_happend:
                 # A stack dump has happend!
                 log.warn("recvThreadFunc: The controller send a stack dump.")
                 # self.exit_requested = True
@@ -274,3 +284,44 @@ class ADBCore(InternalBlue):
             return False
         finally:
             context.log_level = saved_loglevel
+
+    def _setupSerialSu(self):
+        """
+        To run on any rooted device, we can also use some shellscripting.
+        This is slower but at least works on any device.
+        Commands on a S10e with Samsung Stock ROM + Magisk + busybox:
+
+             tail -f -n +0 /data/log/bt/btsnoop_hci.log | nc -l -p 8872
+
+             nc -l -p 8873 >/sdcard/internalblue_input.bin
+             tail -f /sdcard/internalblue_input.bin >>/dev/ttySAC1
+
+        Locations of the Bluetooth serial interface and btsnoop log file might differ.
+        The second part *could* be combined, but it somehow does not work (SELinux?).
+
+        The ADB Python bindings will kill the processes automatically :)
+
+        """
+
+        # In sending direction, the format is different.
+        self.serial = True
+
+        saved_loglevel = context.log_level
+        context.log_level = 'warn'
+        try:
+            # TODO automatically detect the proper serial device with lsof etc.
+
+            # spawn processes
+            adb.process(["su", "-c", "tail -f -n +0 /data/log/bt/btsnoop_hci.log | nc -l -p 8872"])
+            adb.process(["su", "-c", "nc -l -p 8873 >/sdcard/internalblue_input.bin"])
+            adb.process(["su", "-c", "tail -f /sdcard/internalblue_input.bin >>/dev/ttySAC1"])
+            sleep(2)
+        except PwnlibException as e:
+            log.warn("Serial scripting setup failed: " + str(e))
+            return False
+        finally:
+            context.log_level = saved_loglevel
+
+        return True
+
+

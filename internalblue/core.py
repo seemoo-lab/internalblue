@@ -219,8 +219,21 @@ class InternalBlue:
             # HCICore: need to manually save the data to btsnoop log as it is not
             #          reflected to us as with adb
             if   self.__class__.__name__ == "ADBCore":
-                # prepend with total length for H4 over adb
-                data = p16(len(data)) + data
+                # prepend with total length for H4 over adb with modified Bluetooth module
+                if not self.serial:
+                    data = p16(len(data)) + data
+
+                # If we do not have a patched module, we write to the serial using the same socket.
+                # Echoing HCI commands to the serial interface has the following syntax:
+                #
+                #   echo -ne "\x01\x4c\xfc\x05\x33\x22\x11\x00\xaa"
+                #   0x01:       HCI command
+                #   0xfc4c:     Write RAM
+                #   0x05:       Parameter length
+                #   0x3322...:  Parameters
+                #
+                # ...and that's how the data is formatted already anyway
+
             elif self.__class__.__name__ == "HCICore":
                 if self.write_btsnooplog:
                     # btsnoop record header data:
@@ -1637,5 +1650,6 @@ class InternalBlue:
         custom Bluetooth driver is required, which accepts diagnostic commands
         and also forwards diagnostic message outputs to the BT Snoop Log.
         """
-        
-        self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))
+
+        if not self.serial: # TODO does not work for serial
+            self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))
