@@ -16,12 +16,6 @@ smartphone, __BlueZ__ sockets on Linux, or the included __iOS Proxy__ on iOS.
 
 For [Android](android_bluetooth_stack) with ADB, either connect the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
-The Android device needs to run a Bluetooth stack that was compiled with
-debugging features enabled. A detailed description on how to compile the
-Bluetooth stack for your device can be found in the *README.md* file inside the
-*android_bluetooth_stack* directory of this repository. It also contains
-precompiled stacks for some devices. InternalBlue does not work without the
-debug Bluetooth stack.
 
 If you have a jailbroken [iOS](ios-proxy) device, you need to install a proxy that locally connects
 to the Bluetooth device and forwards HCI commands and events.
@@ -104,20 +98,21 @@ Requirements
 ------------
 
 Android:
-* Recompiled `bluetooth.default.so` built with `bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE'`, see [build instructions](android_bluetooth_stack/README.md)
+* Ideally recompiled `bluetooth.default.so`, but also works on any rooted smartphone, see [Android instructions](android_bluetooth_stack/README.md)
 * Android device connected via ADB
-* Best support is currently given for Nexus 5 / BCM4339
+* Best support is currently given for Nexus 5 / BCM4339 and Evaluation Boards
 * Optional: Patch for Android driver to support Broadcom H4 forwarding
-* Optional: Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
+* Optional, if H4: Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 Linux:
 * BlueZ, instructions see [here](linux_bluez/README.md)
-* Optional: Privileged access
+* Best support for Raspberry Pi 3/3+/4
+* For most commands: Privileged access
 
 iOS:
-* A jailbroken iOS device
-* The included ios-proxy (instructions in [here](ios-proxy/README.md))
-* Optional: a Mac with xcode to compile the proxy yourself
+* A jailbroken iOS device (tested on iOS 12.1.2 with iPhone 6+7)
+* The included `ios-proxy` (instructions in [here](ios-proxy/README.md))
+* Optional: a Mac with `xcode` to compile the proxy yourself
 
 
 
@@ -139,21 +134,18 @@ On any Broadcom Bluetooth chip:
 * Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
 * Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integrated into BlueZ)
 * Read AFH channel map
-* Perform local RSSi sweep (coming soon!)
 
 On selected Broadcom Bluetooth chips:
-* BCM4335C0, BCM4358A3, CYW20735
-  * Write to ROM via Patchram
-  * Interpret coredumps
-* BCM4335C0 only
+* Write to ROM via Patchram (any chip with defined firmware file >= build date 2012)
+* Interpret coredumps (Nexus 5/6P, Samsung Galaxy S6, Evaluation Boards, Samsung Galaxy S10/S10e/S10+)
+* Debug firmware with tracepoints (Nexus 5 and Evaluation Board CYW20735)
+* Fuzz invalid LMP messages (Nexus 5 and Evaluation Board CYW20735)
+* Inject LCP messages, including invalid messages (Nexus 5, Raspberry Pi 3/3+/4) 
+* Full object and function symbol table (Cypress Evaluation Boards only)
+* Demos for Nexus 5 only:
   * ECDH CVE-2018-5383 example
   * NiNo example
   * MAC address filter example
-  * Debug firmware with tracepoints
-* BCM4335C0 and CYW20735
-  * Fuzz invalid LMP messages
-* CYW20735 only
-  * Full object and function symbol table
 
 A comprehensive list of chips and which devices have them can be found in the [firmware](internalblue/fw/README.md) module documentation.
 
