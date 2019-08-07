@@ -1651,5 +1651,10 @@ class InternalBlue:
         and also forwards diagnostic message outputs to the BT Snoop Log.
         """
 
-        if not self.serial: # TODO does not work for serial
+        if not self.serial:
             self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))
+
+        # We can send the activation to the serial, but then the Android driver
+        # itself crashes when receiving diagnostic frames...
+        else:
+            log.warn("Diagnostic protocol requires modified Android driver!")
