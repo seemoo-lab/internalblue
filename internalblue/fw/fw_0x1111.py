@@ -27,12 +27,18 @@ from fw import MemorySection
 FW_NAME = "BCM4375B1"
 
 
+# Device Infos
+DEVICE_NAME = 0x207f2a
+BD_ADDR = 0x2026e2
+
+
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal ROM
-             MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
-             MemorySection(0x00270000, 0x0027ffff,  False, True),   # Internal Memory Patchram Contents
-             MemorySection(0x00310000, 0x00321fff,  False, True),   # HW Regs Cortex M3 (readable)
+SECTIONS = [ MemorySection(0x00000000, 0x0013ffff,  True,  False),  # Internal ROM
+             MemorySection(0x00160000, 0x0017ffff,  False, True),   # Patches
+             MemorySection(0x00200000, 0x0023ffff,  False, True),   # Internal Memory Cortex M3
+             MemorySection(0x00240000, 0x0027ffff,  True,  False),
+             MemorySection(0x00300000, 0x0037ffff,  False, True),
              ]
 
 # Patchram

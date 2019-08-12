@@ -649,7 +649,7 @@ class InternalBlue:
                 return
         log.warn("registerHciRecvQueue: no such queue is registered!")
 
-    def sendHciCommand(self, opcode, data, timeout=2):
+    def sendHciCommand(self, opcode, data, timeout=3):
         """
         Send an arbitrary HCI command packet by pushing a send-task into the
         sendQueue. This function blocks until the response is received

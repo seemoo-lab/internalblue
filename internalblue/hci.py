@@ -1121,5 +1121,11 @@ class StackDumpReceiver:
             log.warn(registers)
             return True
 
+        # log.info("%x" % u32(hcipkt.data[8:12]))
+        # no last packet for S10e, just the size counts here... also is sometimes longer and sometimes shorter
+        if packet_type == 0xf0 and u32(hcipkt.data[8:12]) == 0x230080:
+            # This is the last pkt ouput:
+            self.finishStackDump()
+            return True
 
         return False

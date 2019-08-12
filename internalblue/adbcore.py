@@ -203,9 +203,9 @@ class ADBCore(InternalBlue):
                 callback(record)
 
             # Check if the stackDumpReceiver has noticed that the chip crashed.
-            if self.stackDumpReceiver and self.stackDumpReceiver.stack_dump_has_happend:
+            # if self.stackDumpReceiver and self.stackDumpReceiver.stack_dump_has_happend:
                 # A stack dump has happend!
-                log.warn("recvThreadFunc: The controller send a stack dump.")
+                # log.warn("recvThreadFunc: The controller sent a stack dump.")
                 # self.exit_requested = True
 
         log.debug("Receive Thread terminated.")
@@ -257,8 +257,10 @@ class ADBCore(InternalBlue):
             self.s_inject.close()
             self.s_snoop.close()
             self.s_inject = self.s_snoop = None
+            context.log_level = 'warn'
             adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport)])
             adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport + 1)])
+            context.log_level = saved_loglevel
             return False
         return True
 
@@ -308,14 +310,37 @@ class ADBCore(InternalBlue):
 
         saved_loglevel = context.log_level
         context.log_level = 'warn'
+
         try:
-            # TODO automatically detect the proper serial device with lsof etc.
+            # check dependencies
+            if adb.which('su') is None:
+                log.critical("su not found, rooted smartphone required!")
+                return False
+           
+            if adb.process(['su', '-c', 'which', 'nc']).recvall() == '':
+                log.critical("nc not found, install busybox!")
+                return False
+
+            # automatically detect the proper serial device with lsof
+            logfile = adb.process(["su", "-c", "lsof | grep btsnoop_hci.log | awk '{print $NF}'"]).recvall().strip()
+            log.info("Android btsnoop logfile %s...", logfile)
+            interface = adb.process(["su", "-c", "lsof | grep bluetooth | grep tty | awk '{print $NF}'"]).recvall().strip()
+            log.info("Android Bluetooth interface %s...", interface)
+
+            if logfile == '':
+                log.critical("Could not find Bluetooth logfile. Enable Bluetooth snoop logging.")
+                return False
+
+            if interface == '':
+                log.critical("Could not find Bluetooth interface. Enable Bluetooth.")
+                return False
 
             # spawn processes
-            adb.process(["su", "-c", "tail -f -n +0 /data/log/bt/btsnoop_hci.log | nc -l -p 8872"])
+            adb.process(["su", "-c", 'tail -f -n +0 %s | nc -l -p 8872' % logfile])
             adb.process(["su", "-c", "nc -l -p 8873 >/sdcard/internalblue_input.bin"])
-            adb.process(["su", "-c", "tail -f /sdcard/internalblue_input.bin >>/dev/ttySAC1"])
+            adb.process(["su", "-c", "tail -f /sdcard/internalblue_input.bin >>%s" % interface])
             sleep(2)
+
         except PwnlibException as e:
             log.warn("Serial scripting setup failed: " + str(e))
             return False
