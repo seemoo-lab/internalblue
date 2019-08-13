@@ -35,6 +35,7 @@ import Queue
 import hci
 
 
+
 class InternalBlue:
     __metaclass__ = ABCMeta
 
@@ -49,6 +50,12 @@ class InternalBlue:
         # RXDN statistics callback variables
         self.last_nesn_sn = None
         self.last_success_event = None
+        self.last_event_ctr = 0
+        self.last_channel = 0
+        self.last_channel_map = 0
+        self.last_event_timestamp = 0
+
+        self.pdr_logfile = open("/home/pi/pdr.log", "w")
 
         self.data_directory = data_directory
         self.s_inject = None    # This is the TCP socket to the HCI inject port
@@ -1452,15 +1459,27 @@ class InternalBlue:
             packet_event_ctr = u16(data[0x8e:0x90])
             packet_rssi = u8(data[0])
 
+            # When looking at the NESN and the SN bit, we check for TX and RX errors
+            # if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) !=0b1100:
+            #     log.info("             ^----------------------------- ERROR --------------------------------")
 
+            # When looking only at the NESN bit, we check for TX errors -> this is the thing we want in our EWSN paper
+            if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b0100) !=0b0100:
+                # log.debug("             ------------------------------ ERROR --------------------------------")
+                self.pdr_logfile.write("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 0\r\n" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+                self.pdr_logfile.flush()
+                # log.debug("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 0" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+            else:
+                # log.debug("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 1" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+                self.pdr_logfile.write("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 1\r\n" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+                self.pdr_logfile.flush()
 
-            if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) !=0b1100:
-                log.debug("             ^----------------------------- ERROR --------------------------------")
+            
 
             # currently only supported by eval board: check if we also went into the process payload routine,
             # which probably corresponds to a correct CRC
-            #if self.last_success_event and (self.last_success_event + 1) != packet_event_ctr:
-            #    log.debug("             ^----------------------------- MISSED -------------------------------")
+            # if self.last_success_event and (self.last_success_event + 1) != packet_event_ctr:
+            #    log.info("             ^----------------------------- MISSED -------------------------------")
 
                 # TODO example for setting the channel map
                 # timeout needs to be zero, because we are already in an event reception routine!
@@ -1481,8 +1500,15 @@ class InternalBlue:
                 for channel in range(0, channels_total):
                     channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
 
-            log.debug("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
-                            (packet_rssi & 0x7f) - (128*(packet_rssi >>7)), color, ' '*packet_channel))
+            # log.debug("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
+            #                 (packet_rssi & 0x7f) - (128*(packet_rssi >>7)), color, ' '*packet_channel))
+
+            # Store the following information for the next connection event, because we will know only by then, if the event was successful
+            self.last_event_ctr = packet_event_ctr
+            self.last_channel = packet_channel
+            self.last_channel_map = channel_map
+            self.last_event_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            # log.info(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + " event: %5d, channel: %2d, channel_map: 0x%010x" % (packet_event_ctr, packet_channel, channel_map))
 
         if self.fw and hcipkt.data[0:4] == "LEPR":
             data = hcipkt.data[4:]
