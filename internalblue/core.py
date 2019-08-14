@@ -33,8 +33,8 @@ import datetime
 import time
 import Queue
 import hci
-
-
+import collections
+import struct
 
 class InternalBlue:
     __metaclass__ = ABCMeta
@@ -54,6 +54,14 @@ class InternalBlue:
         self.last_channel = 0
         self.last_channel_map = 0
         self.last_event_timestamp = 0
+
+        # variables for measuring PDR
+        self.pdr_values = {}
+        for i in range(0, 37):
+            self.pdr_values[i] = collections.deque([1, 1, 1, 1, 1, 1, 1, 1, 1], maxlen=10)
+        
+        self.PDR_THRESHOLD = 0.9
+        self.CHAN_COUNT_THRESHOLD = 10
 
         self.pdr_logfile = open("/home/pi/pdr.log", "w")
 
@@ -1459,22 +1467,42 @@ class InternalBlue:
             packet_event_ctr = u16(data[0x8e:0x90])
             packet_rssi = u8(data[0])
 
+
             # When looking at the NESN and the SN bit, we check for TX and RX errors
             # if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) !=0b1100:
             #     log.info("             ^----------------------------- ERROR --------------------------------")
 
             # When looking only at the NESN bit, we check for TX errors -> this is the thing we want in our EWSN paper
             if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b0100) !=0b0100:
-                # log.debug("             ------------------------------ ERROR --------------------------------")
-                self.pdr_logfile.write("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 0\r\n" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
-                self.pdr_logfile.flush()
-                # log.debug("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 0" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+                pdr_current = 0
             else:
-                # log.debug("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 1" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
-                self.pdr_logfile.write("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 1\r\n" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
-                self.pdr_logfile.flush()
+                pdr_current = 1
+                
+            self.pdr_values[packet_channel].appendleft(pdr_current)
+            pdr_avg = sum(self.pdr_values[packet_channel]) / float(len(self.pdr_values[packet_channel]))
+                
+            # log.info("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: %d, PDR_avg: %f" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map, pdr_current, pdr_avg))
+            self.pdr_logfile.write("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 1\r\n" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+            self.pdr_logfile.flush()
 
-            
+            if pdr_avg < self.PDR_THRESHOLD:
+                active_channels = bin(self.last_channel_map).count('1')
+                if active_channels <= self.CHAN_COUNT_THRESHOLD:
+                    # log.info('to few channels active -> whiteliste all')
+                    self.pdr_logfile.write('to few channels active -> whiteliste all')
+                    self.pdr_logfile.flush()
+                    self.sendHciCommand(0x2014, '\xff\xff\xff\xff\xf1', timeout=0)
+                else:            
+                    self.pdr_logfile.write("going to BLACKLIST channel %2d, %2d channels active" % (self.last_channel, active_channels))
+                    new_channel_map = self.last_channel_map & (0x1fffffffff ^ (0b1 << self.last_channel))
+                    self.pdr_logfile.write("current_channel_map: 0x%010x, new map: 0x%010x" % (self.last_channel_map, new_channel_map))
+                    self.pdr_logfile.flush()
+
+                    new_channel_map_bytes = []
+                    for i in range (0, 5):
+                        new_channel_map_bytes.append(chr(new_channel_map >> (i * 8) & 0xff))
+
+                    self.sendHciCommand(0x2014, ''.join(new_channel_map_bytes), timeout=0)
 
             # currently only supported by eval board: check if we also went into the process payload routine,
             # which probably corresponds to a correct CRC
@@ -1498,7 +1526,8 @@ class InternalBlue:
             channel_map = 0x0000000000
             if channels_total <=37: # raspi 3 messes up with this during blacklisting
                 for channel in range(0, channels_total):
-                    channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
+                    # channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])    # Use the flipped representation of the channel map to be consistent in my code
+                    channel_map |= (0b1 << u8(packet_channel_map[channel]))
 
             # log.debug("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
             #                 (packet_rssi & 0x7f) - (128*(packet_rssi >>7)), color, ' '*packet_channel))
@@ -1508,7 +1537,6 @@ class InternalBlue:
             self.last_channel = packet_channel
             self.last_channel_map = channel_map
             self.last_event_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-            # log.info(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f") + " event: %5d, channel: %2d, channel_map: 0x%010x" % (packet_event_ctr, packet_channel, channel_map))
 
         if self.fw and hcipkt.data[0:4] == "LEPR":
             data = hcipkt.data[4:]
