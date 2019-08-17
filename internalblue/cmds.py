@@ -1378,6 +1378,26 @@ class CmdTracepoint(Cmd):
         return True
 
 
+class CmdBreakpoint(Cmd):
+    keywords = ['break', 'breakpoint', 'bp']
+    description = "Add breakpoint. This will crash, but produces a stackdump at the given address."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("address", type=auto_int, nargs="?",
+                        help="Address of the breakpoint") 
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        log.info("Inserting breakpoint at 0x%x..." % args.address)
+        self.internalblue.patchRom(args.address, "\x00\xbe\x00\x00")
+
+        return True
+
+
 class CmdConnectCmd(Cmd):
     keywords = ['connect', 'c']
     description = "Initiate a connection to a remote Bluetooth device"
