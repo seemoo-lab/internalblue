@@ -12,9 +12,10 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x04 |     0x4217 | BCM4329B1   | iPhone 4, Nexus One, iPod touch (A1367)
 0x000f |    0x04 |     0x21d0 | BCM2046     | iMac 27" late 2009 
 0x000f |    0x04 |     0x422a | BCM4331     | MacBook Pro early 2011
+0x000f |    0x04 |     0x4203 |             | HP ProBook 6550b
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
 0x000f |    0x05 |     0x610d |             | iPad A1395
-0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle
+0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle, HP Elitebook 820 G2
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
 0x000f |    0x06 |     0x410d |             | BlackBerry Q5
@@ -27,7 +28,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x07 |     0x410d | BCM4334     | iPhone 5 (A1429)
 0x000f |    0x07 |     0x4606 | BCM4324     | iPad Air (A1474)
 0x000f |    0x07 |     0x6109 | BCM4335C0 (BCM4339) | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3, LG G4 (LG-h815) | Dec 11 2012
-0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8 | Aug 19 2014
+0x0131 |    0x08 |     0x1200 |             | Philips Sonicare
 0x000f |    0x08 |     0x21a1 |             | MacBook Pro Retina 13" early 2015 
 0x000f |    0x08 |     0x21a6 | BCM20703A1  | MacBook Pro early 2015
 0x000f |    0x08 |     0x21a7 | BCM20703A1  | MacBook Pro early 2015 (with security fix)
@@ -36,13 +37,15 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x2246 | BCM20703A2  | MacBook Pro 2016
 0x000f |    0x08 |     0x2247 | BCM20703A2  | MacBook Pro 2016 (with security fix)
 0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017
+0x000f |    0x08 |     0x224c | BCM20703A2  | MacBook Pro 15" 2017 (A1707)
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
 0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6 | 2013
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
-0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12"), MacBook Pro (13", 2016)
-0x000f |    0x08 |     0x6206 |             | iPhone SE
+0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12", 13"), MacBook Pro (13", 2016)
+0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8 | Aug 19 2014
+0x000f |    0x08 |     0x6206 | BCM4345C1   | iPhone SE | Jan 27 2015
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
 0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
@@ -53,7 +56,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x420e |             | iPhone XR, iPhone X
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max
-0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9+
+0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
 0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 4 with Bluetooth 5 patches, same ROM as 3+ | Aug 19 2014
 
 

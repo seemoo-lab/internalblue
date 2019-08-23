@@ -178,8 +178,9 @@ class Cmd:
         for section in self.internalblue.fw.SECTIONS:
             if not section.is_rom:
                 sectiondump = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
-                Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
-                bytes_done += section.size()
+                if sectiondump:
+                    Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
+                    bytes_done += section.size()
         self.progress_log.success("Received Data: complete")
 
     def getMemoryImage(self, refresh=False):

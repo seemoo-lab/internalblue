@@ -30,6 +30,8 @@ class HCICore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(HCICore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
         self.btsnooplog_file_lock = threading.Lock()
+        self.serial = False
+        self.doublecheck = False
 
     def getHciDeviceList(self):
         """

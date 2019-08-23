@@ -760,7 +760,7 @@ class InternalBlue:
         if bytes_total == 0:        # If no total bytes where given just use length
             bytes_total = length        
         retry = True                # Retry once on failures
-        while(read_addr < address+length):  # Send HCI Read_RAM commands until all data is received
+        while read_addr < address+length:  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
             bytes_left = length - byte_counter
             blocksize = bytes_left
@@ -770,8 +770,8 @@ class InternalBlue:
             # Send Read_RAM (0xfc4d) command
             response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
 
-            if (response == None or response == False):
-                log.warning("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
+            if response is None or not response:
+                log.warn("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
                 # Retry once...
                 if retry:
                     log.debug("readMem: retrying once...")
@@ -781,6 +781,16 @@ class InternalBlue:
                     log.warning("readMem: failed!")
                     return None
 
+            data = response[4:]  # start of the actual data is at offset 4
+
+            if len(data) == 0:  # this happens i.e. if not called on a brcm chip
+                log.warn("readMem: empty response, quitting...")
+                break
+
+            if len(data) != blocksize:
+                log.debug("readMem: insufficient bytes returned, retrying...")
+                continue
+
             status = ord(response[3])
             if status != 0:
                 # It is not yet reverse engineered what this byte means. For almost
@@ -789,21 +799,23 @@ class InternalBlue:
                 #       0x00 (0) means everything okay
                 #       0x12 means Command Disallowed
                 # e.g. for address 0xff000000 (aka 'EEPROM') it is 0x12
-                log.warning("readMem: [TODO] Got status != 0 : error 0x%02X" % status)
-            data = response[4:]         # start of the actual data is at offset 4
-            outbuffer += data
-            
-            if (len(data) == 0): #this happens i.e. if not called on a brcm chip
-                log.warn("readMem: empty response, quitting...")
+                log.warn("readMem: [TODO] Got status != 0 : error 0x%02X at address 0x%08x" % (status, read_addr))
                 break
-            
+
+            if self.doublecheck:
+                response_check = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
+                if response != response_check:
+                    log.debug("readMem: double checking response failed at 0x%x! retry..." % read_addr)
+                    continue
+
+            outbuffer += data
             read_addr += len(data)
             byte_counter += len(data)
             if(progress_log != None):
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
-            retry = True # this round worked, so we re-enable this flag 
+            retry = True  # this round worked, so we re-enable this flag
         return outbuffer
 
     def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):

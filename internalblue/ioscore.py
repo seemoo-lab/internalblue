@@ -18,6 +18,8 @@ class iOSCore(InternalBlue):
             exit(-1)
         self.ios_addr = parts[0]
         self.ios_port = parts[1]
+        self.serial = False
+        self.doublecheck = True
 
     def device_list(self):
         """
@@ -91,7 +93,7 @@ class iOSCore(InternalBlue):
 
         log.debug("Receive Thread started.")
 
-        if (self.write_btsnooplog):
+        if self.write_btsnooplog:
             log.warn("Writing btsnooplog is not supported with iOS.")
 
         while not self.exit_requested:
@@ -103,6 +105,14 @@ class iOSCore(InternalBlue):
                 record_data = self.s_snoop.recv(1024)
             except socket.timeout:
                 continue # this is ok. just try again without error
+
+            #log.info(record_data.encode('hex'))
+            # TODO issue here is that sometimes, one event is cut into two and then cannot be interpreted any more
+            # Bugfix: do some checks on what we got
+
+            if len(record_data) < 8 or record_data[0] != '\x04':
+                log.warn("Invalid event returned")
+                continue
 
             # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
             record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?

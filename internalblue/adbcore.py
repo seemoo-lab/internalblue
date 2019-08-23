@@ -17,6 +17,7 @@ class ADBCore(InternalBlue):
         super(ADBCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
         self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.serial = False     # not running with serial scripting interface
+        self.doublecheck = False
 
     def device_list(self):
         """
