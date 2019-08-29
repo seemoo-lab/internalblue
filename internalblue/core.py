@@ -759,7 +759,7 @@ class InternalBlue:
         outbuffer = ''              # buffer which stores all accumulated data read from the chip
         if bytes_total == 0:        # If no total bytes where given just use length
             bytes_total = length        
-        retry = True                # Retry once on failures
+        retry = 3                   # Retry on failures
         while read_addr < address+length:  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
             bytes_left = length - byte_counter
@@ -773,9 +773,9 @@ class InternalBlue:
             if response is None or not response:
                 log.warn("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
                 # Retry once...
-                if retry:
+                if retry > 0:
                     log.debug("readMem: retrying once...")
-                    retry = False
+                    retry = retry - 1
                     continue
                 else:
                     log.warning("readMem: failed!")
@@ -802,10 +802,13 @@ class InternalBlue:
                 log.warn("readMem: [TODO] Got status != 0 : error 0x%02X at address 0x%08x" % (status, read_addr))
                 break
 
-            if self.doublecheck:
+            # do double checking, but prevent loop
+            if self.doublecheck and retry > 0:
                 response_check = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
                 if response != response_check:
                     log.debug("readMem: double checking response failed at 0x%x! retry..." % read_addr)
+                    sleep(0.3)
+                    retry = retry - 1
                     continue
 
             outbuffer += data
@@ -815,7 +818,7 @@ class InternalBlue:
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
-            retry = True  # this round worked, so we re-enable this flag
+            retry = 3  # this round worked, so we re-enable retries
         return outbuffer
 
     def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):

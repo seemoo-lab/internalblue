@@ -67,6 +67,7 @@ class ADBCore(InternalBlue):
         context.device = self.interface
 
         # setup sockets
+        # TODO on magisk-rooted devices there is already a read socket and this first setup needs to be skipped...
         if not self._setupSockets():
             log.info("Could not connect using Bluetooth module.")
             log.info("Trying to set up connection for rooted smartphone with busybox installed.")

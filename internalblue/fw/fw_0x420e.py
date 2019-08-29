@@ -24,7 +24,8 @@ from fw import MemorySection
 
 # Firmware Infos
 # Evaluation Kit CYW927019
-FW_NAME = "CYW27039B1"
+FW_NAME = "CYW27039B1 (NOT iPhone X/XR!)"
+# TODO this is not the iPhone firmware, we need to add a switch in fw.py
 
 # Device Infos
 DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended

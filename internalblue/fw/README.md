@@ -12,7 +12,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x04 |     0x4217 | BCM4329B1   | iPhone 4, Nexus One, iPod touch (A1367)
 0x000f |    0x04 |     0x21d0 | BCM2046     | iMac 27" late 2009 
 0x000f |    0x04 |     0x422a | BCM4331     | MacBook Pro early 2011
-0x000f |    0x04 |     0x4203 |             | HP ProBook 6550b
+0x000f |    0x04 |     0x4203 |             | HP ProBook 6550b and 6450b
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
 0x000f |    0x05 |     0x610d |             | iPad A1395
 0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle, HP Elitebook 820 G2
@@ -39,7 +39,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017
 0x000f |    0x08 |     0x224c | BCM20703A2  | MacBook Pro 15" 2017 (A1707)
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
-0x000f |    0x08 |     0x4109 | BCM4345     | iPhone 6 | 2013
+0x000f |    0x08 |     0x4109 | BCM4345B0   | iPhone 6 | Jul 15 2013
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
@@ -53,7 +53,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
 0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+  (local version is 0x1111) | April 13 2018
-0x000f |    0x09 |     0x420e |             | iPhone XR, iPhone X
+0x000f |    0x09 |     0x420e | BCM4347B1   | iPhone XR, iPhone X | Oct 11 2016
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
