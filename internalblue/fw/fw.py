@@ -27,7 +27,7 @@ from pwn import log
 
 
 class Firmware:
-    def __init__(self, version=None):
+    def __init__(self, version=None, iOS=False):
         """
         Load and initialize the actual firmware add-ons for Nexus 5, Raspi3, etc.
 
@@ -41,9 +41,15 @@ class Firmware:
             # get LMP Subversion
             log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" %
                      (version, version >> 13, (version & 0xf00) >> 8, version & 0xff))
+
             try:
-                self.firmware = __import__(__name__ + '_' + hex(version), fromlist=[''])
-                log.info("Using fw_" + hex(version) + ".py")
+                # Fix for duplicate version number of evaluation board / iPhones
+                if iOS and version==0x420e:
+                    self.firmware = __import__(__name__ + '_' + hex(version) + '_iphone', fromlist=[''])
+                    log.info("Using fw_" + hex(version) + "_iphone.py")
+                else:
+                    self.firmware = __import__(__name__ + '_' + hex(version), fromlist=[''])
+                    log.info("Using fw_" + hex(version) + ".py")
             except ImportError:
                 self.firmware = None
                 pass

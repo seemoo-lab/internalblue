@@ -546,7 +546,12 @@ class InternalBlue:
             return False
         else:
             subversion = (u8(version[11]) << 8) + u8(version[10])
-            self.fw = Firmware(subversion).firmware
+
+            iOS = False
+            if self.__class__.__name__ == "iOSCore":
+                iOS = True
+
+            self.fw = Firmware(subversion, iOS).firmware
         
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.

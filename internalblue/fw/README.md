@@ -53,7 +53,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
 0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+  (local version is 0x1111) | April 13 2018
-0x000f |    0x09 |     0x420e | BCM4347B1   | iPhone XR, iPhone X | Oct 11 2016
+0x000f |    0x09 |     0x420e | BCM4347B1   | iPhone 8, XR, X | Oct 11 2016
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
