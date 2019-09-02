@@ -13,10 +13,10 @@ from core import InternalBlue
 
 class ADBCore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', serial='True', data_directory="."):
         super(ADBCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
         self.hciport = None     # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
-        self.serial = False     # not running with serial scripting interface
+        self.serial = serial    # use serial su busybox scripting and do not try bluetooth.default.so
         self.doublecheck = False
 
     def device_list(self):
@@ -67,14 +67,17 @@ class ADBCore(InternalBlue):
         context.device = self.interface
 
         # setup sockets
-        # TODO on magisk-rooted devices there is already a read socket and this first setup needs to be skipped...
-        if not self._setupSockets():
-            log.info("Could not connect using Bluetooth module.")
-            log.info("Trying to set up connection for rooted smartphone with busybox installed.")
+        # on magisk-rooted devices there is sometimes already a read socket and this first setup needs to be skipped...
+        if not self.serial:
+            if not self._setupSockets():
+                log.info("Could not connect using Bluetooth module.")
+                log.info("Trying to set up connection for rooted smartphone with busybox installed.")
+            else:
+                return True  # successfully finished setup with bluetooth.default.so
 
-            if not self._setupSerialSu():
-                log.critical("Failed to setup scripts for rooted devices.")
-                return False
+        if not self._setupSerialSu():
+            log.critical("Failed to setup scripts for rooted devices.")
+            return False
 
         # try again
         if not self._setupSockets():
