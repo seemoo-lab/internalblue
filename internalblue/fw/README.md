@@ -19,7 +19,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
 0x000f |    0x06 |     0x410d |             | BlackBerry Q5
-0x000f |    0x06 |     0x4196 | BCM20702B0  | MacBook Pro mid 2014, iMac (Retina 5k, 27", ultimo 2014)
+0x000f |    0x06 |     0x4196 | BCM20702B0  | MacBook Pro mid 2014, iMac (Retina 5k, 27", ultimo 2014), MacBook Air 2017 13"
 0x000f |    0x06 |     0x6109 |             | Samsung Galaxy Note 10.1 2014 WiFi (SM-P600) 
 0x000f |    0x07 |     0x220f | BCM20736S   | Equiva Radiator Thermostat CC-RT-BLE-EQ
 0x000f |    0x07 |     0x2203 | BCM43342    | iPhone 5s
@@ -36,7 +36,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x2230 | BCM20703A2  | MacBook Pro 2016 (A1707) | Oct 22 2015
 0x000f |    0x08 |     0x2246 | BCM20703A2  | MacBook Pro 2016
 0x000f |    0x08 |     0x2247 | BCM20703A2  | MacBook Pro 2016 (with security fix)
-0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017
+0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017, iMac 2017 Retina 5k
 0x000f |    0x08 |     0x224c | BCM20703A2  | MacBook Pro 15" 2017 (A1707)
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
 0x000f |    0x08 |     0x4109 | BCM4345B0   | iPhone 6 | Jul 15 2013
@@ -46,18 +46,23 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12", 13"), MacBook Pro (13", 2016)
 0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8 | Aug 19 2014
 0x000f |    0x08 |     0x6206 | BCM4345C1   | iPhone SE | Jan 27 2015
+0x000f |    0x09 |     0x102f | BCM4355     | MacBook Air 2019 13" Retina
+0x000f |    0x09 |     0x112f | BCM4364B0   | MacBook Pro 2019 13" 4x Thunderbold
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
+0x000f |    0x09 |     0x2023 | BCM4377     | MacBook Pro 2019 13" 2x Thunderbold
 0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
+0x000f |    0x09 |     0x2043 | BCM4346B0   | MacBook Pro 2019 15"
 0x0131 |    0x09 |     0x220c | CYW20819A1  | ULP BLE/BR/EDR Bluetooth 5 Wireless MCU Evaluation Kit CYW920819EVB-02 | May 22 2018
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
-0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+  (local version is 0x1111) | April 13 2018
+0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+, Samsung Galaxy Note 10/10+  (local version is 0x1111) | April 13 2018
 0x000f |    0x09 |     0x420e | BCM4347B1   | iPhone 8, XR, X | Oct 11 2016
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
-0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max
+0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max, iPad Pro 11" 3E149FD/A, iPad Pro 11" 3E148FD/A, iPad Pro 12.9" 3rd gen 3D941FD/A, iPad mini 5th gen 3F559FD/A, iPad Air 3rd gen 3F561FD/A
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
 0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 4 with Bluetooth 5 patches, same ROM as 3+ | Aug 19 2014
+0x0131 |    0x09 |     0x6214 |             | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A
 
 
 
