@@ -46,6 +46,23 @@ class InternalBlue:
         self.interface = None   # holds the context.device / hci interaface which is used to connect, is set in cli
         self.fw = None          # holds the firmware file
 
+        # RXDN statistics callback variables
+        self.last_nesn_sn = None
+        self.last_success_event = None
+        self.last_event_ctr = 0
+        self.last_channel = 0
+        self.last_channel_map = 0
+        self.last_event_timestamp = 0
+
+        # variables for measuring PDR
+        self.pdr_values = {}
+        for i in range(0, 37):
+            self.pdr_values[i] = collections.deque([1, 1, 1, 1, 1, 1, 1, 1, 1], maxlen=10)
+
+        self.PDR_THRESHOLD = 0.9
+        self.CHAN_COUNT_THRESHOLD = 10
+
+        self.pdr_logfile = open("/tmp/pdr.log", "w")
 
         self.data_directory = data_directory
         self.s_inject = None    # This is the TCP socket to the HCI inject port
@@ -119,6 +136,7 @@ class InternalBlue:
         # Register callbacks which handle specific HCI Events:
         self.registerHciCallback(self.connectionStatusCallback)
         self.registerHciCallback(self.coexStatusCallback)
+        self.registerHciCallback(self.lereceiveStatusCallback)
 
     def check_binutils(self, fix=True):
         """
@@ -1494,6 +1512,132 @@ class InternalBlue:
                     ratio = coex_reject/float(coex_grant)
                 log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, ratio))
                 return
+
+    def lereceiveStatusCallback(self, record):
+        """
+        RXDN Callback Function
+
+        Depends on the raspi3_rxdn.py or eval_rxdn.py script,
+        which patches the _connTaskRxDone() function and copies
+        info from the LE connection struct to HCI.
+        """
+
+        hcipkt = record[0]  # get HCI Event packet
+
+        if not issubclass(hcipkt.__class__, hci.HCI_Event):
+            return
+
+        # Only do something when we have the correct firmware
+        if not self.fw:
+            return
+
+        raspi = False
+        eval = False
+        s8 = False
+        if self.fw.FW_NAME == "BCM43430A1":
+            raspi = True
+        elif self.fw.FW_NAME == "CYW27035B1":
+            eval = True
+        elif self.fw.FW_NAME == "BCM4347B0":
+            s8 = True
+        else:
+            return
+
+        if self.fw and hcipkt.data[0:4] == "RXDN":
+            data = hcipkt.data[4:]
+            # log.info("data: " + data.encode('hex'))
+
+            # Raspi 3 gets errors
+            if len(data) < 239:
+                return
+
+            if raspi or s8:
+                packet_curr_nesn_sn = u8(data[0xa0])
+
+            elif eval:
+                packet_curr_nesn_sn = u8(data[0xa4])
+
+            packet_channel_map = data[0x54:0x7b]
+            packet_channel = u8(data[0x83])
+            packet_event_ctr = u16(data[0x8e:0x90])
+            packet_rssi = u8(data[0])  # currently not supported by s8!
+
+            # When looking at the NESN and the SN bit, we check for TX and RX errors
+            # if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) !=0b1100:
+            #     log.info("             ^----------------------------- ERROR --------------------------------")
+
+            # When looking only at the NESN bit, we check for TX errors -> this is the thing we want in our EWSN paper
+            if self.last_nesn_sn and ((self.last_nesn_sn ^ packet_curr_nesn_sn) & 0b0100) != 0b0100:
+                pdr_current = 0
+            else:
+                pdr_current = 1
+
+            self.pdr_values[packet_channel].appendleft(pdr_current)
+            pdr_avg = sum(self.pdr_values[packet_channel]) / float(len(self.pdr_values[packet_channel]))
+
+            # log.info("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: %d, PDR_avg: %f" % (self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map, pdr_current, pdr_avg))
+            self.pdr_logfile.write("%s event: %5d, channel: %2d, channel_map: 0x%010x, PDR: 1\r\n" % (
+            self.last_event_timestamp, self.last_event_ctr, self.last_channel, self.last_channel_map))
+            self.pdr_logfile.flush()
+
+            if pdr_avg < self.PDR_THRESHOLD:
+                active_channels = bin(self.last_channel_map).count('1')
+                if active_channels <= self.CHAN_COUNT_THRESHOLD:
+                    # log.info('to few channels active -> whiteliste all')
+                    self.pdr_logfile.write('to few channels active -> whiteliste all')
+                    self.pdr_logfile.flush()
+                    self.sendHciCommand(0x2014, '\xff\xff\xff\xff\xf1', timeout=0)
+                else:
+                    self.pdr_logfile.write(
+                        "going to BLACKLIST channel %2d, %2d channels active" % (self.last_channel, active_channels))
+                    new_channel_map = self.last_channel_map & (0x1fffffffff ^ (0b1 << self.last_channel))
+                    self.pdr_logfile.write(
+                        "current_channel_map: 0x%010x, new map: 0x%010x" % (self.last_channel_map, new_channel_map))
+                    self.pdr_logfile.flush()
+
+                    new_channel_map_bytes = []
+                    for i in range(0, 5):
+                        new_channel_map_bytes.append(chr(new_channel_map >> (i * 8) & 0xff))
+
+                    self.sendHciCommand(0x2014, ''.join(new_channel_map_bytes), timeout=0)
+
+            # currently only supported by eval board: check if we also went into the process payload routine,
+            # which probably corresponds to a correct CRC
+            # if self.last_success_event and (self.last_success_event + 1) != packet_event_ctr:
+            #    log.info("             ^----------------------------- MISSED -------------------------------")
+
+            # TODO example for setting the channel map
+            # timeout needs to be zero, because we are already in an event reception routine!
+            # self.sendHciCommand(0x2014, '\x00\x00\xff\x00\x00', timeout=0)
+
+            self.last_nesn_sn = packet_curr_nesn_sn
+
+            # draw channel with rssi color
+            color = '\033[92m'  # green
+            if 0xc8 > packet_rssi >= 0xc0:
+                color = '\033[93m'  # yellow
+            elif packet_rssi < 0xc0:
+                color = '\033[91m'  # red
+
+            channels_total = u8(packet_channel_map[37])
+            channel_map = 0x0000000000
+            if channels_total <= 37:  # raspi 3 messes up with this during blacklisting
+                for channel in range(0, channels_total):
+                    # channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])    # Use the flipped representation of the channel map to be consistent in my code
+                    channel_map |= (0b1 << u8(packet_channel_map[channel]))
+
+            # log.debug("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
+            #                 (packet_rssi & 0x7f) - (128*(packet_rssi >>7)), color, ' '*packet_channel))
+
+            # Store the following information for the next connection event, because we will know only by then, if the event was successful
+            self.last_event_ctr = packet_event_ctr
+            self.last_channel = packet_channel
+            self.last_channel_map = channel_map
+            self.last_event_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+        if self.fw and hcipkt.data[0:4] == "LEPR":
+            data = hcipkt.data[4:]
+            self.last_success_event = u16(data[0x8e:0x90])
 
     def readHeapInformation(self):
         """
