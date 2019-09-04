@@ -1,0 +1,11 @@
+framework module IOBluetoothExtended {
+  umbrella header "IOBluetoothExtended.h"
+
+  export *
+  module * { export * }
+}
+
+module IOBluetoothExtended.Swift {
+    header "IOBluetoothExtended-Swift.h"
+    requires objc
+}
