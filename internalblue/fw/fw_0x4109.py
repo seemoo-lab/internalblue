@@ -29,9 +29,9 @@ FW_NAME = "BCM4345B0"
 
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ #MemorySection(0x00000000, 0x000c07ff,  True,  False),  # Internal ROM
+SECTIONS = [ MemorySection(0x00000000, 0x000c07ff,  True,  False),  # Internal ROM
              MemorySection(0x000d0000, 0x000dffff,  False, True),   # Internal Memory Patchram Contents
-             #MemorySection(0x00200400, 0x00201cff,  False, True),   # Internal Memory Cortex M3
+             MemorySection(0x00200400, 0x00201cff,  False, True),   # Internal Memory Cortex M3
              ]
 
 # Patchram

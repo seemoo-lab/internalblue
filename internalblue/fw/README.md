@@ -42,9 +42,9 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x4109 | BCM4345B0   | iPhone 6 | Jul 15 2013
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
-0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7
+0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7, Huawei P20
 0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12", 13"), MacBook Pro (13", 2016)
-0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8 | Aug 19 2014
+0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8, Xperia X | Aug 19 2014
 0x000f |    0x08 |     0x6206 | BCM4345C1   | iPhone SE | Jan 27 2015
 0x000f |    0x09 |     0x102f | BCM4355     | MacBook Air 2019 13" Retina
 0x000f |    0x09 |     0x112f | BCM4364B0   | MacBook Pro 2019 13" 4x Thunderbold
