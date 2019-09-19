@@ -9,7 +9,6 @@
 #import <Foundation/Foundation.h>
 #import <IOBluetooth/IOBluetooth.h>
 #import "IOBluetoothHostController.h"
-#import <Network/Network.h>
 
 #ifndef Commands_h
 #define Commands_h
@@ -18,10 +17,21 @@
 
 @property (nonatomic, assign) unsigned short waitingFor;
 @property (nonatomic, assign) NSString *hostname;
-@property (nonatomic, assign) NSString *port;
+@property (nonatomic, assign) NSString *inject;
+@property (nonatomic, assign) NSString *snoop;
+
+@property (nonatomic, assign) int32_t sock_fd;
+@property (nonatomic, assign) int32_t client_fd;
+
+@property (nonatomic, assign) Boolean exit_requested;
+
 + (void) setWaitingFor:(unsigned short)arg1;
 + (void) setHostname:(NSString *)arg1;
-+ (void) setPort:(NSString *)arg1;
+
++ (void) setInject:(NSString *)arg1;
++ (void) setSnoop:(NSString *)arg1;
+
+- (void) shutdown;
 
 @end
 

@@ -188,6 +188,7 @@ typedef unsigned int swift_uint4  __attribute__((__ext_vector_type__(4)));
 @class IOBluetoothHostController;
 
 @interface HCIDelegate (SWIFT_EXTENSION(IOBluetoothExtended)) <IOBluetoothHostControllerDelegate>
+- (void)initServer SWIFT_METHOD_FAMILY(none);
 - (void)BluetoothHCIEventNotificationMessage:(IOBluetoothHostController * _Nonnull)controller inNotificationMessage:(struct IOBluetoothHCIEventNotificationMessage * _Nonnull)message;
 @end
 

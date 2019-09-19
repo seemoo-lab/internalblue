@@ -33,13 +33,6 @@ class macOSCore(InternalBlue):
         self.controller = None
         self.delegate = None
 
-    def receivedNotification_(self, note):
-        log.warn(note.userInfo()["formatted"])
-        # self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # if self.s_inject.getsockname()[1] == 0:
-        #     self.s_inject.connect(('127.0.0.1', self.hciport))
-        # self.s_inject.sendall(note.userInfo()["message"].decode("hex"))
-
     def device_list(self):
         """
         Get a list of connected devices
@@ -83,6 +76,7 @@ class macOSCore(InternalBlue):
     def local_connect(self):
     	if not self._setupSockets():
             log.critical("No connection to target device.")
+            self._teardownSockets()
         return True
 
     def _setupSockets(self):
@@ -90,28 +84,17 @@ class macOSCore(InternalBlue):
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
 
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s_snoop.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s_snoop.bind(('127.0.0.1', self.hciport))
         self.s_snoop.settimeout(0.5)
-        self.s_snoop.listen(1)
+        self.s_snoop.setblocking(True)
 
-        self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # create s_inject when needed
 
         self.controller = IOBluetoothHostController.defaultController()
-        self.delegate = HCIDelegate.alloc().init()
+        self.delegate = HCIDelegate.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
         self.delegate.setWaitingFor_(0xfc4d)
         Commands.setDelegate_of_(self.delegate,self.controller)
-
-        NSNotificationCenter = objc.lookUpClass('NSNotificationCenter')
-        notificationCenter = NSNotificationCenter.defaultCenter()
-        notificationCenter.addObserver_selector_name_object_(self, "receivedNotification:", "bluetoothHCIEventNotificationMessage", None)
-
-        bytes2 = ''.join(chr(x) for x in [0x4D, 0xFC, 0xF0, 0x31, 0x00, 0x00, 0x00, 0xFB])
-        self.sendCommandToIOB(bytes2)
-        date = NSDate.dateWithTimeIntervalSinceNow_(2)
-        NSRunLoop.currentRunLoop().runUntilDate_(date)
-        # x = threading.Thread(target=self.sendCommandToIOB, args=(bytes2,))
-        # x.setDaemon(False)
-        # x.start()
 
         return True
 
@@ -131,27 +114,25 @@ class macOSCore(InternalBlue):
             except socket.timeout:
                 continue # this is ok. just try again without error
 
-            # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-            record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
-            # Put the record into all queues of registeredHciRecvQueues if their
-            # filter function matches.
-            for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
-                try:
-                    queue.put(record, block=False)
-                    log.info("recvThreadFunc: Recv queue was not full.")
-                except Queue.Full:
-                	log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
+            if not self.exit_requested:
+                # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
+                record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
+                log.debug("Recv: " + str(record[0]))
 
-            # Call all callback functions inside registeredHciCallbacks and pass the
-            # record as argument.
-            for callback in self.registeredHciCallbacks:
-                callback(record)
+    			# Put the record into all queues of registeredHciRecvQueues if their
+                # filter function matches.
+                for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
+                    try:
+                        queue.put(record, block=False)
+                    except Queue.Full:
+                    	log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
+
+                # Call all callback functions inside registeredHciCallbacks and pass the
+                # record as argument.
+                for callback in self.registeredHciCallbacks:
+                    callback(record)
 
         log.debug("Receive Thread terminated.")
-
-    def sendCommandToIOB(self, command):
-        Commands.sendArbitraryCommand4_len_(command, 0xF0)
-        # NSRunLoop.currentRunLoop().run()
 
     def _sendThreadFunc(self):
     	log.debug("Send Thread started.")
@@ -183,27 +164,18 @@ class macOSCore(InternalBlue):
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
 
-            # TODO: SEND!!
-            bytes2 = ''.join(chr(x) for x in [0x4D, 0xFC, 0xF0, 0x31, 0x00, 0x00, 0x00, 0xFB])
-            self.sendCommandToIOB(bytes2)
-            date = NSDate.dateWithTimeIntervalSinceNow_(4)
-            NSRunLoop.currentRunLoop().runUntilDate_(date)
-
-            # x = threading.Thread(target=self.sendCommandToIOB, args=(bytes2,))
-            # x.setDaemon(True)
-            # x.start()
-
-            # this goes into receivedNotification
+            # Sending command
+            self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if self.s_inject.getsockname()[1] == 0:
-                self.s_inject.connect(('127.0.0.1', self.hciport))
-            self.s_inject.sendall("040E0C01011000066724060f009641".decode("hex"))
+                self.s_inject.connect(('127.0.0.1', self.hciport+1))
+
+            self.s_inject.send(out)
+            self.s_inject.close()
 
             # if the caller expects a response:
             # Wait for the HCI event response by polling the recvQueue
             if queue != None and filter_function != None:
                 try:
-                    # record_data = "040E0C01011000066724060f009641".decode("hex")
-                    # data = hci.parse_hci_packet(record_data).data
                     record = recvQueue.get(timeout=10)
                     hcipkt = record[0]
                     data   = hcipkt.data
@@ -219,7 +191,7 @@ class macOSCore(InternalBlue):
         log.debug("Send Thread terminated.")
 
     def _teardownSockets(self):
-    	if (self.s_inject != None):
+        if (self.s_inject != None):
             self.s_inject.close()
             self.s_inject = None
 
@@ -229,3 +201,8 @@ class macOSCore(InternalBlue):
 
         return True
 
+    def shutdown(self):
+        self.delegate.shutdown()
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
+            ('127.0.0.1', self.s_snoop.getsockname()[1]))
+        super(macOSCore, self).shutdown()
