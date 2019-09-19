@@ -28,28 +28,28 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x07 |     0x410d | BCM4334     | iPhone 5 (A1429)
 0x000f |    0x07 |     0x4606 | BCM4324     | iPad Air (A1474)
 0x000f |    0x07 |     0x6109 | BCM4335C0 (BCM4339) | Nexus 5, Xperia Z3 Compact, Samsung Galaxy Note 3, LG G4 (LG-h815) | Dec 11 2012
-0x0131 |    0x08 |     0x1200 |             | Philips Sonicare
+0x0131 |    0x08 |     0x1200 |             | Philips Sonicare (Cypress SoC CY8C4247LQI-BL483, not sure if compatible)
 0x000f |    0x08 |     0x21a1 |             | MacBook Pro Retina 13" early 2015 
 0x000f |    0x08 |     0x21a6 | BCM20703A1  | MacBook Pro early 2015
 0x000f |    0x08 |     0x21a7 | BCM20703A1  | MacBook Pro early 2015 (with security fix)
 0x000f |    0x08 |     0x220b | BCM20707    | Fitbit Ionic 
 0x000f |    0x08 |     0x2230 | BCM20703A2  | MacBook Pro 2016 (A1707) | Oct 22 2015
-0x000f |    0x08 |     0x2246 | BCM20703A2  | MacBook Pro 2016
-0x000f |    0x08 |     0x2247 | BCM20703A2  | MacBook Pro 2016 (with security fix)
-0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017, iMac 2017 Retina 5k
-0x000f |    0x08 |     0x224c | BCM20703A2  | MacBook Pro 15" 2017 (A1707)
+0x000f |    0x08 |     0x2246 | BCM20703A2  | MacBook Pro 2016 | Oct 22 2015
+0x000f |    0x08 |     0x2247 | BCM20703A2  | MacBook Pro 2016 (with security fix) | Oct 22 2015
+0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017, iMac 2017 Retina 5k | Oct 22 2015
+0x000f |    0x08 |     0x224c | BCM20703A2  | MacBook Pro 15" 2017 (A1707) | Oct 22 2015
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
 0x000f |    0x08 |     0x4109 | BCM4345B0   | iPhone 6 | Jul 15 2013
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
 0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7, Huawei P20
-0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12", 13"), MacBook Pro (13", 2016)
+0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12", 13"), MacBook Pro (13", 2016) | May 28 2013
 0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8, Xperia X | Aug 19 2014
 0x000f |    0x08 |     0x6206 | BCM4345C1   | iPhone SE | Jan 27 2015
-0x000f |    0x09 |     0x102f | BCM4355     | MacBook Air 2019 13" Retina
-0x000f |    0x09 |     0x112f | BCM4364B0   | MacBook Pro 2019 13" 4x Thunderbold
+0x000f |    0x09 |     0x102f | BCM4355     | MacBook Air 2019 13" Retina | Mar 7 2017
+0x000f |    0x09 |     0x112f | BCM4364B0   | MacBook Pro 2019 13" 4x Thunderbold | Aug 21 2015
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
-0x000f |    0x09 |     0x2023 | BCM4377     | MacBook Pro 2019 13" 2x Thunderbold
+0x000f |    0x09 |     0x2023 | BCM4377     | MacBook Pro 2019 13" 2x Thunderbold | Feb 28 2018
 0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
 0x000f |    0x09 |     0x2043 | BCM4346B0   | MacBook Pro 2019 15"
@@ -61,8 +61,8 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max, iPad Pro 11" 3E149FD/A, iPad Pro 11" 3E148FD/A, iPad Pro 12.9" 3rd gen 3D941FD/A, iPad mini 5th gen 3F559FD/A, iPad Air 3rd gen 3F561FD/A
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
-0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 4 with Bluetooth 5 patches, same ROM as 3+ | Aug 19 2014
-0x0131 |    0x09 |     0x6214 |             | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A
+0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 3+/4 with Bluetooth 5 patches, same ROM as 3+ | Aug 19 2014
+0x000f |    0x09 |     0x6214 |             | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A
 
 
 

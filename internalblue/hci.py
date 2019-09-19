@@ -214,7 +214,7 @@ class HCI_Cmd(HCI):
         0x0c6c : "COMND Read_LE_Host_Support",
         0x0c6d : "COMND Write_LE_Host_Support",
         0x0c6e : "COMND Set_MWS_Channel_Parameters",
-        0x0c6f : "COMND Set_ External_Frame_Configuration",
+        0x0c6f : "COMND Set_External_Frame_Configuration",
         0x0c70 : "COMND Set_MWS_Signaling",
         0x0c71 : "COMND Set_MWS_Transport_Layer",
         0x0c72 : "COMND Set_MWS_Scan_Frequency_Table",

