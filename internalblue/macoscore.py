@@ -30,8 +30,7 @@ class macOSCore(InternalBlue):
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
-        self.controller = None
-        self.delegate = None
+        self.iobe = None
 
     def device_list(self):
         """
@@ -83,18 +82,19 @@ class macOSCore(InternalBlue):
         self.hciport = 65432#random.randint(60000, 65535)
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
 
+        # Create s_snoop socket
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s_snoop.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s_snoop.bind(('127.0.0.1', self.hciport))
         self.s_snoop.settimeout(0.5)
         self.s_snoop.setblocking(True)
 
-        # create s_inject when needed
+        # Create s_inject when needed
 
-        self.controller = IOBluetoothHostController.defaultController()
-        self.delegate = HCIDelegate.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
-        self.delegate.setWaitingFor_(0xfc4d)
-        Commands.setDelegate_of_(self.delegate,self.controller)
+        # Create IOBluetoothExtended Object that listens for commands,
+        # sends them to the Bluetooth chip and replies via TCP socket.
+        self.iobe = IOBE.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
+        time.sleep(0.5)
 
         return True
 
@@ -155,7 +155,6 @@ class macOSCore(InternalBlue):
             # Send command to the chip using IOBluetoothExtended framework
             h4type, data, queue, filter_function = task
             opcode = binascii.hexlify(data[1]) + binascii.hexlify(data[0])
-            self.delegate.setWaitingFor_(int(opcode, 16))
             log.info("Sending command: 0x" + binascii.hexlify(data) + ", opcode: " + opcode)
 
             # if the caller expects a response: register a queue to receive the response
@@ -202,7 +201,7 @@ class macOSCore(InternalBlue):
         return True
 
     def shutdown(self):
-        self.delegate.shutdown()
+        self.iobe.shutdown()
         socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
             ('127.0.0.1', self.s_snoop.getsockname()[1]))
         super(macOSCore, self).shutdown()
