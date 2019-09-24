@@ -7,7 +7,9 @@
 //
 
 #import <Cocoa/Cocoa.h>
-#import <Commands.h>
+#import <HCIDelegate.h>
+#import <HCICommunicator.h>
+#import <IOBluetoothHostController.h>
 
 //! Project version number for IOBluetoothExtended.
 FOUNDATION_EXPORT double IOBluetoothExtendedVersionNumber;
