@@ -23,8 +23,8 @@
 from fw import MemorySection
 
 # Firmware Infos
-# Evaluation Kit CYW927035
-FW_NAME = "CYW27035B1"
+# Evaluation Kit CYW920735
+FW_NAME = "CYW20735B1"
 
 # Device Infos
 DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended

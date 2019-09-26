@@ -15,6 +15,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x04 |     0x4203 |             | HP ProBook 6550b and 6450b
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
 0x000f |    0x05 |     0x610d |             | iPad A1395
+0x000f |    0x05 |     0x240c | BCM20733    | Magic Keyboard
 0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle, HP Elitebook 820 G2
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
@@ -39,14 +40,15 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x224b | BCM20703A2  | MacBook Pro 2016, 2017, iMac 2017 Retina 5k | Oct 22 2015
 0x000f |    0x08 |     0x224c | BCM20703A2  | MacBook Pro 15" 2017 (A1707) | Oct 22 2015
 0x000f |    0x08 |     0x240f | BCM4358A3   | Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge | Oct 23 2014 
-0x000f |    0x08 |     0x4109 | BCM4345B0   | iPhone 6 | Jul 15 2013
+0x000f |    0x08 |     0x4109 | BCM4345B0   | iPhone 6 (Tempranillo) | Jul 15 2013
 0x000f |    0x08 |     0x430a |             | iPad Pro 2016 (MLMW2FD/A)
-0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 (A1778) | Sep 14 2015
+0x000f |    0x08 |     0x6103 | BCM4355C0   | iPhone 7 A1778 (Elsa) | Sep 14 2015
 0x000f |    0x08 |     0x6106 |             | Samsung Galaxy S7, Huawei P20
 0x000f |    0x08 |     0x617e | BCM4350     | MacBook Pro 2017 (Retina 12", 13"), MacBook Pro (13", 2016) | May 28 2013
 0x000f |    0x08 |     0x6119 | BCM4345C0   | Raspberry Pi 3+, Honor 8, Xperia X | Aug 19 2014
-0x000f |    0x08 |     0x6206 | BCM4345C1   | iPhone SE | Jan 27 2015
+0x000f |    0x08 |     0x6206 | BCM4345C1   | iPhone SE (Hans), iPod Touch 7th Generation (MVJ72FD/A) | Jan 27 2015
 0x000f |    0x09 |     0x102f | BCM4355     | MacBook Air 2019 13" Retina | Mar 7 2017
+0x000f |    0x09 |     0x112e | BCM4364B0   | iMac Retina 4K 21.5"/27" 2019 macOS Mojave 10.14.6 | Aug 21 2015
 0x000f |    0x09 |     0x112f | BCM4364B0   | MacBook Pro 2019 13" 4x Thunderbold | Aug 21 2015
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
 0x000f |    0x09 |     0x2023 | BCM4377     | MacBook Pro 2019 13" 2x Thunderbold | Feb 28 2018
@@ -59,10 +61,11 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+, Samsung Galaxy Note 10/10+  (local version is 0x1111) | April 13 2018
 0x000f |    0x09 |     0x420e | BCM4347B1   | iPhone 8, XR, X | Oct 11 2016
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
-0x000f |    0x09 |     0x4307 |             | iPhone XS, iPhone Xs Max, iPad Pro 11" 3E149FD/A, iPad Pro 11" 3E148FD/A, iPad Pro 12.9" 3rd gen 3D941FD/A, iPad mini 5th gen 3F559FD/A, iPad Air 3rd gen 3F561FD/A
+0x000f |    0x09 |     0x4307 | BCM4377B2   | iPhone XS (Aladdin), iPhone Xs Max (Genie), iPad Pro 11" 3E149FD/A, iPad Pro 11" 3E148FD/A, iPad Pro 12.9" 3rd gen 3D941FD/A, iPad mini 5th gen 3F559FD/A, iPad Air 3rd gen 3F561FD/A
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
-0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 3+/4 with Bluetooth 5 patches, same ROM as 3+ | Aug 19 2014
-0x000f |    0x09 |     0x6214 |             | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A
+0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 3+/4 --- *with Bluetooth 5 patches, same ROM as 3+* | Aug 19 2014
+0x000f |    0x09 |     0x6214 | BCM4355C1   | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A, iPad 6th gen MR7J2FD/A A1893 (FigaroA)
+0x000f |    0x0a |     0x4228 | BCM4378B1   | iPhone 11 (Hei), iPhone 11 Pro (Moana), iPhone 11 Pro Max (Tala) --- *announce BT 5.1 over the air despite being specified as BT 5 online*
 
 
 
@@ -84,6 +87,7 @@ There is a couple of issues causing trouble running *InternalBlue*, which are re
 * CYW20735B1
   * `Launch_RAM` works in principle, but threading seems to be broken if the executed code generates other HCI events.
   A hook at `0xB0316` is a nice spot to implement a function that generates HCI events and can be called via the HCI command `0xfc19`.
+  The general solution seems to be `self.internalblue.patchRom(0x3d32e, "\x70\x47\x70\x47")` respectively `patch -a 0x3d32e --asm bx lr`, which fixes that the baud rate is set to a wrong value during `Launch_RAM`.
   
 Firmware Version and Build Date
 -------------------------------

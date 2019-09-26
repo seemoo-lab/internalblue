@@ -40,3 +40,8 @@ PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
 PATCHRAM_VALUE_TABLE_ADDRESS    = 0x130000
 PATCHRAM_NUMBER_OF_SLOTS        = 256
 PATCHRAM_ALIGNED                = False
+
+
+# Heap
+BLOC_HEAD = 0x20067C                    # g_dynamic_memory_GeneralUsePools
+BLOC_NG = True                          # Next Generation Bloc Buffer
