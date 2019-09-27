@@ -1,0 +1,3 @@
+* brew install unicorn
+* pip install pwntools
+* pip install pyobjc

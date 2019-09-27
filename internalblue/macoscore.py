@@ -155,7 +155,7 @@ class macOSCore(InternalBlue):
             # Send command to the chip using IOBluetoothExtended framework
             h4type, data, queue, filter_function = task
             opcode = binascii.hexlify(data[1]) + binascii.hexlify(data[0])
-            log.info("Sending command: 0x" + binascii.hexlify(data) + ", opcode: " + opcode)
+            log.debug("Sending command: 0x" + binascii.hexlify(data) + ", opcode: " + opcode)
 
             # if the caller expects a response: register a queue to receive the response
             if queue != None and filter_function != None:
@@ -188,6 +188,9 @@ class macOSCore(InternalBlue):
                 self.unregisterHciRecvQueue(recvQueue)
 
         log.debug("Send Thread terminated.")
+
+    def enableBroadcomDiagnosticLogging(self, enable):
+        return
 
     def _teardownSockets(self):
         if (self.s_inject != None):
