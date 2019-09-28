@@ -1622,10 +1622,18 @@ class CmdSendDiagCmd(Cmd):
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--type", type=auto_int, default=0x07,
+                        help="Type. Default is 0x07, but you can use 0x02 for ACL and 0x03 for SCO."
+                             "Other values might crash.")
     parser.add_argument("data", nargs="*",
-                        help="Payload as combinations of hexstrings and hex-uint32 (starting with 0x..). Known commands so far: Reset ACL BR Stats (b9), Get ACL BR Stats (c1), Get ACL EDR Stats (c2), Get AUX Stats (c3), Get Connections (cf), Enable Link Manager Diagnostics (f001), Get Memory Peek (f1), Get Memory Poke (f2), Get Memory Dump (f3), Packet Test (f6).")
+                        help="Payload as combinations of hexstrings and hex-uint32 (starting with 0x..). "
+                             "Known commands so far: Reset ACL BR Stats (b9), Get ACL BR Stats (c1), "
+                             "Get ACL EDR Stats (c2), Get AUX Stats (c3), Get Connections (cf), "
+                             "Enable Link Manager Diagnostics (f001), Get Memory Peek (f1), Get Memory Poke (f2), "
+                             "Get Memory Dump (f3), Packet Test (f6).")
 
     def work(self):
+
         args = self.getArgs()
         if not args or not args.data:
             return True
@@ -1637,7 +1645,7 @@ class CmdSendDiagCmd(Cmd):
             else:
                 data += data_part.decode('hex')
 
-        self.internalblue.sendH4(0x07, data)
+        self.internalblue.sendH4(args.type, data)
 
         return True
 
