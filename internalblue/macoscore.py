@@ -83,16 +83,19 @@ class macOSCore(InternalBlue):
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
 
         # Create s_snoop socket
-        self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s_snoop.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s_snoop.bind(('127.0.0.1', self.hciport))
         self.s_snoop.settimeout(0.5)
         self.s_snoop.setblocking(True)
 
-        # Create s_inject when needed
+        # Create s_inject
+        self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s_inject.settimeout(0.5)
+        self.s_inject.setblocking(True)
 
         # Create IOBluetoothExtended Object that listens for commands,
-        # sends them to the Bluetooth chip and replies via TCP socket.
+        # sends them to the Bluetooth chip and replies via UDP socket.
         self.iobe = IOBE.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
         time.sleep(0.5)
 
@@ -108,9 +111,8 @@ class macOSCore(InternalBlue):
 
             # read record data
             try:
-                self.s_snoop.listen(1)
-                conn, addr = self.s_snoop.accept()
-                record_data = conn.recv(1024)
+                data, addr = self.s_snoop.recvfrom(1024)
+                record_data = data
             except socket.timeout:
                 continue # this is ok. just try again without error
 
@@ -162,14 +164,8 @@ class macOSCore(InternalBlue):
                 recvQueue = Queue.Queue(1)
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
-
             # Sending command
-            self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            if self.s_inject.getsockname()[1] == 0:
-                self.s_inject.connect(('127.0.0.1', self.hciport+1))
-
-            self.s_inject.send(out)
-            self.s_inject.close()
+            self.s_inject.sendto(out, ('127.0.0.1', self.hciport+1))
 
             # if the caller expects a response:
             # Wait for the HCI event response by polling the recvQueue
@@ -205,6 +201,6 @@ class macOSCore(InternalBlue):
 
     def shutdown(self):
         self.iobe.shutdown()
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
-            ('127.0.0.1', self.s_snoop.getsockname()[1]))
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
+        "", ('127.0.0.1', self.s_snoop.getsockname()[1]))
         super(macOSCore, self).shutdown()
