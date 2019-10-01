@@ -79,7 +79,7 @@ class macOSCore(InternalBlue):
         return True
 
     def _setupSockets(self):
-        self.hciport = random.randint(60000, 65535)
+        self.hciport = random.randint(60000, 65535-1)
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
 
         # Create s_snoop socket
@@ -152,7 +152,7 @@ class macOSCore(InternalBlue):
             h4type, data, queue, filter_function = task
 
             # Prepend UART TYPE and length.
-            out = p8(h4type) + data
+            out = p8(h4type) + p8(len(data)) + data
 
             # Send command to the chip using IOBluetoothExtended framework
             h4type, data, queue, filter_function = task
