@@ -79,7 +79,7 @@ class macOSCore(InternalBlue):
         return True
 
     def _setupSockets(self):
-        self.hciport = 65432#random.randint(60000, 65535)
+        self.hciport = random.randint(60000, 65535)
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
 
         # Create s_snoop socket

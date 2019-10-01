@@ -1,3 +1,4 @@
 * brew install unicorn
 * pip install pwntools
 * pip install pyobjc
+* brew install https://github.com/Gallopsled/pwntools-binutils/raw/master/osx/binutils-arm.rb
