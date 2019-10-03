@@ -21,9 +21,9 @@ import threading
 import binascii
 
 objc.initFrameworkWrapper("IOBluetoothExtended",
-	frameworkIdentifier="com.davidetoldo.IOBluetoothExtended",
-	frameworkPath=objc.pathForFramework("../macos-framework/IOBluetoothExtended.framework"),
-	globals=globals())
+    frameworkIdentifier="com.davidetoldo.IOBluetoothExtended",
+    frameworkPath=objc.pathForFramework("../macos-framework/IOBluetoothExtended.framework"),
+    globals=globals())
 
 class macOSCore(InternalBlue):
     NSNotificationCenter = objc.lookUpClass('NSNotificationCenter')
@@ -45,8 +45,7 @@ class macOSCore(InternalBlue):
             return []
 
         # assume that a explicitly specified iPhone exists
-        device_list = []
-        device_list.append((self, "mac", "mac"))
+        device_list = [(self, "mac", "mac")]
 
         return device_list
 
@@ -73,7 +72,7 @@ class macOSCore(InternalBlue):
             return None
 
     def local_connect(self):
-    	if not self._setupSockets():
+        if not self._setupSockets():
             log.critical("No connection to target device.")
             self._teardownSockets()
         return True
@@ -121,13 +120,13 @@ class macOSCore(InternalBlue):
                 record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
                 log.debug("Recv: " + str(record[0]))
 
-    			# Put the record into all queues of registeredHciRecvQueues if their
+                # Put the record into all queues of registeredHciRecvQueues if their
                 # filter function matches.
                 for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
                     try:
                         queue.put(record, block=False)
                     except Queue.Full:
-                    	log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
+                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
 
                 # Call all callback functions inside registeredHciCallbacks and pass the
                 # record as argument.
@@ -137,7 +136,7 @@ class macOSCore(InternalBlue):
         log.debug("Receive Thread terminated.")
 
     def _sendThreadFunc(self):
-    	log.debug("Send Thread started.")
+        log.debug("Send Thread started.")
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
@@ -160,7 +159,7 @@ class macOSCore(InternalBlue):
             log.debug("Sending command: 0x" + binascii.hexlify(data) + ", opcode: " + opcode)
 
             # if the caller expects a response: register a queue to receive the response
-            if queue != None and filter_function != None:
+            if queue is not None and filter_function is not None:
                 recvQueue = Queue.Queue(1)
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
@@ -169,7 +168,7 @@ class macOSCore(InternalBlue):
 
             # if the caller expects a response:
             # Wait for the HCI event response by polling the recvQueue
-            if queue != None and filter_function != None:
+            if queue is not None and filter_function is not None:
                 try:
                     record = recvQueue.get(timeout=10)
                     hcipkt = record[0]
@@ -189,11 +188,11 @@ class macOSCore(InternalBlue):
         return
 
     def _teardownSockets(self):
-        if (self.s_inject != None):
+        if self.s_inject is not None:
             self.s_inject.close()
             self.s_inject = None
 
-        if (self.s_snoop != None):
+        if self.s_snoop is not None:
             self.s_snoop.close()
             self.s_snoop = None
 
