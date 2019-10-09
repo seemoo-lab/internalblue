@@ -98,7 +98,7 @@ def internalblue_cli():
     parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
     parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
-    parser.add_argument("--mac", "-m", help="Tell internalblue to use specific mac functions.")
+    parser.add_argument("--mac", "-m", help="Tell internalblue to use specific mac functions.", action="store_true")
     args = parser.parse_args()
 
     if args.data_directory is not None:

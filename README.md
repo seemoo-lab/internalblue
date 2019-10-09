@@ -115,9 +115,10 @@ iOS:
 * Optional, no jailbreak required: install [iOS Bluetooth Debug Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/) to obtain
   HCI and diagnostic messages, either via diagnostic report feature (all iOS versions) or live with PacketLogger (since iOS 13)
 
-
-Support for macOS is coming soon!
-
+macOS:
+* Homebrew
+* Xcode 10.2.1
+* Instructions see [here](macos-framework/README.md)
 
 Setup and Installation
 ----------------------

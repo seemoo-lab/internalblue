@@ -22,7 +22,7 @@ import binascii
 
 objc.initFrameworkWrapper("IOBluetoothExtended",
     frameworkIdentifier="com.davidetoldo.IOBluetoothExtended",
-    frameworkPath=objc.pathForFramework("../macos-framework/IOBluetoothExtended.framework"),
+    frameworkPath=objc.pathForFramework("./macos-framework/IOBluetoothExtended.framework"),
     globals=globals())
 
 class macOSCore(InternalBlue):
@@ -30,6 +30,7 @@ class macOSCore(InternalBlue):
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
+        self.doublecheck = False
         self.iobe = None
 
     def device_list(self):
