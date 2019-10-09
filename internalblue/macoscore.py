@@ -15,14 +15,15 @@ import objc
 from Foundation import *
 from ctypes import CDLL, c_void_p, byref, c_char_p
 from ctypes.util import find_library
-from Foundation import NSMutableArray
 
-import threading
 import binascii
+import os
+
+filepath = os.path.dirname(os.path.abspath(__file__))
 
 objc.initFrameworkWrapper("IOBluetoothExtended",
     frameworkIdentifier="com.davidetoldo.IOBluetoothExtended",
-    frameworkPath=objc.pathForFramework("./macos-framework/IOBluetoothExtended.framework"),
+    frameworkPath=objc.pathForFramework(filepath+"/../macos-framework/IOBluetoothExtended.framework"),
     globals=globals())
 
 class macOSCore(InternalBlue):

@@ -33,6 +33,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x21a1 |             | MacBook Pro Retina 13" early 2015 
 0x000f |    0x08 |     0x21a6 | BCM20703A1  | MacBook Pro early 2015
 0x000f |    0x08 |     0x21a7 | BCM20703A1  | MacBook Pro early 2015 (with security fix)
+0x000f |    0x08 |     0x21a8 | BCM20703A1  | MacBook Pro early 2015 (with security fix, 10.14.6)
 0x000f |    0x08 |     0x220b | BCM20707    | Fitbit Ionic 
 0x000f |    0x08 |     0x2230 | BCM20703A2  | MacBook Pro 2016 (A1707) | Oct 22 2015
 0x000f |    0x08 |     0x2246 | BCM20703A2  | MacBook Pro 2016 | Oct 22 2015
