@@ -2,7 +2,7 @@ Enable Debugging Features in the Android Bluetooth Stack
 ========================================================
 
 The Android Bluetooth stack has [debugging features](https://chromium.googlesource.com/aosp/platform/system/bt/+/master/doc/network_ports.md)
-which are disabled in normal builds. To enable them, the Bluetooth Stack
+which are disabled in normal builds. To enable them, the Bluetooth stack
 (*bluetooth.default.so*) has to be build with debugging preprocessor defines.
 
 Another issue is that the Android Bluetooth stack does not support Broadcom
@@ -17,11 +17,40 @@ been created according to the tutorial below. You can skip the build if you
 happen to have a device for which a precompiled *bluetooth.default.so* exists.
 
 
+NEW: Serial Forwarding
+----------------------
+
+With Android Oreo (8), significant parts of the network debug interface
+were removed from the source code. Reintroducing these features would be ABI-breaking.
+
+We introduced an experimental serial forwarding. If the connection to a
+patched Bluetooth stack fails on Android, *InternalBlue* tries to setup sockets
+with shell scripting. The only requirement is a rooted smartphone. This hack
+even works on a recent __Samsung Galaxy S10e__ with __Android Pie (9)__ (Patchlevel June 2019).
+
+In `adbcore.py`, we have a fallback that executes `_setupSerialSu`. This starts the
+following processes:
+
+    tail -f -n +0 /data/log/bt/btsnoop_hci.log | nc -l -p 8872
+    nc -l -p 8873 >/sdcard/internalblue_input.bin
+    tail -f /sdcard/internalblue_input.bin >>/dev/ttySAC1
+
+To run netcat, you need to install the `busybox` app. Depending on your Android version,
+the paths for `*btsnoop_hci.log` and `/dev/tty*` might differ. Execute `lsof | grep bluetooth`
+to get hints on the serial device used for Bluetooth.
+
+Note that this solution is much slower than patching *bluetooth.default.so*.
+The delay per command is quite long, but overall throughput is okay, i.e., stackdumps can
+be received.
+
+
+
 Prebuilt Library Status
 -----------------------
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
+none   | Android 8+9 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
 android5_1_1 | android-5.1.1_r3     | rx only | no      | Tested on Nexus 5 - HCI sniffing only!
 android6_0_1 | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
 android7_1_2 | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.

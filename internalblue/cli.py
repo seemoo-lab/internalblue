@@ -96,11 +96,12 @@ def internalblue_cli():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-directory", "-d", help="Set data directory. Default: ~/.internalblue")
     parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
-    parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port")
+    parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
+    parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
     parser.add_argument("--mac", "-m", help="Tell internalblue to use specific mac functions.")
     args = parser.parse_args()
 
-    if args.data_directory != None:
+    if args.data_directory is not None:
         data_directory = args.data_directory
     else:
         data_directory = os.path.expanduser("~") + "/.internalblue"
@@ -129,7 +130,7 @@ def internalblue_cli():
             macOSCore(log_level=log_level, data_directory=data_directory)]
     else:
         connection_methods = [
-            ADBCore(log_level=log_level, data_directory=data_directory),
+            ADBCore(log_level=log_level, data_directory=data_directory, serial=args.serialsu),
             HCICore(log_level=log_level, data_directory=data_directory)]
 
     devices = []

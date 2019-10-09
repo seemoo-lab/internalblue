@@ -8,20 +8,131 @@ therefore implement monitoring and injection tools for the lower layers of
 the Bluetooth protocol stack.
 
 
+Publications and Background
+---------------------------
+
+* **Master Thesis** (07/2018)
+  
+  *InternalBlue* was initially developed and documented in the
+[Masterthesis](https://github.com/seemoo-lab/internalblue/raw/master/internalblue_thesis_dennis_mantz.pdf) by Dennis Mantz.
+Afterwards the development was continued by SEEMOO. It was awarded with the [CAST Förderpreis](https://www.cysec.tu-darmstadt.de/cysec/start_news_details_136448.en.jsp).
+
+* **MRMCD Talk** (09/2018)
+
+  The basic framework for Nexus 5 / BCM4339 was presented at the MRMCD Conference
+2018 in Darmstadt. The talk was also [recorded](https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware) and includes an overview of the framework as well as
+two demo usages at the end (Following a **Secure Simple Pairing procedure in
+Wireshark** and implementing a **proof of concept for CVE-2018-5383**).
+
+
+* **35C3 Talk** (12/2018)
+
+  More extensions were [presented](https://media.ccc.de/v/35c3-9498-dissecting_broadcom_bluetooth) at 35C3 2018 in Leipzig. New features include 
+creating connections to non-discoverable devices. Moreover, we gave a **demo of
+CVE-2018-19860**, which can crash Bluetooth on several Broadcom chips. This talk
+was also recorded and gives a more high level overview.
+
+* **TROOPERS Talk** (03/2019)
+
+* **WiSec Paper** (05/2019)
+
+  Our WiSec paper [Inside Job: Diagnosing Bluetooth Lower Layers Using Off-the-Shelf Devices](https://arxiv.org/abs/1905.00634) on reversing the
+  Broadcom Bluetooth diagnostics protocol was accepted, demonstrated and got the replicability label.
+
+* **MobiSys Paper** (06/2019)
+
+  Our MobiSys paper [InternalBlue - Bluetooth Binary Patching and Experimentation Framework
+](https://arxiv.org/abs/1905.00631) on the complete *InternalBlue* ecosystem got accepted.
+
+
+* **REcon Talk** (06/2019)
+
+  We gave a talk at REcon, [Reversing and Exploiting Broadcom Bluetooth](https://cfp.recon.cx/reconmtl2019/talk/EQTRGU/).
+  It provides a first intuition on how to do binary patching in C with Nexmon to change Bluetooth functionality.
+
+* **MRMCD Talk** (09/2019)
+
+  Our talk [Playing with Bluetooth](https://media.ccc.de/v/2019-185-playing-with-bluetooth) focuses on new device support
+  within *InternalBlue* and the Patchram state of various devices.
+
+
+Supported Features
+------------------
+
+This list is subject to change, but we give you a brief overview. You probably have a platform with a Broadcom chip that supports most features :)
+
+On any Bluetooth chip:
+* Send HCI commands
+* Monitor HCI
+* Establish connections
+
+On any Broadcom Bluetooth chip:
+* Read and write RAM
+* Read and write assembly to RAM
+* Read ROM
+* Set defined breakpoints that crash on execution
+* Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
+* Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integrated into BlueZ)
+* Read AFH channel map
+
+On selected Broadcom Bluetooth chips:
+* Write to ROM via Patchram (any chip with defined firmware file >= build date 2012)
+* Interpret core dumps (Nexus 5/6P, Samsung Galaxy S6, Evaluation Boards, Samsung Galaxy S10/S10e/S10+)
+* Debug firmware with tracepoints (Nexus 5 and Evaluation Board CYW20735)
+* Fuzz invalid LMP messages (Nexus 5 and Evaluation Board CYW20735)
+* Inject LCP messages, including invalid messages (Nexus 5, Raspberry Pi 3/3+/4) 
+* Full object and function symbol table (Cypress Evaluation Boards only)
+* Demos for Nexus 5 only:
+  * ECDH CVE-2018-5383 example
+  * NiNo example
+  * MAC address filter example
+* KNOB attack test for various devices, including Raspberry Pi 3+/4
+
+A comprehensive list of chips and which devices have them can be found in the [firmware](internalblue/fw/README.md) module documentation.
+
+
+
+
+Requirements
+------------
+
+Android:
+* Ideally recompiled `bluetooth.default.so`, but also works on any rooted smartphone, see [Android instructions](android_bluetooth_stack/README.md)
+* Android device connected via ADB
+* Best support is currently given for Nexus 5 / BCM4339 and Evaluation Boards
+* Optional: Patch for Android driver to support Broadcom H4 forwarding
+* Optional, if H4: Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
+
+Linux:
+* BlueZ, instructions see [here](linux_bluez/README.md)
+* Best support for Raspberry Pi 3/3+/4
+* For most commands: Privileged access
+
+iOS:
+* A jailbroken iOS device (tested on iOS 12.1.2/12.4 with iPhone 6, SE, 7, 8, X)
+* The included `ios-proxy` (instructions in [here](ios-proxy/README.md))
+* Optional: a Mac with `xcode` to compile the proxy yourself
+* Optional, no jailbreak required: install [iOS Bluetooth Debug Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/) to obtain
+  HCI and diagnostic messages, either via diagnostic report feature (all iOS versions) or live with PacketLogger (since iOS 13)
+
+
+Support for macOS is coming soon!
+
+
 Setup and Installation
 ----------------------
 
 The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
 smartphone, __BlueZ__ sockets on Linux, or the included __iOS Proxy__ on iOS.
-For ADB, either connect the phone via USB or setup ADB over TCP and make sure you
+
+For [Android](android_bluetooth_stack) with ADB, either connect the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
 
-The Android device needs to run a Bluetooth stack that was compiled with
-debugging features enabled. A detailed description on how to compile the
-Bluetooth stack for your device can be found in the *README.md* file inside the
-*android_bluetooth_stack* directory of this repository. It also contains
-precompiled stacks for some devices. InternalBlue does not work without the
-debug Bluetooth stack.
+If you have a jailbroken [iOS](ios-proxy) device, you need to install a proxy that locally connects
+to the Bluetooth device and forwards HCI commands and events.
+
+On [Linux](linux_bluez) with *BlueZ*, everything should work out of the box, but
+you need to execute *InternalBlue* as root for most features.
 
 The InternalBlue framework is written in Python 2. You can install it together
 with all dependencies by using pip:
@@ -60,6 +171,11 @@ All steps on a plain Ubuntu 18.04:
     make
     make install
 
+Packets required on a current (July 2019) Raspian:
+     
+     sudo apt-get --allow-releaseinfo-change update
+     sudo apt-get install git python-setuptools binutils-arm-none-eabi adb python-pip python-dev gcc libffi-dev
+
 
 
 Usage
@@ -89,99 +205,7 @@ because the leading two bytes are not required by Bluetooth communication, you
 can replace them with anything you want.
 
 
-Requirements
-------------
 
-Android:
-* Recompiled `bluetooth.default.so` built with `bdroid_CFLAGS='-DBT_NET_DEBUG=TRUE'`, see [build instructions](android_bluetooth_stack/README.md)
-* Android device connected via ADB
-* Best support is currently given for Nexus 5 / BCM4339
-* Optional: Patch for Android driver to support Broadcom H4 forwarding
-
-Linux:
-* BlueZ
-* Optional: Privileged access
-
-iOS:
-* A jailbroken iOS device
-* The included ios-proxy (instructions in [here](ios-proxy/README.md))
-* Optional: a Mac with xcode to compile the proxy yourself
-
-Common Optional Requirements:
-* Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
-
-
-Supported Features
-------------------
-
-This list is subject to change, but we give you a brief overview. You probably have a platform with a Broadcom chip that supports most features :)
-
-On any Bluetooth chip:
-* Send HCI commands
-* Monitor HCI
-* Establish connections
-
-On any Broadcom Bluetooth chip:
-* Read and write RAM
-* Read and write assembly to RAM
-* Read ROM
-* Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
-* Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integrated into BlueZ)
-* Read AFH channel map
-* Perform local RSSi sweep (coming soon!)
-
-On selected Broadcom Bluetooth chips:
-* BCM4335C0, BCM4358A3, CYW20735
-  * Write to ROM via Patchram
-  * Interpret coredumps
-* BCM4335C0 only
-  * ECDH CVE-2018-5383 example
-  * NiNo example
-  * MAC address filter example
-  * Debug firmware with tracepoints
-* BCM4335C0 and CYW20735
-  * Fuzz invalid LMP messages
-* CYW20735 only
-  * Full object and function symbol table
-
-A comprehensive list of chips and which devices have them can be found in the [firmware](internalblue/fw/README.md) module documentation.
-
-
-Background
-----------
-
-* **Master Thesis** (07/2018)
-  
-  InternalBlue was initially developed and documented in the
-[Masterthesis](https://github.com/seemoo-lab/internalblue/raw/master/internalblue_thesis_dennis_mantz.pdf) by Dennis Mantz.
-Afterwards the development was continued by SEEMOO. It was awarded with the [CAST Förderpreis](https://www.cysec.tu-darmstadt.de/cysec/start_news_details_136448.en.jsp).
-
-* **MRMCD Talk** (09/2018)
-
-  The basic framework for Nexus 5 / BCM4339 was presented at the MRMCD Conference
-2018 in Darmstadt. The talk was also [recorded](https://media.ccc.de/v/2018-154-internalblue-a-deep-dive-into-bluetooth-controller-firmware) and includes an overview of the framework as well as
-two demo usages at the end (Following a **Secure Simple Pairing procedure in
-Wireshark** and implementing a **proof of concept for CVE-2018-5383**).
-
-
-* **35C3 Talk** (12/2018)
-
-  More extensions were [presented](https://media.ccc.de/v/35c3-9498-dissecting_broadcom_bluetooth) at 35C3 2018 in Leipzig. New features include 
-creating connections to non-discoverable devices. Moreover, we gave a **demo of
-CVE-2018-19860**, which can crash Bluetooth on several Broadcom chips. This talk
-was also recorded and gives a more high level overview.
-
-* **TROOPERS Talk** (03/2019)
-
-* **WiSec Paper** (05/2019)
-
-  Our WiSec paper [Inside Job: Diagnosing Bluetooth Lower Layers Using Off-the-Shelf Devices](https://arxiv.org/abs/1905.00634) on reversing the
-  Broadcom Bluetooth diagnostics protocol was accepted, demonstrated and got the replicability label.
-
-* **MobiSys Paper** (06/2019)
-
-  Our MobiSys paper [InternalBlue - Bluetooth Binary Patching and Experimentation Framework
-](https://arxiv.org/abs/1905.00631) on the complete *InternalBlue* ecosystem got accepted.
 
 
 

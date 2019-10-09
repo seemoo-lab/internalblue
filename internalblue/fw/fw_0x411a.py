@@ -1,6 +1,4 @@
-#!/usr/bin/env python2
-
-# fw_default.py
+# fw_0x420e.py
 #
 # Generic firmware file in case we do not know something...
 #
@@ -25,11 +23,25 @@
 from fw import MemorySection
 
 # Firmware Infos
-FW_NAME = "default (unknown firmware)"
+# Samsung Galaxy S8
+FW_NAME = "BCM4347B0"
+
 
 # Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-             MemorySection(0xd0000,  0xd8000,  False, True ),
-             MemorySection(0x200000, 0x228000, False, True )
-            ]
+#                          start,    end,           is_rom? is_ram?
+SECTIONS = [ MemorySection(0x00000000, 0x00100000,  True,  False),  # Internal ROM
+             MemorySection(0x00130000, 0x00150000,  False, True),   # Internal Memory Patchram Contents
+             MemorySection(0x00200000, 0x0023ffff,  False, True),   # Internal Memory Cortex M3
+             ]
+
+# Patchram
+PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+PATCHRAM_VALUE_TABLE_ADDRESS    = 0x130000
+PATCHRAM_NUMBER_OF_SLOTS        = 256
+PATCHRAM_ALIGNED                = False
+
+
+# Heap
+BLOC_HEAD = 0x20067C                    # g_dynamic_memory_GeneralUsePools
+BLOC_NG = True                          # Next Generation Bloc Buffer

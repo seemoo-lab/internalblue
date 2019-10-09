@@ -23,45 +23,44 @@
 from fw import MemorySection
 
 # Firmware Infos
-# Evaluation Kit CYW927019
-FW_NAME = "CYW27039B1 (NOT iPhone X/XR!)"
-# TODO this is not the iPhone firmware, we need to add a switch in fw.py
+# Samsung S10/S10e/S10+
+FW_NAME = "BCM4375B1"
+
 
 # Device Infos
-DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended
-BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
+DEVICE_NAME = 0x207f2a
+BD_ADDR = 0x2026e2
 
-#Heap
-BLOC_HEAD = 0x0200c7c                   # g_dynamic_memory_GeneralUsePools
-BLOC_NG = True                          # Next Generation Bloc Buffer
 
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal ROM
-             MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
-             MemorySection(0x00270000, 0x0027ffff,  False, True),   # Internal Memory Patchram Contents
-             MemorySection(0x00280000, 0x00283fff,  False, True),   # ToRam
-            ]
+SECTIONS = [ MemorySection(0x00000000, 0x0013ffff,  True,  False),  # Internal ROM
+             MemorySection(0x00160000, 0x0017ffff,  False, True),   # Patches
+             MemorySection(0x00200000, 0x00288000,  False, True),   # Internal Memory Cortex M3
+             MemorySection(0x00300000, 0x0037ffff,  False, True),
+             ]
 
 # Patchram
 PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0x270000
+PATCHRAM_VALUE_TABLE_ADDRESS    = 0x160000
 PATCHRAM_NUMBER_OF_SLOTS        = 256
 PATCHRAM_ALIGNED                = False
-# only seems to work 4-byte aligned here ...
 
+BLOC_HEAD = 0x20075c
+BLOC_NG = True
 
 # Assembler snippet for tracepoints
 # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
-TRACEPOINT_BODY_ASM_LOCATION = 0x00223100
-TRACEPOINT_HOOKS_LOCATION = 0x00223200
-TRACEPOINT_HOOK_SIZE = 40
+# TODO S10e does no longer have a patch uninstall function... writemem works to remove patches, but copying
+#      Assembly of the original function from an eval board does not work...
+#TRACEPOINT_BODY_ASM_LOCATION = 0x00218300
+#TRACEPOINT_HOOKS_LOCATION = 0x00218500
+#TRACEPOINT_HOOK_SIZE = 40
 TRACEPOINT_HOOK_ASM = """
         push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
         ldr  r6, =0x%x          // addTracepoint() injects pc of original tracepoint here
-        mov  r0, %d             // addTracepoint() injects the patchram slot of the hook patch
-        bl   0x34964            // patch_uninstallPatchEntry(slot)
+        mov  r9, %d             // addTracepoint() injects the patchram slot of the hook patch
         bl   0x%x               // addTracepoint() injects TRACEPOINT_BODY_ASM_LOCATION here
         pop  {r0-r12, lr}       // restore registers
 
@@ -70,7 +69,10 @@ TRACEPOINT_HOOK_ASM = """
 """
 
 TRACEPOINT_BODY_ASM_SNIPPET = """
+
         mov   r8, lr     // save link register in r8
+       
+        b delete_slot
 
         // dump registers like before
 
@@ -80,7 +82,7 @@ TRACEPOINT_BODY_ASM_SNIPPET = """
         // malloc HCI event buffer
         mov  r0, 0xff    // event code is 0xff (vendor specific HCI Event)
         mov  r1, 76      // buffer size: size of registers (68 bytes) + type and length + 'TRACE_'
-        bl   0xF7B6      // hci_allocateEventBlockWithLen(0xff, 78)
+        bl   0x6cfe2     // hci_allocateEventBlockWithLen(0xff, 78) #DONE
         mov  r4, r0      // save pointer to the buffer in r4
 
         // append our custom header (the word 'TRACE_') after the event code and event length field
@@ -109,20 +111,47 @@ TRACEPOINT_BODY_ASM_SNIPPET = """
         // store other registers
         mov  r1, sp
         mov  r2, 56
-        bl   0xAF0BC     // memcpy(dst, src, len)
+        bl   0x2774      // memcpy(dst, src, len) #DONE
 
         // send HCI buffer to the host
         mov  r0, r4      // r4 still points to the beginning of the HCI buffer
-        bl   0xF782      // hci_sendEvent
+        bl   0x6cfa8     // hci_sendEvent #DONE
 
         // restore status register
         msr  cpsr_f, r5
+        
+        bl 0x6af24       // bthci_event_vs_DBFW_CoreDumpRAMImageEvent #DONE
 
-        bl 0x2D702       // bthci_event_vs_DBFW_CoreDumpRAMImageEvent
+        // not possible... could not find patch_uninstallPatchEntry(slot) 
+        // -> disable TP by hand, we stored in r9
+        // TODO - does not work??
+        delete_slot:
+        mov r0, #0
+        mov   r1, r0
+        lsl   r0, r0, #0x2
+        ldr   r3, =0x00310404
+        sub.w r0, r0, #0x400
+        add   r3, #0x3c
+        add   r0, r3
+        movw  r2, #0xffff
+        str   r2, [r0, #0x0]
+        ldr   r0,=0x00310404
+        add   r0, #0x2c
+        ldr   r2, [r0,#0x0]
+        mov   r3, #0x1
+        lsl   r3, r1
+        bic   r2, r3
+        str   r2, [r0, #0x0]
 
+        
         mov  lr, r8      // restore lr from r8
         bx   lr          // return
 
+    .align
+    patchram:
+    .byte 0x04
+    .byte 0x04
+    .byte 0x31
+    .byte 0x00
+
 """
-
-

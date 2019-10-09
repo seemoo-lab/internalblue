@@ -178,8 +178,9 @@ class Cmd:
         for section in self.internalblue.fw.SECTIONS:
             if not section.is_rom:
                 sectiondump = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
-                Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
-                bytes_done += section.size()
+                if sectiondump:
+                    Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
+                    bytes_done += section.size()
         self.progress_log.success("Received Data: complete")
 
     def getMemoryImage(self, refresh=False):
@@ -956,8 +957,8 @@ class CmdPatch(Cmd):
             return True
 
         if args.slot != None:
-            if args.slot < 0 or args.slot > 128:
-                log.warn("Slot has to be in the range 0 to 128!")
+            if args.slot < 0 or args.slot > self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS:
+                log.warn("Slot has to be in the range 0 to %i!" % self.internalblue.fw.PATCHRAM_NUMBER_OF_SLOTS)
                 return False
 
         # Patch Deletion
@@ -1078,6 +1079,37 @@ class CmdFuzzLmp(Cmd):
 
     def work(self):
         return self.internalblue.fuzzLmp()
+
+
+class CmdSendLcp(Cmd):
+    keywords = ['sendlcp']
+    description = "Send LCP packet to another device."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--conn_index", "-c", type=auto_int,
+                        help="Connection index, starts at 0 for first connection.")
+    parser.add_argument("data",
+                        help="Payload as hexstring.")
+
+    def work(self):
+        args = self.getArgs()
+        if not args:
+            return True
+
+        # if not set, just use 0
+        if not args.conn_index:
+            args.conn_index = 0
+
+        try:
+            data = args.data.decode('hex')
+        except TypeError as e:
+            log.warn("Data string cannot be converted to hexstring: " + str(e))
+            return False
+
+        log.info("Sending data=%s to connection index=0x%04x" %
+                 (data.encode('hex'), args.conn_index))
+        return self.internalblue.sendLcpPacket(args.conn_index, data)
 
 
 class CmdInfo(Cmd):
@@ -1347,6 +1379,26 @@ class CmdTracepoint(Cmd):
         return True
 
 
+class CmdBreakpoint(Cmd):
+    keywords = ['break', 'breakpoint', 'bp']
+    description = "Add breakpoint. This will crash, but produces a stackdump at the given address."
+    parser = argparse.ArgumentParser(prog=keywords[0],
+                                     description=description,
+                                     epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("address", type=auto_int, nargs="?",
+                        help="Address of the breakpoint") 
+
+    def work(self):
+        args = self.getArgs()
+        if args == None:
+            return True
+
+        log.info("Inserting breakpoint at 0x%x..." % args.address)
+        self.internalblue.patchRom(args.address, "\x00\xbe\x00\x00")
+
+        return True
+
+
 class CmdConnectCmd(Cmd):
     keywords = ['connect', 'c']
     description = "Initiate a connection to a remote Bluetooth device"
@@ -1570,10 +1622,18 @@ class CmdSendDiagCmd(Cmd):
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
                                      epilog="Aliases: " + ", ".join(keywords))
+    parser.add_argument("--type", type=auto_int, default=0x07,
+                        help="Type. Default is 0x07, but you can use 0x02 for ACL and 0x03 for SCO."
+                             "Other values might crash.")
     parser.add_argument("data", nargs="*",
-                        help="Payload as combinations of hexstrings and hex-uint32 (starting with 0x..). Known commands so far: Reset ACL BR Stats (b9), Get ACL BR Stats (c1), Get ACL EDR Stats (c2), Get AUX Stats (c3), Get Connections (cf), Enable Link Manager Diagnostics (f001), Get Memory Peek (f1), Get Memory Poke (f2), Get Memory Dump (f3), Packet Test (f6).")
+                        help="Payload as combinations of hexstrings and hex-uint32 (starting with 0x..). "
+                             "Known commands so far: Reset ACL BR Stats (b9), Get ACL BR Stats (c1), "
+                             "Get ACL EDR Stats (c2), Get AUX Stats (c3), Get Connections (cf), "
+                             "Enable Link Manager Diagnostics (f001), Get Memory Peek (f1), Get Memory Poke (f2), "
+                             "Get Memory Dump (f3), Packet Test (f6).")
 
     def work(self):
+
         args = self.getArgs()
         if not args or not args.data:
             return True
@@ -1585,7 +1645,7 @@ class CmdSendDiagCmd(Cmd):
             else:
                 data += data_part.decode('hex')
 
-        self.internalblue.sendH4(0x07, data)
+        self.internalblue.sendH4(args.type, data)
 
         return True
 

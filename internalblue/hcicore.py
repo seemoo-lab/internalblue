@@ -30,6 +30,8 @@ class HCICore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(HCICore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
         self.btsnooplog_file_lock = threading.Lock()
+        self.serial = False
+        self.doublecheck = False
 
     def getHciDeviceList(self):
         """
@@ -43,8 +45,13 @@ class HCICore(InternalBlue):
             dev_flags_str   : Device flags as String (e.g. "UP RUNNING" or "DOWN")
         """
 
-        # Open bluetooth socket to execute ioctl's:
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        # Open Bluetooth socket to execute ioctl's:
+        try:
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        # Ticket 6: does not run on Windows with Kali subsystem
+        except socket.error:
+            log.warn("Opening a local Bluetooth socket failed. Not running on native Linux?")
+            return []
 
         # Do ioctl(s,HCIGETDEVLIST,arg) to get the number of available devices:
         # arg is struct hci_dev_list_req (/usr/include/bluetooth/hci.h)
@@ -177,6 +184,10 @@ class HCICore(InternalBlue):
                 record_data = self.s_snoop.recv(1024)
             except socket.timeout:
                 continue # this is ok. just try again without error
+            except Exception:
+                log.critical("Lost device interface, terminating receive thread...")
+                self.exit_requested = True
+                continue
 
             # btsnoop record header data:
             btsnoop_orig_len = len(record_data)

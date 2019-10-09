@@ -26,11 +26,12 @@
 #   Software.
 
 # Firmware Infos
-# This runs on Rasperry Pi 3+
-FW_NAME = "BCM4345C0"
+# This runs on Rasperry Pi 3
+FW_NAME = "BCM43430A1"
 
 # Device Infos
-DEVICE_NAME = 0x204954
+DEVICE_NAME = 0x20401C
+BD_ADDR = 0x201C64
 
 # Memory Sections
 class MemorySection:
@@ -48,7 +49,7 @@ class MemorySection:
 SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
              MemorySection(0xd0000,  0xd8000,  False, True ),
             #MemorySection(0xe0000,  0x1f0000, True , False),
-             MemorySection(0x200000, 0x228000, False, True ),
+             MemorySection(0x200000, 0x21ffff, False, True ),
              MemorySection(0x260000, 0x268000, True , False),
             #MemorySection(0x280000, 0x2a0000, True , False),
              MemorySection(0x318000, 0x320000, False, False),
@@ -62,9 +63,9 @@ SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
             ]
 
 # Connection Structure and Table
-CONNECTION_ARRAY_ADDRESS = 0x204ba8
+#CONNECTION_LIST_ADDRESS = 0x204ba8
 CONNECTION_MAX           = 11
-CONNECTION_STRUCT_LENGTH = 0x150
+CONNECTION_STRUCT_LENGTH = 0x150  # TODO
 
 # Patchram
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
@@ -74,7 +75,7 @@ PATCHRAM_NUMBER_OF_SLOTS        = 128
 PATCHRAM_ALIGNED                = False
 
 # Snippet for sendLcpPacket()
-SENDLCP_CODE_BASE_ADDRESS = 0x21f000
+SENDLCP_CODE_BASE_ADDRESS = 0x21a000
 SENDLCP_ASM_CODE = """
         push {r4,lr}
 
@@ -83,10 +84,11 @@ SENDLCP_ASM_CODE = """
         mov r0,  %d     // connection index, starts at 0
         ldr r1, =payload
         mov r2, %d      // length
-        bl  0x92062     // lmulp_sendLcp
+        bl  0x8389A     // lmulp_sendLcp
 
         pop {r4,pc}     // go back
 
         .align          // The payload (LMP packet) must be 4-byte aligend (memcpy needs aligned addresses)
         payload:        // Note: the payload will be appended here by the sendLmpPacket() function
         """
+

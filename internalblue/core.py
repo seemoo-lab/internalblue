@@ -207,15 +207,33 @@ class InternalBlue:
                 continue
 
             # Extract the components of the task
-            h4type, data, queue, filter_function = task
+            try:
+                h4type, data, queue, filter_function = task
+            except ValueError:
+                # might happen if H4 is not supported
+                log.debug("Failed to unpack queue item.")
+                continue
 
             # Special handling of ADBCore and HCICore
             # ADBCore: adb transport requires to prepend the H4 data with its length
             # HCICore: need to manually save the data to btsnoop log as it is not
             #          reflected to us as with adb
             if   self.__class__.__name__ == "ADBCore":
-                # prepend with total length for H4 over adb
-                data = p16(len(data)) + data
+                # prepend with total length for H4 over adb with modified Bluetooth module
+                if not self.serial:
+                    data = p16(len(data)) + data
+
+                # If we do not have a patched module, we write to the serial using the same socket.
+                # Echoing HCI commands to the serial interface has the following syntax:
+                #
+                #   echo -ne "\x01\x4c\xfc\x05\x33\x22\x11\x00\xaa"
+                #   0x01:       HCI command
+                #   0xfc4c:     Write RAM
+                #   0x05:       Parameter length
+                #   0x3322...:  Parameters
+                #
+                # ...and that's how the data is formatted already anyway
+
             elif self.__class__.__name__ == "HCICore":
                 if self.write_btsnooplog:
                     # btsnoop record header data:
@@ -528,7 +546,12 @@ class InternalBlue:
             return False
         else:
             subversion = (u8(version[11]) << 8) + u8(version[10])
-            self.fw = Firmware(subversion).firmware
+
+            iOS = False
+            if self.__class__.__name__ == "iOSCore":
+                iOS = True
+
+            self.fw = Firmware(subversion, iOS).firmware
         
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.
@@ -631,7 +654,7 @@ class InternalBlue:
                 return
         log.warn("registerHciRecvQueue: no such queue is registered!")
 
-    def sendHciCommand(self, opcode, data, timeout=2):
+    def sendHciCommand(self, opcode, data, timeout=3):
         """
         Send an arbitrary HCI command packet by pushing a send-task into the
         sendQueue. This function blocks until the response is received
@@ -741,8 +764,8 @@ class InternalBlue:
         outbuffer = ''              # buffer which stores all accumulated data read from the chip
         if bytes_total == 0:        # If no total bytes where given just use length
             bytes_total = length        
-        retry = True                # Retry once on failures
-        while(read_addr < address+length):  # Send HCI Read_RAM commands until all data is received
+        retry = 3                   # Retry on failures
+        while read_addr < address+length:  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
             bytes_left = length - byte_counter
             blocksize = bytes_left
@@ -752,16 +775,26 @@ class InternalBlue:
             # Send Read_RAM (0xfc4d) command
             response = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
 
-            if (response == None or response == False):
-                log.warning("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
+            if response is None or not response:
+                log.warn("readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)" % (read_addr, length))
                 # Retry once...
-                if retry:
+                if retry > 0:
                     log.debug("readMem: retrying once...")
-                    retry = False
+                    retry = retry - 1
                     continue
                 else:
                     log.warning("readMem: failed!")
                     return None
+
+            data = response[4:]  # start of the actual data is at offset 4
+
+            if len(data) == 0:  # this happens i.e. if not called on a brcm chip
+                log.warn("readMem: empty response, quitting...")
+                break
+
+            if len(data) != blocksize:
+                log.debug("readMem: insufficient bytes returned, retrying...")
+                continue
 
             status = ord(response[3])
             if status != 0:
@@ -771,21 +804,26 @@ class InternalBlue:
                 #       0x00 (0) means everything okay
                 #       0x12 means Command Disallowed
                 # e.g. for address 0xff000000 (aka 'EEPROM') it is 0x12
-                log.warning("readMem: [TODO] Got status != 0 : error 0x%02X" % status)
-            data = response[4:]         # start of the actual data is at offset 4
-            outbuffer += data
-            
-            if (len(data) == 0): #this happens i.e. if not called on a brcm chip
-                log.warn("readMem: empty response, quitting...")
+                log.warn("readMem: [TODO] Got status != 0 : error 0x%02X at address 0x%08x" % (status, read_addr))
                 break
-            
+
+            # do double checking, but prevent loop
+            if self.doublecheck and retry > 0:
+                response_check = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
+                if response != response_check:
+                    log.debug("readMem: double checking response failed at 0x%x! retry..." % read_addr)
+                    sleep(0.3)
+                    retry = retry - 1
+                    continue
+
+            outbuffer += data
             read_addr += len(data)
             byte_counter += len(data)
             if(progress_log != None):
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
-            retry = True # this round worked, so we re-enable this flag 
+            retry = 3  # this round worked, so we re-enable retries
         return outbuffer
 
     def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
@@ -1041,7 +1079,7 @@ class InternalBlue:
                 slot = i
                 log.info("patchRom: Reusing slot for address 0x%x: %d" % (address,slot))
                 # Write new value to patchram value table at 0xd0000
-                self.writeMem(0xd0000 + slot*4, patch)
+                self.writeMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS + slot*4, patch)
                 return True
 
         if slot == None:
@@ -1093,7 +1131,7 @@ class InternalBlue:
             if address == None:
                 log.warn("disableRomPatch: address is None.")
                 return False
-            for i in range(128):
+            for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] == address:
                     slot = i
                     log.info("Slot for address 0x%x is: %d" % (address,slot))
@@ -1322,6 +1360,42 @@ class InternalBlue:
             log.warn("sendLmpPacket: launchRam failed!")
             return False
 
+    def sendLcpPacket(self, conn_idx, payload):
+        """
+        Inject a LCP packet into a Bluetooth LE connection (i.e. send a LCP packet
+        to a remote device which is paired and connected with our local device).
+        This is code requires assembly patches.
+
+        conn_idx:     The connection index specifying the connection into which the
+                     packet will be injected, starting at 0.
+        payload:     The LCP opcode and payload of the LCP packet that will be injected.
+
+        Returns True on success and False on failure.
+        """
+
+        # Check if constants are defined in fw.py
+        for const in ['SENDLCP_CODE_BASE_ADDRESS', 'SENDLCP_ASM_CODE']:
+            if const not in dir(self.fw):
+                log.warn("sendLcpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                return False
+
+        # Prepare the assembler snippet by injecting the connection number
+        # and appending the LMP packet data.
+        asm_code = self.fw.SENDLCP_ASM_CODE % (conn_idx, len(payload))
+        asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x)
+                for x in payload.ljust(20, "\x00")])
+
+        # Assemble the snippet and write it to SENDLCP_CODE_BASE_ADDRESS
+        code = asm(asm_code_with_data, vma=self.fw.SENDLCP_CODE_BASE_ADDRESS, arch='thumb')
+        self.writeMem(self.fw.SENDLCP_CODE_BASE_ADDRESS, code)
+
+        # Invoke the snippet
+        if self.launchRam(self.fw.SENDLCP_CODE_BASE_ADDRESS):
+            return True
+        else:
+            log.warn("sendLcpPacket: launchRam failed!")
+            return False
+
     def connectToRemoteDevice(self, bt_addr):
         """
         Send a HCI Connect Command to the firmware. This will setup
@@ -1401,6 +1475,7 @@ class InternalBlue:
         """
         Coexistence Callback Function
         Interprets debug counters for coexistence with WiFi/LTE
+        Call with "sendhcicmd 0xfc90"
         """
 
         hcipkt    = record[0]   # get HCI Event packet
@@ -1414,7 +1489,10 @@ class InternalBlue:
             if u16(hcipkt.data[1:3]) == 0xfc90: # Coex Statistics Cmd
                 coex_grant = u32(hcipkt.data[4:8])
                 coex_reject= u32(hcipkt.data[8:12])
-                log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, coex_reject/float(coex_grant)))
+                ratio = 0
+                if coex_grant > 0:
+                    ratio = coex_reject/float(coex_grant)
+                log.info("[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]" % (coex_grant, coex_reject, ratio))
                 return
 
     def readHeapInformation(self):
@@ -1592,5 +1670,11 @@ class InternalBlue:
         custom Bluetooth driver is required, which accepts diagnostic commands
         and also forwards diagnostic message outputs to the BT Snoop Log.
         """
-        
-        self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))
+
+        if not self.serial:
+            self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))
+
+        # We can send the activation to the serial, but then the Android driver
+        # itself crashes when receiving diagnostic frames...
+        else:
+            log.warn("Diagnostic protocol requires modified Android driver!")
