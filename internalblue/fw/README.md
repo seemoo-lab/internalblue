@@ -51,7 +51,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x09 |     0x112e | BCM4364B0   | iMac Retina 4K 21.5"/27" 2019 macOS Mojave 10.14.6 | Aug 21 2015
 0x000f |    0x09 |     0x112f | BCM4364B0   | MacBook Pro 2019 13" 4x Thunderbold | Aug 21 2015
 0x000f |    0x09 |     0x103f | BCM4364     | iMac Pro 2017
-0x000f |    0x09 |     0x2023 | BCM4377     | MacBook Pro 2019 13" 2x Thunderbold | Feb 28 2018
+0x000f |    0x09 |     0x2023 | BCM4377B3   | MacBook Pro 2019 13" 2x Thunderbold (Formosa) | Feb 28 2018
 0x000f |    0x09 |     0x203f | BCM4364     | MacBook Pro (13", 2018)
 0x000f |    0x09 |     0x2040 |             | Apple Watch Series 3
 0x000f |    0x09 |     0x2043 | BCM4346B0   | MacBook Pro 2019 15"

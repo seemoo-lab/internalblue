@@ -47,6 +47,9 @@ PATCHRAM_VALUE_TABLE_ADDRESS    = 0x160000
 PATCHRAM_NUMBER_OF_SLOTS        = 256
 PATCHRAM_ALIGNED                = False
 
+BLOC_HEAD = 0x20075c
+BLOC_NG = True
+
 # Assembler snippet for tracepoints
 # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
 # TODO S10e does no longer have a patch uninstall function... writemem works to remove patches, but copying

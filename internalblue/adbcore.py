@@ -227,7 +227,7 @@ class ADBCore(InternalBlue):
         # (with multiple attached Android devices) we must not hard code the
         # forwarded port numbers. Therefore we choose the port numbers
         # randomly and hope that they are not already in use.
-        self.hciport = random.randint(60000, 65535)
+        self.hciport = random.randint(60000, 65534)  # minus 1, as we are using hciport + 1
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
 
         # Forward ports 8872 and 8873. Ignore log.info() outputs by the adb function.
