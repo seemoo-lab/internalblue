@@ -7,14 +7,9 @@ import hci
 from pwn import *
 
 from core import InternalBlue
-from abc import ABCMeta, abstractmethod
 
-import sys
-import ctypes
 import objc
 from Foundation import *
-from ctypes import CDLL, c_void_p, byref, c_char_p
-from ctypes.util import find_library
 
 import binascii
 import os

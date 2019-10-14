@@ -894,8 +894,12 @@ class InternalBlue:
 
             # Run snippet
             if not self.launchRam(self.fw.READ_MEM_ALIGNED_ASM_LOCATION):
-                log.error("readMemAligned: launching assembler snippet failed!")
-                return None
+                # on iOSCore the return value might be wrong
+                if self.doublecheck:
+                    log.debug("readMemAligned: probably failed, but continuing...")
+                else:
+                    log.error("readMemAligned: launching assembler snippet failed!")
+                    return None
 
             # wait for the custom HCI event sent by the snippet:
             try:
@@ -909,7 +913,7 @@ class InternalBlue:
             outbuffer += data
             read_addr += len(data)
             byte_counter += len(data)
-            if(progress_log != None):
+            if progress_log is not None:
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
@@ -966,19 +970,18 @@ class InternalBlue:
         As the function blocks the HCI handler thread, the chip will most likely
         crash (or be resetted by Android) if the function takes too long.
         """
-        
 
         response = self.sendHciCommand(0xfc4e, p32(address))
-        if (response == None):
+        if response is None:
             log.warn("Empty HCI response during launchRam, driver crashed due to invalid code or destination")
             return False
 
-        if(response[3] != '\x00'):
-            log.warn("Got error code %x in command complete event." % response[3])
+        if response[3] != '\x00':
+            log.warn("Got error code %x in command complete event." % u8(response[3]))
             return False
         
         # Nexus 6P Bugfix
-        if ('LAUNCH_RAM_PAUSE' in dir(self.fw) and self.fw.LAUNCH_RAM_PAUSE):
+        if 'LAUNCH_RAM_PAUSE' in dir(self.fw) and self.fw.LAUNCH_RAM_PAUSE:
             log.debug("launchRam: Bugfix, sleeping %ds" % self.fw.LAUNCH_RAM_PAUSE)
             time.sleep(self.fw.LAUNCH_RAM_PAUSE)
             

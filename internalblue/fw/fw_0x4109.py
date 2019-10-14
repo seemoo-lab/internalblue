@@ -35,9 +35,49 @@ SECTIONS = [ MemorySection(0x00000000, 0x000c07ff,  True,  False),  # Internal R
              ]
 
 # Patchram
-#PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000 #TODO needs to be aligned read
-#PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-#PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
-#PATCHRAM_NUMBER_OF_SLOTS        = 128
-#PATCHRAM_ALIGNED                = True
-# only seems to work 4-byte aligned here ...
+PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000  # needs to be aligned read
+PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
+PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
+PATCHRAM_NUMBER_OF_SLOTS        = 128
+PATCHRAM_ALIGNED                = True
+
+
+# Assembler snippet for the readMemAligned() function
+READ_MEM_ALIGNED_ASM_LOCATION = 0x215000  # there is nothing free until 0xdffff, but 0x215000 looks okay during runtime
+READ_MEM_ALIGNED_ASM_SNIPPET = """
+        push {r4, lr}
+
+        // malloc HCI event buffer
+        mov  r0, 0xff    // event code is 0xff (vendor specific HCI Event)
+        mov  r1, %d      // readMemAligned() injects the number of bytes it wants to read here
+        add  r1, 6       // + type and length + 'READ'
+        bl   0x15DD4      // hci_sendEvent (will automatically copy event code and length into the buffer)
+        mov  r4, r0      // save pointer to the buffer in r4
+
+        // append our custom header (the word 'READ') after the event code and event length field
+        add  r0, 2            // write after the length field
+        ldr  r1, =0x44414552  // 'READ'
+        str  r1, [r0]
+        add  r0, 4            // advance the pointer. r0 now points to the beginning of our read data
+
+        // copy data to buffer
+        ldr  r1, =0x%x  // readMemAligned() injects the read_address here. r1 will be used as src pointer in the loop
+        mov  r2, %d     // readMemAligned() injects the number of dwords to read here. r2 will be the loop counter
+    loop:
+        ldr  r3, [r1]   // read 4 bytes from the read_address
+        str  r3, [r0]   // store them inside the HCI buffer
+        add  r0, 4      // advance the buffer pointer
+        add  r1, 4      // advance the read_address
+        subs r2, 1      // decrement the loop variable
+        bne  loop       // branch if r2 is not zero yet
+
+        // send HCI buffer to the host
+        mov r0, r4      // r4 still points to the beginning of the HCI buffer
+        bl  0x573B8     // send_hci_event_without_free()
+
+        // free HCI buffer
+        mov r0, r4
+        bl  0x581AE     // osapi_blockPoolFree
+
+        pop {r4, pc}    // return
+     """

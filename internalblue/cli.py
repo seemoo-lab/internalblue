@@ -35,8 +35,6 @@ import argparse
 
 from adbcore import ADBCore
 from hcicore import HCICore
-from ioscore import iOSCore
-from macoscore import macOSCore
 
 import cmds
 
@@ -122,10 +120,12 @@ def internalblue_cli():
     term.readline.set_completer(readline_completer)
 
     # Initalize cores and get devices
+    # As macOS has additional dependencies (objc), only import it here if needed
     if args.ios_device:
-        connection_methods = [iOSCore(args.ios_device, log_level=log_level,
-            data_directory=data_directory)]
-    if args.mac:
+        from ioscore import iOSCore
+        connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
+    elif args.mac:
+        from macoscore import macOSCore
         connection_methods = [
             macOSCore(log_level=log_level, data_directory=data_directory)]
     else:
