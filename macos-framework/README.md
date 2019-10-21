@@ -11,3 +11,6 @@ If you want to use ARM assembly and disassembly, which is required for some patc
 
 * brew install https://github.com/Gallopsled/pwntools-binutils/raw/master/osx/binutils-arm.rb
 * Xcode 10.2.1
+
+Run with Mac parameter:
+python internalblue/cli.py --mac
