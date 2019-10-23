@@ -35,7 +35,6 @@ import argparse
 
 from adbcore import ADBCore
 from hcicore import HCICore
-from macoscore import macOSCore
 from sys import platform
 
 import cmds
@@ -126,6 +125,7 @@ def internalblue_cli():
         from ioscore import iOSCore
         connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
     elif platform == "darwin":
+        from macoscore import macOSCore
         connection_methods = [
             macOSCore(log_level=log_level, data_directory=data_directory),
             ADBCore(log_level=log_level, data_directory=data_directory)]
