@@ -3,13 +3,19 @@
 macOS Setup
 -----------
 
-* `brew install unicorn`
-* `pip install pwntools`
-* `pip install pyobjc`
+```
+brew install unicorn
+pip install pwntools
+pip install pyobjc
 
-* `open internalblue/macos-framework/IOBluetoothExtended/IOBluetoothExtended.xcodeproj/`
-* ⌘ + B
-* `python internalblue/cli.py`
+open internalblue/macos-framework/IOBluetoothExtended/IOBluetoothExtended.xcodeproj/
+```
+
+⌘ + B
+
+```
+python internalblue/cli.py
+```
 
 If you want to use ARM assembly and disassembly, which is required for some patches and debugging:
 

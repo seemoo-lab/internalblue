@@ -77,6 +77,7 @@ class macOSCore(InternalBlue):
     def _setupSockets(self):
         self.hciport = random.randint(60000, 65535-1)
         log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
+        log.info("Wireshark configuration (on Loopback interface): udp.port == %d || udp.port == %d" % (self.hciport, self.hciport + 1))
 
         # Create s_snoop socket
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

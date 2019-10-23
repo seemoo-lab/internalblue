@@ -11,7 +11,7 @@ import Network
 
 extension HCIDelegate: IOBluetoothHostControllerDelegate {
     @objc public func initServer() {
-        print("IOBE: Initializing, snoop: \(snoop ?? "-1"), inject: \(inject ?? "-1")")
+        //print("IOBE: Initializing, snoop: \(snoop ?? "-1"), inject: \(inject ?? "-1")")
         self.startupServer()
     }
 
@@ -63,7 +63,7 @@ extension HCIDelegate: IOBluetoothHostControllerDelegate {
             exit(EXIT_FAILURE)
         }
 
-        print("IOBE: Listening on", server_addr.sin_port.bigEndian)
+        //print("IOBE: Listening on", server_addr.sin_port.bigEndian)
         DispatchQueue.global(qos: .background).async {
             while !self.exit_requested {
                 // Prepare for receiving data
