@@ -35,6 +35,8 @@ import argparse
 
 from adbcore import ADBCore
 from hcicore import HCICore
+from macoscore import macOSCore
+from sys import platform
 
 import cmds
 
@@ -96,7 +98,6 @@ def internalblue_cli():
     parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
     parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
-    parser.add_argument("--mac", "-m", help="Tell internalblue to use specific mac functions.", action="store_true")
     args = parser.parse_args()
 
     if args.data_directory is not None:
@@ -124,10 +125,10 @@ def internalblue_cli():
     if args.ios_device:
         from ioscore import iOSCore
         connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
-    elif args.mac:
-        from macoscore import macOSCore
+    elif platform == "darwin":
         connection_methods = [
-            macOSCore(log_level=log_level, data_directory=data_directory)]
+            macOSCore(log_level=log_level, data_directory=data_directory),
+            ADBCore(log_level=log_level, data_directory=data_directory)]
     else:
         connection_methods = [
             ADBCore(log_level=log_level, data_directory=data_directory, serial=args.serialsu),
