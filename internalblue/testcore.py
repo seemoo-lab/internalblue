@@ -9,10 +9,12 @@ from pwn import *
 from core import InternalBlue
 import binascii
 
+filepath = os.path.dirname(os.path.abspath(__file__))
+
 class testCore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(testCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
-        file = open('dummymemdump.bin', mode='rb')
+        file = open(filepath+'/../dummymemdump.bin', mode='rb')
         self.memory = file.read()
         file.close()
         self.doublecheck = False
@@ -124,6 +126,9 @@ class testCore(InternalBlue):
                     length = int(binascii.hexlify(data[7]), 16)
                     address = int(binascii.hexlify(data[6]+data[5]+data[4]+data[3]), 16)
                     data = '014dfc00'.decode('hex') + self.memory[address:address+length]
+                elif opcode == 'fc4c':
+                    log.info(data.encode('hex'))
+                    time.sleep(5)
                 else:
                     print(opcode)
 
