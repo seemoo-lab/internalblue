@@ -128,7 +128,9 @@ class testCore(InternalBlue):
                     data = '014dfc00'.decode('hex') + self.memory[address:address+length]
                 elif opcode == 'fc4c':
                     log.info(data.encode('hex'))
-                    time.sleep(5)
+                    length = int(binascii.hexlify(data[2]), 16)
+                    address = int(binascii.hexlify(data[6]+data[5]+data[4]+data[3]), 16)
+                    self.memory = self.memory[:address] +  data[7:len(data)] + self.memory[address+length:]
                 else:
                     print(opcode)
 
