@@ -82,39 +82,6 @@ class testCore(InternalBlue):
         return True
 
     def _recvThreadFunc(self):
-        '''
-        log.debug("Receive Thread started.")
-
-        while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
-            # read record data
-            try:
-                data, addr = self.s_snoop.recvfrom(1024)
-                record_data = data
-            except socket.timeout:
-                continue # this is ok. just try again without error
-
-            if not self.exit_requested:
-                # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-                record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
-                log.debug("Recv: " + str(record[0]))
-
-                # Put the record into all queues of registeredHciRecvQueues if their
-                # filter function matches.
-                for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
-                    try:
-                        queue.put(record, block=False)
-                    except Queue.Full:
-                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
-
-                # Call all callback functions inside registeredHciCallbacks and pass the
-                # record as argument.
-                for callback in self.registeredHciCallbacks:
-                    callback(record)
-        '''
-
         log.debug("Receive Thread terminated.")
 
     def _sendThreadFunc(self):
@@ -154,12 +121,9 @@ class testCore(InternalBlue):
                     record_data = '040E0C0101100006b415060f000e22'.decode('hex')
                     data = hci.parse_hci_packet(record_data).data
                 elif opcode == 'fc4d':
-                    #time.sleep(0.5)
                     length = int(binascii.hexlify(data[7]), 16)
                     address = int(binascii.hexlify(data[6]+data[5]+data[4]+data[3]), 16)
-                    log.info('data: ' + str(''.join('{:02x}'.format(ord(c)) for c in data)) + ', address: ' + str(hex(address)))
                     data = '014dfc00'.decode('hex') + self.memory[address:address+length]
-                    #log.debug(''.join('{:02x}'.format(ord(c)) for c in data))
                 else:
                     print(opcode)
 
