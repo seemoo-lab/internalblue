@@ -34,11 +34,22 @@ import time
 import Queue
 import hci
 
+try:
+    from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
+    from internalblue import Address, Record, Task, HCI_CMD, FilterFunction, ConnectionNumber, ConnectionDict, \
+    ConnectionIndex, BluetoothAddress, HeapInformation, QueueInformation, Opcode
+    from internalblue.hci import HCI
+
+    if TYPE_CHECKING:
+        pass
+except:
+    pass
 
 class InternalBlue:
     __metaclass__ = ABCMeta
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
+        # type: (int, str, str, bool, str)
         context.log_level = log_level
         context.log_file = data_directory + '/_internalblue.log'
         context.arch = "thumb"
@@ -78,7 +89,7 @@ class InternalBlue:
         # firmware (the response is recognized with the help of the filter function).
         # Once the response arrived, it puts the response into the response_queue from
         # the tuple. See sendH4() and sendHciCommand().
-        self.sendQueue = Queue.Queue(queue_size)
+        self.sendQueue = Queue.Queue(queue_size) # type: Queue.Queue[Task]
 
         self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
         self.sendThread = None                  # The thread which is responsible for the HCI inject socket
@@ -103,7 +114,7 @@ class InternalBlue:
         # filter_function will be called for each packet that is received and only if it returns
         # True, the packet will be put into the queue. The filter_function can be None in order
         # to put all packets into the queue.
-        self.registeredHciRecvQueues = []
+        self.registeredHciRecvQueues = [] # type: List[Tuple[Queue.Queue[Record], FilterFunction]]
 
         self.exit_requested = False             # Will be set to true when the framework wants to shut down (e.g. on error or user exit)
         self.running = False                    # 'running' is True once the connection to the HCI sockets is established
@@ -162,6 +173,7 @@ class InternalBlue:
             return False
 
     def _parse_time(self, time):
+        # type: (Any) -> datetime.datetime
         """
         Taken from: https://github.com/joekickass/python-btsnoop
 
@@ -178,9 +190,11 @@ class InternalBlue:
     
     @abstractmethod
     def _recvThreadFunc(self):
+        # type: () -> None
         pass
 
     def _sendThreadFunc(self):
+        # type: () -> None
         """
         This is the run-function of the sendThread. It polls the sendQueue for new 'send tasks'
         and executes them (sends H4 commands to the chip and returns the response).
@@ -287,6 +301,7 @@ class InternalBlue:
         log.debug("Send Thread terminated.")
 
     def _tracepointHciCallbackFunction(self, record):
+        # type: (Record) -> None
         hcipkt = record[0]      # get HCI Event packet
         timestamp = record[5]   # get timestamp
 
@@ -348,6 +363,7 @@ class InternalBlue:
 
 
     def addTracepoint(self, address):
+        # type: (Address) -> bool
         # Check if constants are defined in fw.py
         for const in ['TRACEPOINT_BODY_ASM_LOCATION', 'TRACEPOINT_BODY_ASM_SNIPPET',
                       'TRACEPOINT_HOOK_ASM', 'TRACEPOINT_HOOKS_LOCATION',
@@ -441,6 +457,7 @@ class InternalBlue:
         return True
 
     def deleteTracepoint(self, address):
+        # type: (Address) -> bool
         if not self.check_running():
             return False
 
@@ -460,6 +477,7 @@ class InternalBlue:
         return True
 
     def check_running(self):
+        # type: () -> bool
         """
         Check if the framework is running (i.e. the sockets are connected,
         the recv and send threads are running and exit_requested is not True)
@@ -478,7 +496,7 @@ class InternalBlue:
         pass
 
     def connect(self):
-
+        # type: () -> bool
         if self.exit_requested:
             self.shutdown()
 
@@ -524,6 +542,7 @@ class InternalBlue:
         return True
     
     def initialize_fimware(self):
+        # type: () -> bool
         """
         Checks if we are running on a Broadcom chip and loads available firmware information based
         on LMP subversion.
@@ -561,6 +580,7 @@ class InternalBlue:
         return True
 
     def shutdown(self):
+        # type: () -> None
         """
         Shutdown the framework by stopping the send and recv threads. Socket shutdown
         also terminates port forwarding if adb is used.
@@ -593,6 +613,7 @@ class InternalBlue:
         log.info("Shutdown complete.")
 
     def registerHciCallback(self, callback):
+        # type: (Callable[[Record], None ]) -> None
         """
         Add a new callback function to self.registeredHciCallbacks.
         The function will be called every time the recvThread receives
@@ -612,6 +633,7 @@ class InternalBlue:
         self.registeredHciCallbacks.append(callback)
 
     def unregisterHciCallback(self, callback):
+        # type: (Callable[[Tuple[HCI, int, int, int, Any, datetime.datetime]], None ]) -> None
         """
         Remove a callback function from self.registeredHciCallbacks.
         """
@@ -622,6 +644,7 @@ class InternalBlue:
         log.warn("registerHciCallback: no such callback is registered!")
 
     def registerHciRecvQueue(self, queue, filter_function=None):
+        # type: (Queue.Queue[Record], FilterFunction) -> None
         """
         Add a new queue to self.registeredHciRecvQueues.
         The queue will be filled by the recvThread every time the thread receives
@@ -644,6 +667,7 @@ class InternalBlue:
         self.registeredHciRecvQueues.append((queue, filter_function))
 
     def unregisterHciRecvQueue(self, queue):
+        # type: (Queue.Queue[Tuple[HCI, int, int, int, Any, datetime]]) -> None
         """
         Remove a queue from self.registeredHciRecvQueues.
         """
@@ -655,6 +679,7 @@ class InternalBlue:
         log.warn("registerHciRecvQueue: no such queue is registered!")
 
     def sendHciCommand(self, opcode, data, timeout=3):
+        # type: (Opcode, bytes, int) -> Optional[Any]
         """
         Send an arbitrary HCI command packet by pushing a send-task into the
         sendQueue. This function blocks until the response is received
@@ -674,6 +699,7 @@ class InternalBlue:
         # define a filter function which recognizes the response (command complete
         # or command status event).
         def recvFilterFunction(record):
+            # type: (Record) -> bool
             hcipkt = record[0]
 
             log.debug("sendHciCommand.recvFilterFunction: got response")
@@ -703,6 +729,7 @@ class InternalBlue:
             return None
 
     def sendH4(self, h4type, data, timeout=2):
+        # type: (HCI_CMD, bytes, int) -> bool
         """
         Send an arbitrary H4 packet by pushing a send-task into the
         sendQueue. This function does not wait for a response! If you
@@ -719,6 +746,7 @@ class InternalBlue:
             return False
 
     def recvPacket(self, timeout=None):
+        # type: (Optional[int]) -> Optional[Record]
         """
         This function polls the recvQueue for the next available HCI
         packet and returns it. The function checks whether it is called
@@ -743,6 +771,7 @@ class InternalBlue:
             return None
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        # type: (int, int, Optional[Any], int, int) -> Optional[Any]
         """
         Reads <length> bytes from the memory space of the firmware at the given
         address. Reading from unmapped memory or certain memory-mapped-IO areas
@@ -827,6 +856,7 @@ class InternalBlue:
         return outbuffer
 
     def readMemAligned(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        # type: (int, int, Optional[Any], int, int) -> Any
         """
         This is an alternative to readMem() which enforces a strictly aligned access
         to the memory that is read. This is needed for e.g. the memory-mapped-IO
@@ -864,6 +894,7 @@ class InternalBlue:
 
         recvQueue = Queue.Queue(1)
         def hciFilterFunction(record):
+            # type: (Record) -> bool
             hcipkt = record[0]
             if not issubclass(hcipkt.__class__, hci.HCI_Event):
                 return False
@@ -922,6 +953,7 @@ class InternalBlue:
         return outbuffer
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
+        # type: (int, bytes, Optional[Any], int, int) -> Optional[bool]
         """
         Writes the <data> to the memory space of the firmware at the given
         address.
@@ -964,6 +996,7 @@ class InternalBlue:
         return True
 
     def launchRam(self, address):
+        # type: (int) -> bool
         """
         Executes a function at the specified address in the context of the HCI
         handler thread. The function has to comply with the calling convention.
@@ -988,6 +1021,7 @@ class InternalBlue:
         return True
 
     def getPatchramState(self):
+        # type: () -> Tuple[List[Optional[int]], List[Any], List[Any]]
         """
         Retrieves the current state of the patchram unit. The return value
         is a tuple containing 3 lists which are indexed by the slot number:
@@ -1033,6 +1067,7 @@ class InternalBlue:
         return (table_addresses, table_values, slot_bits)
 
     def patchRom(self, address, patch, slot=None):
+        # type: (int, Any, Optional[Any]) -> bool
         """
         Patch a 4-byte value (DWORD) inside the ROM section of the firmware
         (0x0 - 0x8FFFF) using the patchram mechanism. There are 128 available
@@ -1114,6 +1149,7 @@ class InternalBlue:
         return True
 
     def disableRomPatch(self, address, slot=None):
+        # type: (int, Optional[int]) -> bool
         """
         Disable a patchram slot (see also patchRom()). The slot can either be
         specified by the target address (address that was patched) or by providing
@@ -1156,6 +1192,7 @@ class InternalBlue:
         return True
 
     def readConnectionInformation(self, conn_number):
+        # type: (ConnectionNumber) -> Optional[ConnectionDict]
         """
         Reads and parses a connection struct based on the connection number.
         Note: The connection number is different from the connection index!
@@ -1221,6 +1258,7 @@ class InternalBlue:
         return conn_dict
 
     def sendLmpPacket(self, opcode, payload='', is_master=True, conn_handle=0x0c, extended_op=False):
+        # type: (Opcode, Any, bool, ConnectionNumber, bool) -> bool
         """
         Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
         to a remote device which is paired and connected with our local device).
@@ -1285,6 +1323,7 @@ class InternalBlue:
         return True
 
     def fuzzLmp(self):
+        # type: ()-> bool
         """
         Installs a patch inside the sendLmp HCI handler that allows sending arbitrary
         LMP payloads. Afterwards, use sendLmpPacket as before.
@@ -1312,6 +1351,7 @@ class InternalBlue:
         return True
 
     def sendLmpPacketLegacy(self, conn_nr, opcode, payload, extended_op=False):
+        # type: (int, Opcode, bytes, bool) -> bool
         """
         Inject a LMP packet into a Bluetooth connection (i.e. send a LMP packet
         to a remote device which is paired and connected with our local device).
@@ -1348,7 +1388,7 @@ class InternalBlue:
 
         # Prepare the assembler snippet by injecting the connection number
         # and appending the LMP packet data.
-        asm_code = self.fw.SENDLMP_ASM_CODE % (conn_nr)
+        asm_code = self.fw.SENDLMP_ASM_CODE % (conn_nr) # type: str
         asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x) 
                 for x in data.ljust(20, "\x00")])
 
@@ -1364,6 +1404,7 @@ class InternalBlue:
             return False
 
     def sendLcpPacket(self, conn_idx, payload):
+        # type: (ConnectionIndex, bytes) -> bool
         """
         Inject a LCP packet into a Bluetooth LE connection (i.e. send a LCP packet
         to a remote device which is paired and connected with our local device).
@@ -1400,6 +1441,7 @@ class InternalBlue:
             return False
 
     def connectToRemoteDevice(self, bt_addr):
+        # type: (BluetoothAddress) -> None
         """
         Send a HCI Connect Command to the firmware. This will setup
         a connection (inserted into the connection structure) if the
@@ -1427,6 +1469,7 @@ class InternalBlue:
         self.sendHciCommand(0x0405, bt_addr[::-1] + '\x00\x00\x00\x00\x00\x00\x01')
 
     def connectToRemoteLEDevice(self, bt_addr, addr_type=0x00):
+        # type: (BluetoothAddress, int) -> None
         """
         Send a HCI LE Create Connection Command to the firmware as
         defined in the Bluetooth Core Specification 5.0 p. 1266.
@@ -1443,6 +1486,7 @@ class InternalBlue:
         self.sendHciCommand(0x200d, '\x60\x00\x30\x00\x00' + p8(addr_type) + bt_addr[::-1] + '\x01\x18\x00\x28\x00\x00\x00\xd0\x07\x00\x00\x00\x00')
 
     def connectionStatusCallback(self, record):
+        # type: (Record) -> None
         """
         HCI Callback function to detect HCI Events related to
         Create Connection
@@ -1475,6 +1519,7 @@ class InternalBlue:
             log.info("[Disconnect Complete: Handle=0x%x]" % (conn_handle))
 
     def coexStatusCallback(self, record):
+        # type: (Record) -> None
         """
         Coexistence Callback Function
         Interprets debug counters for coexistence with WiFi/LTE
@@ -1499,6 +1544,7 @@ class InternalBlue:
                 return
 
     def readHeapInformation(self):
+        # type: () -> Optional[Union[HeapInformation, bool]]
         """
         Traverses the double-linked list of BLOC structs and returns them as a
         list of dictionaries. The dicts have the following fields:
@@ -1592,6 +1638,7 @@ class InternalBlue:
 
 
     def readQueueInformation(self):
+        # type: () -> Optional[Union[bool, QueueInformation]]
         """
         Traverses the double-linked list of QUEUE structs and returns them as a
         list of dictionaries. The dicts have the following fields:
@@ -1655,6 +1702,7 @@ class InternalBlue:
         return queuelist
 
     def enableBroadcomDiagnosticLogging(self, enable):
+        # type: (bool) -> None
         """
         Broadcom implemented their own H4 layer protocol. Normally H4 handles HCI
         messages like HCI commands, SCO and ACL data, and HCI events. Their types are
