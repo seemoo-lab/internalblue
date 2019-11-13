@@ -12,7 +12,7 @@ import binascii
 class testCore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(testCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
-        file = open('memdump.bin', mode='rb')
+        file = open('dummymemdump.bin', mode='rb')
         self.memory = file.read()
         file.close()
         self.doublecheck = False
