@@ -97,6 +97,7 @@ def internalblue_cli():
     parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
     parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
+    parser.add_argument("--testdevice", "-t", help="Use a dummy test device to execute testcases", action="store_true")
     args = parser.parse_args()
 
     if args.data_directory is not None:
@@ -124,6 +125,9 @@ def internalblue_cli():
     if args.ios_device:
         from ioscore import iOSCore
         connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
+    elif args.testdevice:
+        from testcore import testCore
+        connection_methods = [testCore(log_level=log_level, data_directory=data_directory)]
     elif platform == "darwin":
         from macoscore import macOSCore
         connection_methods = [
