@@ -39,7 +39,7 @@ import json
 
 from internalblue import getLogger
 
-log = getLogger(__name__)
+#log = getLogger(__name__)
 
 
 
