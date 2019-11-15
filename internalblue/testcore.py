@@ -11,6 +11,15 @@ import binascii
 
 filepath = os.path.dirname(os.path.abspath(__file__))
 
+
+try:
+    import typing
+    from typing import List, Tuple, Any
+    from internalblue.core import InternalBlue
+
+except:
+    pass
+
 class testCore(InternalBlue):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
         super(testCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
@@ -20,6 +29,7 @@ class testCore(InternalBlue):
         self.doublecheck = False
 
     def device_list(self):
+        # type: () -> List[Tuple[InternalBlue,str,str]]
         """
         Get a list of connected devices
         """
