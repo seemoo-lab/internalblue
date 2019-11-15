@@ -33,11 +33,19 @@ import os
 import traceback
 import argparse
 
-from adbcore import ADBCore
-from hcicore import HCICore
+from .adbcore import ADBCore
+from .hcicore import HCICore
 from sys import platform
 
-import cmds
+from . import cmds
+
+try:
+    import typing
+    from typing import List
+    from internalblue.core import InternalBlue
+
+except:
+    pass
 
 HISTFILE = "_internalblue.hist"
 
@@ -122,14 +130,15 @@ def internalblue_cli():
 
     # Initalize cores and get devices
     # As macOS has additional dependencies (objc), only import it here if needed
+    connection_methods = [] # type: List[InternalBlue]
     if args.ios_device:
-        from ioscore import iOSCore
+        from .ioscore import iOSCore
         connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
     elif args.testdevice:
-        from testcore import testCore
+        from .testcore import testCore
         connection_methods = [testCore(log_level=log_level, data_directory=data_directory)]
     elif platform == "darwin":
-        from macoscore import macOSCore
+        from .macoscore import macOSCore
         connection_methods = [
             macOSCore(log_level=log_level, data_directory=data_directory),
             ADBCore(log_level=log_level, data_directory=data_directory)]

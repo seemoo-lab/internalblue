@@ -4,11 +4,11 @@ import datetime
 import socket
 import Queue
 import random
-import hci
+from internalblue import hci
 
 from pwn import *
 
-from core import InternalBlue
+from .core import InternalBlue
 
 
 class ADBCore(InternalBlue):

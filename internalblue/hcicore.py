@@ -4,10 +4,18 @@ import subprocess
 import datetime
 from pwn import *
 import fcntl
-from core import InternalBlue
+from .core import InternalBlue
 import hci
 import Queue
 import threading
+
+try:
+    from typing import List
+    from internalblue import Device
+
+
+except:
+    pass
 
 # from /usr/include/bluetooth/hci.h:
 #define HCIDEVUP	_IOW('H', 201, int)
@@ -34,6 +42,7 @@ class HCICore(InternalBlue):
         self.doublecheck = False
 
     def getHciDeviceList(self):
+        # type: () -> List[Device]
         """
         Get a list of available HCI devices. The list is obtained by executing
         ioctl syscalls HCIGETDEVLIST and HCIGETDEVINFO. The returned list 
@@ -123,8 +132,8 @@ class HCICore(InternalBlue):
             log.info("HCI device: %s  [%s]  flags=%d<%s>" %
                     (dev["dev_name"], dev["dev_bdaddr"],
                      dev["dev_flags"], dev["dev_flags_str"]))
-            device_list.append([self, dev["dev_name"], 'hci: %s (%s) <%s>' %
-                    (dev["dev_bdaddr"], dev["dev_name"], dev["dev_flags_str"])])
+            device_list.append((self, dev["dev_name"], 'hci: %s (%s) <%s>' %
+                    (dev["dev_bdaddr"], dev["dev_name"], dev["dev_flags_str"])))
 
         if len(device_list) == 0:
             log.info('No connected HCI device found')

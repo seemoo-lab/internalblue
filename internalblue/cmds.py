@@ -37,6 +37,10 @@ import select
 import json
 
 
+import logging
+log = logging.getLogger(__name__)
+
+
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Type
 
@@ -109,7 +113,7 @@ class Cmd:
     """
     keywords = [] # type: List[str]
 
-    memory_image = None # type: Optional[Any]
+    memory_image = None # type: Optional[bytes]
 
     def __init__(self, cmdline, internalblue):
         # type: (str, InternalBlue) -> None
@@ -203,7 +207,7 @@ class Cmd:
         for section in self.internalblue.fw.SECTIONS:
             if not section.is_rom:
                 sectiondump = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
-                if sectiondump:
+                if sectiondump and Cmd.memory_image:
                     Cmd.memory_image = Cmd.memory_image[0:section.start_addr] + sectiondump + Cmd.memory_image[section.end_addr:]
                     bytes_done += section.size()
         self.progress_log.success("Received Data: complete")
