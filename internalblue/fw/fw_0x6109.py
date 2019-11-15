@@ -25,7 +25,7 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from fw import MemorySection
+from .fw import MemorySection
 
 # Firmware Infos
 # This runs on Nexus 5, Xperia Z3, Samsung Galaxy Note 3
