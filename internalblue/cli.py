@@ -61,11 +61,15 @@ type <help> for usage information!\n\n"""
     for line in banner:
         term.output(text.blue(line))
 
-def commandLoop(internalblue):
+def commandLoop(internalblue, init_commands=None):
+    cmdstack = init_commands.split(';')[::-1]
     while internalblue.running and not internalblue.exit_requested:
         cmd_instance = None
         try:
-            cmdline = term.readline.readline(prompt='> ').strip()
+            if cmdstack:
+                cmdline = cmdstack.pop().strip()
+            else:
+                cmdline = term.readline.readline(prompt='> ').strip()
             cmdword = cmdline.split(' ')[0].split('=')[0]
             if(cmdword == ''):
                 continue
@@ -106,6 +110,7 @@ def internalblue_cli():
     parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
     parser.add_argument("--testdevice", "-t", help="Use a dummy test device to execute testcases", action="store_true")
+    parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
     args = parser.parse_args()
 
     if args.data_directory is not None:
@@ -173,7 +178,7 @@ def internalblue_cli():
             exit(-1)
 
         # Enter command loop (runs until user quits)
-        commandLoop(reference)
+        commandLoop(reference, init_commands=args.commands)
 
         # shutdown connection
         reference.shutdown()
