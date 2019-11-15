@@ -37,8 +37,10 @@ import select
 import json
 
 
-import logging
-log = logging.getLogger(__name__)
+from internalblue import getLogger
+
+log = getLogger(__name__)
+
 
 
 try:

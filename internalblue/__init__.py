@@ -30,3 +30,30 @@ try:
 
 except:
     pass
+
+
+import logging
+
+
+class ProgressLog():
+    """
+    Hack to get around the dependency to the pwnlib logger
+    This looses functionality, but at some point this can be replaced by something like progressbar2
+    """
+    def __init__(self, init_msg,logger):
+        self.logger = logger
+        self.logger.warning(init_msg)
+
+    def failure(self, msg):
+        self.logger.warning(msg)
+
+    def status(self, msg):
+        self.logger.info(msg)
+
+    def success(self, msg):
+        self.logger.info(msg)
+
+def getLogger(name):
+    logger = logging.getLogger(name)
+    logger.progress = lambda msg: ProgressLog(msg, logger)
+    return logger
