@@ -771,7 +771,7 @@ class InternalBlue:
             return None
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
-        # type: (int, int, Optional[Any], int, int) -> Optional[Any]
+        # type: (int, int, Optional[Any], int, int) -> Optional[bytes]
         """
         Reads <length> bytes from the memory space of the firmware at the given
         address. Reading from unmapped memory or certain memory-mapped-IO areas
