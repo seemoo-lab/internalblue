@@ -536,6 +536,7 @@ class CmdDumpMem(Cmd):
                         help="Only dump the two RAM sections.")
     parser.add_argument("--file", "-f", default="memdump.bin",
                         help="Filename of memory dump (default: %(default)s)")
+    parser.add_argument("--overwrite", action='store_true')
 
     def work(self):
         args = self.getArgs()
@@ -550,7 +551,7 @@ class CmdDumpMem(Cmd):
             for section in filter(lambda s: s.is_ram, self.internalblue.fw.SECTIONS):
                 filename = args.file + "_" + hex(section.start_addr)
                 if os.path.exists(filename):
-                    if not yesno("Update '%s'?" % filename):
+                    if not (args.overwrite or yesno("Update '%s'?" % filename)):
                         log.info("Skipping section @%s" % hex(section.start_addr))
                         bytes_done += section.size()
                         continue
@@ -564,7 +565,7 @@ class CmdDumpMem(Cmd):
 
         # Get complete memory image
         if os.path.exists(args.file):
-            if not yesno("Update '%s'?" % os.path.abspath(args.file)):
+            if not (args.overwrite or yesno("Update '%s'?" % os.path.abspath(args.file))):
                 return False
         
         dump = self.getMemoryImage(refresh=not args.norefresh)
