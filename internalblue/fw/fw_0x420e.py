@@ -20,7 +20,7 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from fw import MemorySection
+from .fw import MemorySection
 
 # Firmware Infos
 # Evaluation Kit CYW920719

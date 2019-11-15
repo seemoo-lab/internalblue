@@ -28,11 +28,11 @@
 from abc import ABCMeta, abstractmethod
 
 from pwn import *
-from fw.fw import Firmware
+from .fw.fw import Firmware
 import datetime
 import time
 import Queue
-import hci
+from . import hci
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -45,11 +45,14 @@ try:
 except:
     pass
 
+import logging
+log = logging.getLogger(__name__)
+
 class InternalBlue:
     __metaclass__ = ABCMeta
 
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        # type: (int, str, str, bool, str)
+        # type: (int, str, str, bool, str) -> None
         context.log_level = log_level
         context.log_file = data_directory + '/_internalblue.log'
         context.arch = "thumb"
@@ -493,6 +496,7 @@ class InternalBlue:
 
     @abstractmethod
     def device_list(self):
+        # type: () -> List[Tuple[InternalBlue,Any,str]]
         pass
 
     def connect(self):
