@@ -56,6 +56,7 @@ class HCI(object):
         return HCI_UART_TYPE_CLASS[uart_type].from_data(data[1:])
 
     def __init__(self, uart_type):
+        self.event_code = None
         self.uart_type = uart_type
 
     def getRaw(self):
