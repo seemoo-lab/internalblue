@@ -62,7 +62,7 @@ type <help> for usage information!\n\n"""
         term.output(text.blue(line))
 
 def commandLoop(internalblue, init_commands=None):
-    cmdstack = init_commands.split(';')[::-1]
+    cmdstack = init_commands.split(';')[::-1] if init_commands else None
     while internalblue.running and not internalblue.exit_requested:
         cmd_instance = None
         try:
@@ -101,7 +101,7 @@ def commandLoop(internalblue, init_commands=None):
 
 
 # Main Program Start
-def internalblue_cli():
+def internalblue_cli(argv):
     print_banner()
 
     parser = argparse.ArgumentParser()
@@ -111,7 +111,7 @@ def internalblue_cli():
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
     parser.add_argument("--testdevice", "-t", help="Use a dummy test device to execute testcases", action="store_true")
     parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.data_directory is not None:
         data_directory = args.data_directory
@@ -193,5 +193,5 @@ def internalblue_cli():
 
 
 if __name__ == "__main__":
-    internalblue_cli()
+    internalblue_cli(sys.argv[1:])
 
