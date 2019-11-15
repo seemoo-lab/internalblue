@@ -36,7 +36,19 @@ import time
 import select
 import json
 
+
+try:
+    from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Type
+
+    if TYPE_CHECKING:
+        from internalblue.core import InternalBlue
+        from internalblue.hci import HCI
+        from internalblue import Record, BluetoothAddress, Address
+except:
+    pass
+
 def getCmdList():
+    # type: () -> List[Type['Cmd']]
     """ Returns a list of all commands which are defined in this cmds.py file.
     This is done by searching for all subclasses of Cmd
     """
@@ -44,6 +56,7 @@ def getCmdList():
                             if inspect.isclass(obj) and issubclass(obj, Cmd)][1:]
 
 def findCmd(keyword):
+    # type: (str) -> Optional[Type['Cmd']]
     """ Find and return a Cmd subclass for a given keyword.
     """
     command_list = getCmdList()
@@ -61,11 +74,13 @@ def auto_int(x):
     return int(x, 0)
 
 def bt_addr_to_str(bt_addr):
+    # type: (BluetoothAddress) -> str
     """ Convert a Bluetooth address (6 bytes) into a human readable format.
     """
     return ":".join([b.encode("hex") for b in bt_addr])
 
 def parse_bt_addr(bt_addr):
+    # type: (Any) -> Optional[BluetoothAddress]
     """ Convert Bluetooth address argument and check lengths.
     """
     addr = bt_addr
@@ -92,11 +107,12 @@ class Cmd:
     'keywords' list as member variable. The actual implementation of the
     command should be located in the work() method.
     """
-    keywords = []
+    keywords = [] # type: List[str]
 
-    memory_image = None
+    memory_image = None # type: Optional[Any]
 
     def __init__(self, cmdline, internalblue):
+        # type: (str, InternalBlue) -> None
         self.cmdline = cmdline
         self.internalblue = internalblue
         self.memory_image_template_filename = internalblue.data_directory + "/memdump__template.bin"
@@ -105,23 +121,28 @@ class Cmd:
                                               self.internalblue.fw.__name__[6:12] + "_template.bin"
 
     def __str__(self):
+        # type: () -> str
         return self.cmdline
 
     def work(self):
+        # type: () -> bool
         return True
 
     def abort_cmd(self):
+        # type: () -> None
         self.aborted = True
         if hasattr(self, 'progress_log'):
             self.progress_log.failure("Command aborted")
 
     def getArgs(self):
+        # type: () -> Any
         try:
             return self.parser.parse_args(self.cmdline.split(' ')[1:])
         except SystemExit:
             return None
 
     def isAddressInSections(self, address, length=0, sectiontype=""):
+        # type: (int, int, str) -> bool
         if not self.internalblue.fw:
             return False
 
@@ -137,12 +158,15 @@ class Cmd:
         return False
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
+        # type: (Address, int, Optional[Any], int, int) -> Optional[bytes]
         return self.internalblue.readMem(address, length, progress_log, bytes_done, bytes_total)
 
     def writeMem(self, address, data, progress_log=None, bytes_done=0, bytes_total=0):
+        # type: (Address, bytes, Optional[Any], int, int) -> bool
         return self.internalblue.writeMem(address, data, progress_log, bytes_done, bytes_total)
 
     def initMemoryImage(self):
+        # type: () -> None
         """
         Initially read out a chip's memory, all sections (RAM+ROM).
         :return:
@@ -168,6 +192,7 @@ class Cmd:
             self.refreshMemoryImage()
 
     def refreshMemoryImage(self):
+        # type: () -> None
         """
         Update an existing memory dump, only RAM sections.
         :return:
@@ -184,6 +209,7 @@ class Cmd:
         self.progress_log.success("Received Data: complete")
 
     def getMemoryImage(self, refresh=False):
+        # type: (bool) -> Any
         if Cmd.memory_image is None:
             self.initMemoryImage()
         elif refresh:
@@ -411,6 +437,7 @@ class CmdMonitor(Cmd):
                     self.wireshark_process = None
 
             def adbhciCallback(self, record):
+                # type: (Record) -> None
                 hcipkt, orig_len, inc_len, flags, drops, recvtime = record
 
                 dummy = "\x00\x00\x00"      # TODO: Figure out purpose of these fields
