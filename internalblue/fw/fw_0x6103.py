@@ -46,3 +46,9 @@ SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
              MemorySection(0x650000, 0x650800, False, False),
             #MemorySection(0x680000, 0x800000, False, False)
             ]
+
+PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
+PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
+PATCHRAM_NUMBER_OF_SLOTS        = 192
+PATCHRAM_ALIGNED                = False
