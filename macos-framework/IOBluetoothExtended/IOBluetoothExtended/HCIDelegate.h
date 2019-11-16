@@ -14,7 +14,6 @@
 
 @interface HCIDelegate: NSObject
 
-@property (nonatomic, assign) unsigned short waitingFor;
 @property (nonatomic, assign) NSString *hostname;
 @property (nonatomic, assign) NSString *inject;
 @property (nonatomic, assign) NSString *snoop;
@@ -26,7 +25,6 @@
 
 - (id) initWith:(NSString *)inject and:(NSString*)snoop;
 
-+ (void) setWaitingFor:(unsigned short)arg1;
 + (void) setHostname:(NSString *)arg1;
 
 + (void) setInject:(NSString *)arg1;

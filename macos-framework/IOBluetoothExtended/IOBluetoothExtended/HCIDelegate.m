@@ -23,10 +23,6 @@ Boolean exit_requested = false;
     return self;
 }
 
-+ (void) setWaitingFor:(unsigned short)arg1 {
-    self.waitingFor = arg1;
-}
-
 + (void) setHostname:(NSString *)hostname {
     self.hostname = hostname;
 }

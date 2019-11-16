@@ -89,9 +89,7 @@ extension HCIDelegate: IOBluetoothHostControllerDelegate {
                 // Thread to be able to accept new incoming commands from the socket
                 DispatchQueue.global(qos: .background).async {
                     var command = Array([UInt8](receiveBuffer).dropFirst(2))
-                    let opcode: [UInt8] = Array([UInt8](receiveBuffer)[2...3])
                     let length: UInt8 = receiveBuffer[1]
-                    self.waitingFor = UInt16(opcode[1]) << 8 + UInt16(opcode[0])
 
                     // Send command to Bluetooth HCI Controller
                     HCICommunicator.sendArbitraryCommand4(&command, len: length)
