@@ -960,7 +960,7 @@ class CmdSendHciCmd(Cmd):
             else:
                 data += data_part.decode('hex')
 
-        self.internalblue.sendHciCommand(args.cmdcode, data)
+        return self.internalblue.sendHciCommand(args.cmdcode, data)
 
         return True
 
