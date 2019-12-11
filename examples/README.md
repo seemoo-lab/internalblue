@@ -6,7 +6,9 @@ KNOB Attack Test (CVE-2019-9506)
 --------------------------------
 We provide a modified version of the KNOB attack test, originally provided [here](https://github.com/francozappa/knob).
 This script tests if the other device will accept a reduced key entropy of 1 byte instead of the optimal 16 byte.
-Available for the [Raspberry Pi 3](rpi3/KNOB_PoC.py), [Raspberry Pi 3+/4](rpi3p_rpi4/KNOB_PoC.py), [Nexus 5](nexus5/KNOB_PoC.py), [CYW20735 evaluation board](eval_cyw20735/KNOB_PoC.py), and [Samsung Galaxy S8](s8/KNOB_PoC.py).
+Available for the [Raspberry Pi 3](rpi3/KNOB_PoC.py), [Raspberry Pi 3+/4](rpi3p_rpi4/KNOB_PoC.py),
+[Nexus 5](nexus5/KNOB_PoC.py), [Nexus 6P](nexus6p/KNOB_PoC.py), [CYW20735 evaluation board](eval_cyw20735/KNOB_PoC.py),
+and [Samsung Galaxy S8](s8/KNOB_PoC.py).
 
 
 Invalid Curve Attack Test (CVE-2018-5383)
