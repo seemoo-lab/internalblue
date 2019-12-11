@@ -29,5 +29,18 @@ If the operating system displays a yes/no question during pairing, a warning, or
 This script tests how the other device will behave in a pairing that does not use numeric comparison, but is no
 active MITM attack.
 
-Available for the [Nexus 5](NiNo_PoC.py).
+Available for the [Nexus 5](nexus5/NiNo_PoC.py).
 
+
+Measurement of BLE Receive Statistics
+-------------------------------------
+This demo provides a hook within the callback for BLE packet reception. Upon packet reception, no matter if the
+packet is a keep-alive null packet or not, it will be processed by this function. During this state, further
+metadata is available, such as the RSSI (Received Signal Strength Indicator), the packet's channel, and the
+currently active channel map.
+
+Available for the [Nexus 5](nexus5/BLE_Reception_PoC.py) and [Samsung Galaxy S8](s8/BLE_Reception_PoC.py) including a callback script,
+as well as for the [CYW20735 Evaluation board](eval_cyw20735/BLE_Reception_PoC.py), [Raspberry Pi 3](rpi3/BLE_Reception_PoC.py)
+and [3+/4](rpi3p_rpi4/BLE_Reception_PoC.py) currently without callback script.
+We also ported it for the iPhone 6, however, the current *InternalBlue* iOS implementation cannot be run in parallel
+with the full iOS stack, thus it is not pushed online here.

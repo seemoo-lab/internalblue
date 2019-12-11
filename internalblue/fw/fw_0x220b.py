@@ -23,24 +23,23 @@
 from fw import MemorySection
 
 # Firmware Infos
-# Evaluation Kit CYW920819
-FW_NAME = "CYW20819A1"
+# Evaluation Kit CYW20706
+FW_NAME = "CYW20706"
 
 
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal ROM
-             MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
-             MemorySection(0x00270000, 0x0027ffff,  False, True),   # Internal Memory Patchram Contents
-             MemorySection(0x00310000, 0x00321fff,  False, True),   # HW Regs Cortex M3 (readable)
+SECTIONS = [ MemorySection(0x00000000, 0x000c7fff,  True,  False),  # Internal ROM
+             MemorySection(0x000d0000, 0x000dffff,  False, True ),
+             MemorySection(0x00200000, 0x00247fff,  False, True),   # Internal Memory Cortex M3
              ]
 
 # Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0x270000
-PATCHRAM_NUMBER_OF_SLOTS        = 256
-PATCHRAM_ALIGNED                = False
+#PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+#PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+#PATCHRAM_VALUE_TABLE_ADDRESS    = 0x0d0000
+#PATCHRAM_NUMBER_OF_SLOTS        = 256
+PATCHRAM_ALIGNED                = True
 # only seems to work 4-byte aligned here ...
 
 
