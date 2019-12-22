@@ -9,11 +9,8 @@ from pwn import *
 from core import InternalBlue
 
 import objc
-from Foundation import *
-
 import binascii
 import os
-
 filepath = os.path.dirname(os.path.abspath(__file__))
 
 objc.initFrameworkWrapper("IOBluetoothExtended",

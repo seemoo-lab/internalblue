@@ -151,7 +151,11 @@ extension HCIDelegate: IOBluetoothHostControllerDelegate {
         else if opcode == 0x0406 {
             let orig = data.hexEncodedString()
             if orig.count == 0 { return }
-            let temp = "04050400\(orig)"
+            var temp = "040504"
+            for i in [2,1,0] {
+                temp.append(orig[i*2])
+                temp.append(orig[i*2+1])
+            }
             self.sendOverUDP(data: temp.hexadecimal!, h, s!)
         }
         else {
