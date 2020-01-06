@@ -39,7 +39,7 @@ try:
     from internalblue import Address, Record, Task, HCI_CMD, FilterFunction, ConnectionNumber, ConnectionDict, \
     ConnectionIndex, BluetoothAddress, HeapInformation, QueueInformation, Opcode
     from internalblue.hci import HCI
-
+    from . import DeviceTuple
     if TYPE_CHECKING:
         pass
 except:
@@ -496,7 +496,7 @@ class InternalBlue:
 
     @abstractmethod
     def device_list(self):
-        # type: () -> List[Tuple[InternalBlue,Any,str]]
+        # type: () -> List[DeviceTuple]
         pass
 
     def connect(self):

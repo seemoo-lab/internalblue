@@ -41,8 +41,9 @@ from . import cmds
 
 try:
     import typing
-    from typing import List
+    from typing import List, Optional
     from internalblue.core import InternalBlue
+    from . import DeviceTuple
 
 except:
     pass
@@ -152,10 +153,12 @@ def internalblue_cli(argv):
             ADBCore(log_level=log_level, data_directory=data_directory, serial=args.serialsu),
             HCICore(log_level=log_level, data_directory=data_directory)]
 
-    devices = []
+    devices = [] # type: List[DeviceTuple]
     for connection_method in connection_methods:
         devices.extend(connection_method.device_list())
 
+
+    device = None # type: Optional[DeviceTuple]
     if len(devices) > 0:
         if len(devices) == 1:
             device = devices[0]
