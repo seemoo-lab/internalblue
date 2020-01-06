@@ -111,6 +111,7 @@ def internalblue_cli(argv):
     parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
     parser.add_argument("--testdevice", "-t", help="Use a dummy test device to execute testcases", action="store_true")
+    parser.add_argument("--device", help="Specify device/core to be used")
     parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
     args = parser.parse_args(argv)
 
@@ -160,7 +161,18 @@ def internalblue_cli(argv):
 
     device = None # type: Optional[DeviceTuple]
     if len(devices) > 0:
-        if len(devices) == 1:
+        if args.device:
+            matching_devices = [ dev for dev in devices if dev[1] == args.device]
+            if len(matching_devices) > 1:
+                log.critical("Found multiple matching devices")
+                exit(-1)
+            elif len(matching_devices) == 1:
+                log.info("Found device is: {}".format(matching_devices[0]))
+                device = matching_devices[0]
+            else:
+                log.critical("No matching devices found")
+                exit(-1)
+        elif len(devices) == 1:
             device = devices[0]
         else:
             i = options('Please specify device:',  [d[2] for d in devices], 0)
