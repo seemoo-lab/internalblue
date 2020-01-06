@@ -1733,3 +1733,9 @@ class InternalBlue:
         # itself crashes when receiving diagnostic frames...
         else:
             log.warn("Diagnostic protocol requires modified Android driver!")
+
+    def _setupSockets(self):
+        raise NotImplementedError()
+
+    def _teardownSockets(self):
+        raise NotImplementedError()
