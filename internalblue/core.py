@@ -66,7 +66,7 @@ class InternalBlue:
         self.s_snoop = None     # This is the TCP socket to the HCI snoop port
 
         # If btsnooplog_filename is set, write all incomming HCI packets to a file (can be viewed in wireshark for debugging)
-        if btsnooplog_filename != None:
+        if btsnooplog_filename is not None:
             self.write_btsnooplog = True
             self.btsnooplog_file = open(self.data_directory + "/" + btsnooplog_filename, "wb")
         else:
