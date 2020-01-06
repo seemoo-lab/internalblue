@@ -6,6 +6,7 @@ try:
     if TYPE_CHECKING:
         import datetime
         from internalblue.hci import HCI
+        from internalblue.core import InternalBlue
         Address = NewType("Address", int)
         Record = Tuple[HCI, int, int, int, Any, datetime.datetime]
         FilterFunction = Callable[[Record], bool]
@@ -26,6 +27,8 @@ try:
          "dev_bdaddr": dev_bdaddr,
          "dev_flags": dev_flags,
          "dev_flags_str": dev_flags_str}"""
+        # InternalBlueCore, Device Name, SomeString
+        DeviceTuple = Tuple[InternalBlue, str, str]
 
 
 except:
