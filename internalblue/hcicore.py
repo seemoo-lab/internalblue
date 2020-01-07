@@ -193,8 +193,8 @@ class HCICore(InternalBlue):
                 record_data = self.s_snoop.recv(1024)
             except socket.timeout:
                 continue # this is ok. just try again without error
-            except Exception:
-                log.critical("Lost device interface, terminating receive thread...")
+            except Exception as e:
+                log.critical("Lost device interface with exception {}, terminating receive thread...".format(e))
                 self.exit_requested = True
                 continue
 

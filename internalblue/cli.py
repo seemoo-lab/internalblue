@@ -111,6 +111,7 @@ def internalblue_cli(argv):
     parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
     parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
     parser.add_argument("--testdevice", "-t", help="Use a dummy test device to execute testcases", action="store_true")
+    parser.add_argument("--trace", help="Trace hci connection", action="store_true")
     parser.add_argument("--device", help="Specify device/core to be used")
     parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
     args = parser.parse_args(argv)
@@ -134,6 +135,14 @@ def internalblue_cli(argv):
             cmd_keywords.append(keyword)
     readline_completer = term.completer.LongestPrefixCompleter(words=cmd_keywords)
     term.readline.set_completer(readline_completer)
+
+
+
+    if args.trace:
+        from .socket_hooks import wrap_socket_setup
+        ADBCore._setupSockets = wrap_socket_setup(ADBCore._setupSockets)
+        HCICore._setupSockets = wrap_socket_setup(HCICore._setupSockets)
+
 
     # Initalize cores and get devices
     # As macOS has additional dependencies (objc), only import it here if needed
