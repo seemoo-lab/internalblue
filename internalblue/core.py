@@ -62,8 +62,8 @@ class InternalBlue:
 
 
         self.data_directory = data_directory
-        self.s_inject = None    # This is the TCP socket to the HCI inject port
-        self.s_snoop = None     # This is the TCP socket to the HCI snoop port
+        self.s_inject = None    #type: socket.socket # This is the TCP socket to the HCI inject port
+        self.s_snoop = None     #type: socket.socket  # This is the TCP socket to the HCI snoop port
 
         # If btsnooplog_filename is set, write all incomming HCI packets to a file (can be viewed in wireshark for debugging)
         if btsnooplog_filename is not None:
