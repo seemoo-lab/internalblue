@@ -45,8 +45,8 @@ try:
 except:
     pass
 
-import logging
-log = logging.getLogger(__name__)
+#import logging
+#log = logging.getLogger(__name__)
 
 class InternalBlue:
     __metaclass__ = ABCMeta
@@ -279,8 +279,8 @@ class InternalBlue:
             try:
                 log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
                 self.s_inject.send(out)
-            except:
-                log.warn("_sendThreadFunc: Sending to socket failed, reestablishing connection.\nWith HCI sockets, some HCI commands require root!")
+            except Exception as e:
+                log.warn("_sendThreadFunc: Sending to socket failed with {}, reestablishing connection.\nWith HCI sockets, some HCI commands require root!".format(e))
                 # socket are terminated by hcicore..
                 self._teardownSockets()
                 self._setupSockets()
