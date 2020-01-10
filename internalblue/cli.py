@@ -142,7 +142,7 @@ def internalblue_cli(argv):
         from .socket_hooks import hook
         from internalblue import socket_hooks
         HookClass = getattr(socket_hooks, args.trace)
-        hook(HCICore, HookClass())
+        hook(HCICore, HookClass)
 
 
     # Initalize cores and get devices
