@@ -45,8 +45,8 @@ try:
 except:
     pass
 
-import logging
-log = logging.getLogger(__name__)
+#import logging
+#log = logging.getLogger(__name__)
 
 class InternalBlue:
     __metaclass__ = ABCMeta
@@ -62,8 +62,8 @@ class InternalBlue:
 
 
         self.data_directory = data_directory
-        self.s_inject = None    # This is the TCP socket to the HCI inject port
-        self.s_snoop = None     # This is the TCP socket to the HCI snoop port
+        self.s_inject = None    #type: socket.socket # This is the TCP socket to the HCI inject port
+        self.s_snoop = None     #type: socket.socket  # This is the TCP socket to the HCI snoop port
 
         # If btsnooplog_filename is set, write all incomming HCI packets to a file (can be viewed in wireshark for debugging)
         if btsnooplog_filename is not None:
@@ -279,8 +279,8 @@ class InternalBlue:
             try:
                 log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
                 self.s_inject.send(out)
-            except:
-                log.warn("_sendThreadFunc: Sending to socket failed, reestablishing connection.\nWith HCI sockets, some HCI commands require root!")
+            except Exception as e:
+                log.warn("_sendThreadFunc: Sending to socket failed with {}, reestablishing connection.\nWith HCI sockets, some HCI commands require root!".format(e))
                 # socket are terminated by hcicore..
                 self._teardownSockets()
                 self._setupSockets()
