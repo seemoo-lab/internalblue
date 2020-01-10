@@ -16,6 +16,12 @@ class SocketRecvHook():
         return data
 
 
+    def recvfrom(self, length):
+        # type: (int) -> Tuple[bytes, Any]
+        data, addr = self.socket.recvfrom(length)
+        self.recv_hook(data)
+        return data
+
 class SocketInjectHook():
     def __init__(self, socket, send_hook):
         self.send_hook = send_hook
