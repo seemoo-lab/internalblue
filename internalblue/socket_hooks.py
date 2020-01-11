@@ -9,10 +9,10 @@ class SocketRecvHook():
         self.replace = False
 
     def recv_hook(self, data):
-        raise NotImplementedError()
+        raise NotImplementedError("recv_hook not implemented")
 
     def recv_replace(self, length, **kwargs):
-        raise NotImplementedError()
+        raise NotImplementedError("recv_replace not implemented")
 
     def recv(self, length, **kwargs):
         if not self.replace:
@@ -29,6 +29,7 @@ class SocketRecvHook():
             self.recv_hook(data)
             return data
 
+
 class SocketInjectHook():
     def __init__(self, socket):
         # type: (socket.socket) -> None
@@ -38,7 +39,7 @@ class SocketInjectHook():
     def close(self):
         self.socket.close()
 
-    def send(self,data):
+    def send(self, data):
         self.send_hook(data)
         if not self.replace:
             try:
@@ -49,14 +50,14 @@ class SocketInjectHook():
         else:
             self.send_replace(data)
 
-    def send_hook(self,result):
-        raise NotImplementedError()
+    def send_hook(self, result):
+        raise NotImplementedError("send_hook not implemented")
 
-    def send_replace(self,data):
-        raise NotImplementedError()
+    def send_replace(self, data):
+        raise NotImplementedError("send_replace not implemented")
 
     def send_exception(self, e):
-        raise NotImplementedError()
+        raise NotImplementedError("send_exception not implemented")
 
 
 class SocketDuplexHook(SocketInjectHook, SocketRecvHook):
@@ -65,13 +66,14 @@ class SocketDuplexHook(SocketInjectHook, SocketRecvHook):
         # type: (socket.socket) -> None
         self.socket = socket
         self.replace = False
+
     pass
 
 
-
 class HookBase():
-    def send_hook(self,data):
+    def send_hook(self, data):
         raise NotImplementedError
+
     def recv_hook(self, data):
         raise NotImplementedError
 
@@ -119,31 +121,38 @@ class PrintTrace(SocketDuplexHook):
     def recvfrom_hook(self, data, **kwargs):
         print("Recv: {}".format(binascii.hexlify(data)))
 
+    def send_exception(self, e):
+        print("Exception: {}".format(e))
 
 
-
-class ReplaySocket():
-    def __init__(self, filename='/tmp/bt.log'):
-        super(ReplaySocket, self).__init__()
+class ReplaySocket(PrintTrace):
+    def __init__(self, socket, filename='/tmp/bt_hci.log'):
+        SocketDuplexHook.__init__(self, socket)
+        self.replace = True
         self.log = open(filename).readlines()
         self.index = 0
 
-    def send(self, data, **kwargs):
-        encoded_data = "" # type: str
-        direction, encoded_data = self.log[self.index].split(" ")
-        assert(direction == "TX")
+    def send_replace(self, data, **kwargs):
+        encoded_data = ""  # type: str
+        hex_data = binascii.hexlify(data)
+        direction, encoded_data = self.log[self.index].split(" ", 1)
+        assert (direction == "TX")
         log_data = binascii.unhexlify(encoded_data.rstrip('\n'))
-        assert(data == log_data)
-        self.index+=1
+        assert data == log_data, "Got {}, expected {}".format(hex_data, encoded_data)
+        self.index += 1
+        ty, data = self.log[self.index].split(" ", 1)
+        if ty == "EX":
+            self.index += 1
+            raise socket.error(data)
 
-    def recv(self, **kwargs):
-        time.sleep(0.01)
-        direction, encoded_data = self.log[self.index].split(" ")
+    def recv_replace(self, length, **kwargs):
+        time.sleep(0.001)
+        direction, encoded_data = self.log[self.index].split(" ", 1)
         if direction == "RX":
+            self.index += 1
             return binascii.unhexlify(encoded_data.rstrip('\n'))
         else:
             raise socket.timeout()
-
 
 
 from internalblue.core import InternalBlue
@@ -154,22 +163,22 @@ try:
 except ImportError:
     pass
 
-def hook(core, socket_hook):
-    # type: (Type[InternalBlue], Type[SocketDuplexHook]) -> None
+
+def hook(core, socket_hook, **hookkwargs):
+    # type: (Type[InternalBlue], Type[SocketDuplexHook], Any) -> None
 
     def wrap_socket_setup(orig_func):
         def wrapped_socket_setup(self, *args, **kwargs):
             status = orig_func(self, *args, **kwargs)
             if self.s_inject == self.s_snoop:
-                h = socket_hook(self.s_inject)
+                h = socket_hook(self.s_inject, **hookkwargs)
                 self.s_inject = h
                 self.s_snoop = h
             else:
-                self.s_inject = socket_hook(self.s_inject)
-                self.s_snoop = socket_hook(self.s_snoop)
+                self.s_inject = socket_hook(self.s_inject, **hookkwargs)
+                self.s_snoop = socket_hook(self.s_snoop, **hookkwargs)
             return status
 
         return wrapped_socket_setup
 
     core._setupSockets = wrap_socket_setup(core._setupSockets)
-

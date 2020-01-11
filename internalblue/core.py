@@ -279,7 +279,9 @@ class InternalBlue:
             try:
                 log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
                 self.s_inject.send(out)
-            except Exception as e:
+            except socket.error:
+                pass
+            except socket.error as e:
                 log.warn("_sendThreadFunc: Sending to socket failed with {}, reestablishing connection.\nWith HCI sockets, some HCI commands require root!".format(e))
                 # socket are terminated by hcicore..
                 self._teardownSockets()
