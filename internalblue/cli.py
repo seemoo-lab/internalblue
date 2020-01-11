@@ -103,7 +103,7 @@ def commandLoop(internalblue, init_commands=None):
 
 # Main Program Start
 def internalblue_cli(argv):
-    print_banner()
+    #print_banner()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-directory", "-d", help="Set data directory. Default: ~/.internalblue")
@@ -114,6 +114,8 @@ def internalblue_cli(argv):
     parser.add_argument("--trace", help="Trace hci connection")
     parser.add_argument("--device", help="Specify device/core to be used")
     parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
+    parser.add_argument("--replay", help="Intercept and replace every communication with the core with the one in the specified file")
+    parser.add_argument("--save", help="Store a trace into the file that can be used with --replay")
     args = parser.parse_args(argv)
 
     if args.data_directory is not None:
@@ -143,7 +145,12 @@ def internalblue_cli(argv):
         from internalblue import socket_hooks
         HookClass = getattr(socket_hooks, args.trace)
         hook(HCICore, HookClass)
-
+    elif args.save:
+        from .socket_hooks import hook, TraceToFileHook
+        hook(HCICore, TraceToFileHook, filename=args.save)
+    elif args.replay:
+        from .socket_hooks import hook, ReplaySocket
+        hook(HCICore, ReplaySocket, filename=args.replay)
 
     # Initalize cores and get devices
     # As macOS has additional dependencies (objc), only import it here if needed
