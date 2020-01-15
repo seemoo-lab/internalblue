@@ -22,13 +22,14 @@ class SocketRecvHook():
         self.recv_hook(data)
         return data
 
-    def recvfrom(self, length):
+    def recvfrom(self, length, **kwargs):
         # type: (int) -> Tuple[bytes, Any]
         if not self.replace:
             data, addr = self.socket.recvfrom(length)
-            self.recv_hook(data)
-            return data
-
+        else:
+            data, addr = self.recvfrom_replace(length, **kwargs)
+        self.recvfrom_hook(data, addr)
+        return data, addr
 
 class SocketInjectHook():
     def __init__(self, socket):
@@ -50,8 +51,25 @@ class SocketInjectHook():
         else:
             self.send_replace(data)
 
+    def sendto(self, data, socket):
+        self.sendto_hook(data, socket)
+        if not self.replace:
+            try:
+                self.socket.sendto(data, socket)
+            except Exception as e:
+                self.send_exception(e)
+                raise e
+        else:
+            self.send_replace(data)
+
+    def getsockname(self):
+        return self.socket.getsockname()
+
     def send_hook(self, result):
         raise NotImplementedError("send_hook not implemented")
+
+    def sendto_hook(self, data, socket):
+        raise NotImplementedError("sendto_hook not implemented")
 
     def send_replace(self, data):
         raise NotImplementedError("send_replace not implemented")
@@ -95,6 +113,16 @@ class TraceToFileHook(SocketDuplexHook):
         print(line)
         self.log.append(line)
 
+    def recvfrom_hook(self, data, socket, **kwargs):
+        line = "RX {}\n".format(binascii.hexlify(data))
+        print(line)
+        self.log.append(line)
+
+    def sendto_hook(self, data, socket, **kwargs):
+        line = "TX {}\n".format(binascii.hexlify(data))
+        print(line)
+        self.log.append(line)
+
     def send_exception(self, e):
         line = "EX '{}'\n".format(e)
         print(line)
@@ -105,7 +133,6 @@ class TraceToFileHook(SocketDuplexHook):
         self.log.append("Socket closed\n")
         self.file.writelines(self.log)
         self.file.close()
-
 
 import socket
 
@@ -118,8 +145,11 @@ class PrintTrace(SocketDuplexHook):
     def recv_hook(self, data, **kwargs):
         print("Recv: {}".format(binascii.hexlify(data)))
 
-    def recvfrom_hook(self, data, **kwargs):
+    def recvfrom_hook(self, data, addr, **kwargs):
         print("Recv: {}".format(binascii.hexlify(data)))
+
+    def sendto_hook(self, data, socket, **kwargs):
+        print("Sent: {}".format(binascii.hexlify(data)))
 
     def send_exception(self, e):
         print("Exception: {}".format(e))
@@ -151,6 +181,15 @@ class ReplaySocket(PrintTrace):
         if direction == "RX":
             self.index += 1
             return binascii.unhexlify(encoded_data.rstrip('\n'))
+        else:
+            raise socket.timeout()
+
+    def recvfrom_replace(self, length, **kwargs):
+        time.sleep(0.001)
+        direction, encoded_data = self.log[self.index].split(" ", 1)
+        if direction == "RX":
+            self.index += 1
+            return binascii.unhexlify(encoded_data.rstrip('\n')), 1234
         else:
             raise socket.timeout()
 

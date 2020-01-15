@@ -166,6 +166,12 @@ def internalblue_cli(argv):
         connection_methods = [
             macOSCore(log_level=log_level, data_directory=data_directory),
             ADBCore(log_level=log_level, data_directory=data_directory)]
+        if args.trace:
+            hook(macOSCore, HookClass)
+        elif args.save:
+            hook(macOSCore, TraceToFileHook, filename=args.save)
+        elif args.replay:
+            hook(macOSCore, ReplaySocket, filename=args.replay)
     else:
         connection_methods = [
             ADBCore(log_level=log_level, data_directory=data_directory, serial=args.serialsu),
