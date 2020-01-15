@@ -1,0 +1,8 @@
+# sendhcicmd 0x1337
+TX 01011000
+RX 040e0c010110000900000931010842
+TX 07f001
+EX '[Errno 22] Invalid argument'
+TX 01371300
+RX 040e0401371301
+Socket closed
