@@ -161,6 +161,8 @@ class ReplaySocket(PrintTrace):
         self.replace = True
         self.log = open(filename).readlines()
         self.index = 0
+        if self.log[0].startswith("#"):
+            self.index = 1
 
     def send_replace(self, data, **kwargs):
         encoded_data = ""  # type: str
