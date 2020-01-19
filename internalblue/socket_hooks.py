@@ -116,6 +116,7 @@ class TraceToFileHook(SocketDuplexHook):
         self.file = open(filename, 'a')
         self.replace = False
         self.log = []
+        self.closed = False
 
     def recv_hook(self, data):
         line = "RX {}\n".format(binascii.hexlify(data))
@@ -143,11 +144,13 @@ class TraceToFileHook(SocketDuplexHook):
         self.log.append(line)
 
     def close(self):
-        self.inject_socket.close()
-        self.snoop_socket.close()
-        self.log.append("Socket closed\n")
-        self.file.writelines(self.log)
-        self.file.close()
+        if not self.closed:
+            self.inject_socket.close()
+            self.snoop_socket.close()
+            self.log.append("Socket closed\n")
+            self.file.writelines(self.log)
+            self.file.close()
+            self.closed = True
 
 import socket
 
