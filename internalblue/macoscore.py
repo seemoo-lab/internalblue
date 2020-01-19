@@ -13,11 +13,6 @@ import binascii
 import os
 filepath = os.path.dirname(os.path.abspath(__file__))
 
-objc.initFrameworkWrapper("IOBluetoothExtended",
-    frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
-    frameworkPath=objc.pathForFramework(filepath+"/../macos-framework/IOBluetoothExtended.framework"),
-    globals=globals())
-
 class macOSCore(InternalBlue):
     NSNotificationCenter = objc.lookUpClass('NSNotificationCenter')
 
@@ -25,6 +20,11 @@ class macOSCore(InternalBlue):
         super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
         self.doublecheck = False
         self.iobe = None
+        objc.initFrameworkWrapper("IOBluetoothExtended",
+              frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
+              frameworkPath=objc.pathForFramework(
+                  filepath + "/../macos-framework/IOBluetoothExtended.framework"),
+              globals=globals())
 
     def device_list(self):
         """
