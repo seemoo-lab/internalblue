@@ -51,8 +51,8 @@ except:
 class InternalBlue:
     __metaclass__ = ABCMeta
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        # type: (int, str, str, bool, str) -> None
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory=".", replay=False):
+        # type: (int, str, str, bool, str, bool) -> None
         context.log_level = log_level
         context.log_file = data_directory + '/_internalblue.log'
         context.arch = "thumb"
@@ -133,6 +133,9 @@ class InternalBlue:
         # Register callbacks which handle specific HCI Events:
         self.registerHciCallback(self.connectionStatusCallback)
         self.registerHciCallback(self.coexStatusCallback)
+
+        # If the --replay flag was used and a chip is spoofed.
+        self.replay = replay
 
     def check_binutils(self, fix=True):
         """

@@ -161,10 +161,10 @@ def internalblue_cli(argv):
     elif args.testdevice:
         from .testcore import testCore
         connection_methods = [testCore(log_level=log_level, data_directory=data_directory)]
-    elif platform == "darwin":
+    elif platform == "darwin" or (args.replay and args.device == 'mac'):
         from .macoscore import macOSCore
         connection_methods = [
-            macOSCore(log_level=log_level, data_directory=data_directory),
+            macOSCore(log_level=log_level, data_directory=data_directory, replay=(args.replay and args.device == 'mac')),
             ADBCore(log_level=log_level, data_directory=data_directory)]
         if args.trace:
             hook(macOSCore, HookClass)
@@ -216,6 +216,7 @@ def internalblue_cli(argv):
             exit(-1)
 
         # Enter command loop (runs until user quits)
+        log.info("Starting commandLoop for reference {}".format(reference))
         commandLoop(reference, init_commands=args.commands)
 
         # shutdown connection
