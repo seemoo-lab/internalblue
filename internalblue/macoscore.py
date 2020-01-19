@@ -8,23 +8,23 @@ from pwn import *
 
 from core import InternalBlue
 
-import objc
 import binascii
 import os
 filepath = os.path.dirname(os.path.abspath(__file__))
 
 class macOSCore(InternalBlue):
-    NSNotificationCenter = objc.lookUpClass('NSNotificationCenter')
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory=".", replay=False):
+        super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".", replay=replay)
         self.doublecheck = False
         self.iobe = None
-        objc.initFrameworkWrapper("IOBluetoothExtended",
-              frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
-              frameworkPath=objc.pathForFramework(
-                  filepath + "/../macos-framework/IOBluetoothExtended.framework"),
-              globals=globals())
+        if not replay:
+            import objc
+            objc.initFrameworkWrapper("IOBluetoothExtended",
+                  frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
+                  frameworkPath=objc.pathForFramework(
+                      filepath + "/../macos-framework/IOBluetoothExtended.framework"),
+                  globals=globals())
 
     def device_list(self):
         """
@@ -90,7 +90,10 @@ class macOSCore(InternalBlue):
 
         # Create IOBluetoothExtended Object that listens for commands,
         # sends them to the Bluetooth chip and replies via UDP socket.
-        self.iobe = IOBE.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
+        if not self.replay:
+            self.iobe = IOBE.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
+        else:
+            self.iobe = None
         time.sleep(0.5)
 
         return True
@@ -195,7 +198,7 @@ class macOSCore(InternalBlue):
         return True
 
     def shutdown(self):
-        self.iobe.shutdown()
-        socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(
-        "", ('127.0.0.1', self.s_snoop.getsockname()[1]))
+        if not self.replay:
+            self.iobe.shutdown()
+        self.s_inject.sendto("", ('127.0.0.1', self.s_snoop.getsockname()[1]))
         super(macOSCore, self).shutdown()

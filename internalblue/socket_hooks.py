@@ -2,10 +2,16 @@ import binascii
 import time
 
 
+try:
+    from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Dict, Type
+except ImportError:
+    pass
+
+
 class SocketRecvHook():
     def __init__(self, socket):
         # type: (socket.socket) -> None
-        self.socket = socket
+        self.snoop_socket = socket
         self.replace = False
 
     def recv_hook(self, data):
@@ -16,16 +22,22 @@ class SocketRecvHook():
 
     def recv(self, length, **kwargs):
         if not self.replace:
-            data = self.socket.recv(length, **kwargs)
+            data = self.snoop_socket.recv(length, **kwargs)
         else:
             data = self.recv_replace(length, **kwargs)
         self.recv_hook(data)
         return data
 
+    def recvfrom_replace(self, length, **kwargs):
+        raise NotImplementedError("recvfrom_replace not implemented")
+
+    def recvfrom_hook(self, data, addr):
+        raise NotImplementedError("recvfrom_hook not implemented")
+
     def recvfrom(self, length, **kwargs):
-        # type: (int) -> Tuple[bytes, Any]
+        # type: (int, Dict[str, Any]) -> Tuple[bytes, Any]
         if not self.replace:
-            data, addr = self.socket.recvfrom(length)
+            data, addr = self.snoop_socket.recvfrom(length)
         else:
             data, addr = self.recvfrom_replace(length, **kwargs)
         self.recvfrom_hook(data, addr)
@@ -34,17 +46,17 @@ class SocketRecvHook():
 class SocketInjectHook():
     def __init__(self, socket):
         # type: (socket.socket) -> None
-        self.socket = socket
+        self.inject_socket = socket
         self.replace = False
 
     def close(self):
-        self.socket.close()
+        self.inject_socket.close()
 
     def send(self, data):
         self.send_hook(data)
         if not self.replace:
             try:
-                self.socket.send(data)
+                self.inject_socket.send(data)
             except Exception as e:
                 self.send_exception(e)
                 raise e
@@ -55,7 +67,7 @@ class SocketInjectHook():
         self.sendto_hook(data, socket)
         if not self.replace:
             try:
-                self.socket.sendto(data, socket)
+                self.inject_socket.sendto(data, socket)
             except Exception as e:
                 self.send_exception(e)
                 raise e
@@ -63,7 +75,7 @@ class SocketInjectHook():
             self.send_replace(data)
 
     def getsockname(self):
-        return self.socket.getsockname()
+        return self.inject_socket.getsockname()
 
     def send_hook(self, result):
         raise NotImplementedError("send_hook not implemented")
@@ -80,9 +92,10 @@ class SocketInjectHook():
 
 class SocketDuplexHook(SocketInjectHook, SocketRecvHook):
 
-    def __init__(self, socket):
-        # type: (socket.socket) -> None
-        self.socket = socket
+    def __init__(self, snoop_socket, inject_socket, **kwargs):
+        # type: (socket.socket, socket.socket, Dict[str, Any]) -> None
+        self.snoop_socket = snoop_socket
+        self.inject_socket = inject_socket
         self.replace = False
 
     pass
@@ -97,8 +110,9 @@ class HookBase():
 
 
 class TraceToFileHook(SocketDuplexHook):
-    def __init__(self, socket, filename='/tmp/bt_hci.log'):
-        SocketDuplexHook.__init__(self, socket)
+    def __init__(self, snoop_socket, inject_socket, filename='/tmp/bt_hci.log'):
+        # type: (socket.socket, socket.socket, str) -> None
+        SocketDuplexHook.__init__(self, snoop_socket, inject_socket)
         self.file = open(filename, 'a')
         self.replace = False
         self.log = []
@@ -129,7 +143,8 @@ class TraceToFileHook(SocketDuplexHook):
         self.log.append(line)
 
     def close(self):
-        self.socket.close()
+        self.inject_socket.close()
+        self.snoop_socket.close()
         self.log.append("Socket closed\n")
         self.file.writelines(self.log)
         self.file.close()
@@ -156,8 +171,8 @@ class PrintTrace(SocketDuplexHook):
 
 
 class ReplaySocket(PrintTrace):
-    def __init__(self, socket, filename='/tmp/bt_hci.log'):
-        SocketDuplexHook.__init__(self, socket)
+    def __init__(self, snoop_socket, inject_socket, filename='/tmp/bt_hci.log'):
+        SocketDuplexHook.__init__(self, snoop_socket, inject_socket)
         self.replace = True
         self.log = open(filename).readlines()
         self.index = 0
@@ -198,11 +213,7 @@ class ReplaySocket(PrintTrace):
 
 from internalblue.core import InternalBlue
 
-try:
-    import typing
-    from typing import Type
-except ImportError:
-    pass
+
 
 
 def hook(core, socket_hook, **hookkwargs):
@@ -211,13 +222,9 @@ def hook(core, socket_hook, **hookkwargs):
     def wrap_socket_setup(orig_func):
         def wrapped_socket_setup(self, *args, **kwargs):
             status = orig_func(self, *args, **kwargs)
-            if self.s_inject == self.s_snoop:
-                h = socket_hook(self.s_inject, **hookkwargs)
-                self.s_inject = h
-                self.s_snoop = h
-            else:
-                self.s_inject = socket_hook(self.s_inject, **hookkwargs)
-                self.s_snoop = socket_hook(self.s_snoop, **hookkwargs)
+            h = socket_hook(self.s_snoop, self.s_inject, **hookkwargs)
+            self.s_inject = h
+            self.s_snoop = h
             return status
 
         return wrapped_socket_setup
