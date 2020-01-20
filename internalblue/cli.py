@@ -100,10 +100,7 @@ def commandLoop(internalblue, init_commands=None):
             break
         cmd_instance = None
 
-
-# Main Program Start
-def internalblue_cli(argv):
-    #print_banner()
+def _parse_argv(argv):
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-directory", "-d", help="Set data directory. Default: ~/.internalblue")
@@ -116,7 +113,14 @@ def internalblue_cli(argv):
     parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
     parser.add_argument("--replay", help="Intercept and replace every communication with the core with the one in the specified file")
     parser.add_argument("--save", help="Store a trace into the file that can be used with --replay")
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+# Main Program Start
+def internalblue_cli(argv, args=None):
+    #print_banner()
+
+    args = args or _parse_argv(argv)
 
     if args.data_directory is not None:
         data_directory = args.data_directory
