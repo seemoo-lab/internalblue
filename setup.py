@@ -13,6 +13,9 @@ setup(name='internalblue',
       install_requires=[
           'pwntools',
       ],
+      extras_require={
+	"macoscore": ["pyobjc"],
+	},
       entry_points = {
         'console_scripts': ['internalblue=internalblue.cli:internalblue_cli']
       },
