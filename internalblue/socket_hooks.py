@@ -75,7 +75,7 @@ class SocketInjectHook():
             self.send_replace(data)
 
     def getsockname(self):
-        return self.inject_socket.getsockname()
+        return self.snoop_socket.getsockname()
 
     def send_hook(self, result):
         raise NotImplementedError("send_hook not implemented")
