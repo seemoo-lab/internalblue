@@ -149,12 +149,15 @@ def internalblue_cli(argv, args=None):
         from internalblue import socket_hooks
         HookClass = getattr(socket_hooks, args.trace)
         hook(HCICore, HookClass)
+        hook(ADBCore, HookClass)
     elif args.save:
         from .socket_hooks import hook, TraceToFileHook
         hook(HCICore, TraceToFileHook, filename=args.save)
+        hook(ADBCore, TraceToFileHook, filename=args.save)
     elif args.replay:
         from .socket_hooks import hook, ReplaySocket
         hook(HCICore, ReplaySocket, filename=args.replay)
+        hook(ADBCore, ReplaySocket, filename=args.replay)
 
     # Initalize cores and get devices
     # As macOS has additional dependencies (objc), only import it here if needed
