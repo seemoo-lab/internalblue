@@ -17,3 +17,9 @@ btsnoop.log
 # xcode
 xcuserdata
 *.xcworkspace
+
+# venv
+venv
+
+# pycharm
+*.idea
