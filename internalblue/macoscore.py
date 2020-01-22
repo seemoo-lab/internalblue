@@ -25,6 +25,7 @@ class macOSCore(InternalBlue):
                   frameworkPath=objc.pathForFramework(
                       filepath + "/../macos-framework/IOBluetoothExtended.framework"),
                   globals=globals())
+        self.hciport = -1
 
     def device_list(self):
         """

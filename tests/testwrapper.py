@@ -29,8 +29,9 @@ def _device_to_core():
     pass
 
 core_to_device = {
-    'hcicore': 'hci0',
-    'macoscore': 'mac'
+    'hcicore': 'hci_replay',
+    'macoscore': 'macos_replay',
+    'adbcore': 'adb_replay'
 }
 
 def get_trace_path_cmd_tuple(core, tracefile):

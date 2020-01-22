@@ -35,8 +35,8 @@ HCIGETDEVINFO = _IOR(ord('H'), 211, 4)
 
 class HCICore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        super(HCICore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory)
+    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory=".", replay=False):
+        super(HCICore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory, replay)
         self.btsnooplog_file_lock = threading.Lock()
         self.serial = False
         self.doublecheck = False
@@ -126,7 +126,8 @@ class HCICore(InternalBlue):
         """
         Return a list of connected hci devices.
         """
-
+        if self.replay:
+            return [(self, "hci_replay", 'hci: ReplaySocket')]
         device_list = []
         for dev in self.getHciDeviceList():
             log.info("HCI device: %s  [%s]  flags=%d<%s>" %

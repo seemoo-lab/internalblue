@@ -154,21 +154,37 @@ def internalblue_cli(argv, args=None):
         from .socket_hooks import hook, TraceToFileHook
         hook(HCICore, TraceToFileHook, filename=args.save)
         hook(ADBCore, TraceToFileHook, filename=args.save)
-    elif args.replay:
-        from .socket_hooks import hook, ReplaySocket
-        hook(HCICore, ReplaySocket, filename=args.replay)
-        hook(ADBCore, ReplaySocket, filename=args.replay)
+
 
     # Initalize cores and get devices
     # As macOS has additional dependencies (objc), only import it here if needed
     connection_methods = [] # type: List[InternalBlue]
-    if args.ios_device:
+    if args.replay:
+        from .socket_hooks import hook, ReplaySocket
+        from .macoscore import macOSCore
+        replay_devices = ['macos_replay', 'adb_replay', 'hci_replay', 'ios_replay']
+        if args.device == "macos_replay":
+            from .macoscore import macOSCore
+            hook(macOSCore, ReplaySocket, filename=args.replay)
+            connection_methods = [macOSCore(log_level=log_level, data_directory=data_directory, replay=True)]
+        elif args.device == "hci_replay":
+            hook(HCICore, ReplaySocket, filename=args.replay)
+            connection_methods = [HCICore(log_level=log_level, data_directory=data_directory, replay=True)]
+        elif args.device == "adb_replay":
+            hook(ADBCore, ReplaySocket, filename=args.replay)
+            connection_methods = [ADBCore(log_level=log_level, data_directory=data_directory, replay=True)]
+        elif args.device == "ios_replay":
+            raise NotImplementedError("ios replay is not implemented yet")
+        else:
+            raise ValueError("--device is required with --replay and has to be one of {}".format(replay_devices))
+
+    elif args.ios_device:
         from .ioscore import iOSCore
         connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
     elif args.testdevice:
         from .testcore import testCore
         connection_methods = [testCore(log_level=log_level, data_directory=data_directory)]
-    elif platform == "darwin" or (args.replay and args.device == 'mac'):
+    elif platform == "darwin":
         from .macoscore import macOSCore
         connection_methods = [
             macOSCore(log_level=log_level, data_directory=data_directory, replay=(args.replay and args.device == 'mac')),
@@ -177,8 +193,6 @@ def internalblue_cli(argv, args=None):
             hook(macOSCore, HookClass)
         elif args.save:
             hook(macOSCore, TraceToFileHook, filename=args.save)
-        elif args.replay:
-            hook(macOSCore, ReplaySocket, filename=args.replay)
     else:
         connection_methods = [
             ADBCore(log_level=log_level, data_directory=data_directory, serial=args.serialsu),
@@ -191,7 +205,10 @@ def internalblue_cli(argv, args=None):
 
     device = None # type: Optional[DeviceTuple]
     if len(devices) > 0:
-        if args.device:
+        if args.replay:
+            # There should only be one device that was created when --replay was passed
+            device = devices[0]
+        elif args.device:
             matching_devices = [ dev for dev in devices if dev[1] == args.device]
             if len(matching_devices) > 1:
                 log.critical("Found multiple matching devices")
