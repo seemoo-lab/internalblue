@@ -50,7 +50,8 @@ class SocketInjectHook():
         self.replace = False
 
     def close(self):
-        self.inject_socket.close()
+        if self.inject_socket:
+            self.inject_socket.close()
 
     def send(self, data):
         self.send_hook(data)
@@ -217,6 +218,9 @@ class ReplaySocket(PrintTrace):
         else:
             raise socket.timeout()
 
+    def getsockname(self):
+        return (None, 0)
+
 
 from internalblue.core import InternalBlue
 
@@ -228,7 +232,10 @@ def hook(core, socket_hook, **hookkwargs):
 
     def wrap_socket_setup(orig_func):
         def wrapped_socket_setup(self, *args, **kwargs):
-            status = orig_func(self, *args, **kwargs)
+            if not self.replay:
+                status = orig_func(self, *args, **kwargs)
+            else:
+                status = True
             h = socket_hook(self.s_snoop, self.s_inject, **hookkwargs)
             self.s_inject = h
             self.s_snoop = h
@@ -237,3 +244,27 @@ def hook(core, socket_hook, **hookkwargs):
         return wrapped_socket_setup
 
     core._setupSockets = wrap_socket_setup(core._setupSockets)
+
+    def wrap_teardown_sockets(orig_func):
+        def wrapped_teardown_sockets(self, *args, **kwargs):
+            if not self.replay:
+                return orig_func(self, *args, **kwargs)
+            else:
+                self.s_inject.close()
+                self.s_snoop.close()
+        return wrapped_teardown_sockets
+
+    core._teardownSockets = wrap_teardown_sockets(core._teardownSockets)
+
+
+    def wrap_device_list(orig_func):
+        def wrapped_device_list(self, *args, **kwargs):
+            if not self.replay:
+                return orig_func(self, *args, **kwargs)
+            else:
+                return [(self, "ReplayDevice", "ReplayDevice")]
+        return wrapped_device_list
+
+
+
+    core.device_list = wrap_device_list(core.device_list)
