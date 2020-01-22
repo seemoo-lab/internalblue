@@ -186,6 +186,10 @@ class ReplaySocket(PrintTrace):
         encoded_data = ""  # type: str
         hex_data = binascii.hexlify(data)
         direction, encoded_data = self.log[self.index].split(" ", 1)
+        if direction == "RX":
+            # Some recieves aren't handled yet, wait a bit so the recv thread takes care of them.
+            time.sleep(0.2)
+            direction, encoded_data = self.log[self.index].split(" ", 1)
         assert (direction == "TX")
         log_data = binascii.unhexlify(encoded_data.rstrip('\n'))
         assert data == log_data, "Got {}, expected {}".format(hex_data, encoded_data)
