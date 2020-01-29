@@ -12,14 +12,12 @@
 
 @implementation HCICommunicator
 
-+ (NSArray *)sendArbitraryCommand4:(uint8_t [])arg1 len:(uint8_t)arg2 {
++ (void) sendHCICommand:(uint8_t [])arg1 len:(uint8_t)arg2 {
     NSData *data = [NSData dataWithBytes:arg1 length:arg2];
     uint8_t *command = calloc(arg2, sizeof(uint8_t));
     memcpy(command, [data bytes], arg2);
     
     BluetoothHCIRequestID request = 0;
-    static uint8_t* output[255];
-    size_t outputSize = sizeof(output);
     
     int error = BluetoothHCIRequestCreate(&request, 1000, nil, 0);
     if (error) {
@@ -41,16 +39,32 @@
     
     sleep(0x1);
     BluetoothHCIRequestDelete(request);
-    
-    uint8_t *result = calloc(255, sizeof(uint8_t));
-    memcpy(result, output, 255);
-    
-    NSMutableArray *nsarr = [[NSMutableArray alloc] init];
-    for (int i = 0; i < 255; i++) {
-        [nsarr addObject:[NSNumber numberWithUnsignedChar:result[i]]];
+}
+
++ (void) sendACLCommand:(uint8_t [])arg1 len:(uint8_t)arg2 {
+    NSData *data = [NSData dataWithBytes:arg1 length:arg2];
+    uint8_t *commandData = calloc(arg2, sizeof(uint8_t));
+    memcpy(commandData, [data bytes], arg2);
+
+    BluetoothHCIRequestID request = 0;
+
+    int error = BluetoothHCIRequestCreate(&request, 1000, nil, 0);
+    if (error) {
+        BluetoothHCIRequestDelete(request);
+        printf("Couldn't create error: %08x\n", error);
     }
-    
-    return nsarr;
+
+    // Read device handle from data
+    uint16_t handle = commandData[0];
+    error = BluetoothHCISendRawACLData(commandData, arg2, handle, request);
+
+    if (error) {
+        BluetoothHCIRequestDelete(request);
+        printf("Send HCI command Error: %08x\n", error);
+    }
+
+    sleep(0x1);
+    BluetoothHCIRequestDelete(request);
 }
 
 @end
