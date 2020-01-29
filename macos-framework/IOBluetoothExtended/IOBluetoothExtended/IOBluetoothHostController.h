@@ -324,6 +324,11 @@ int BluetoothHCISendRawCommand(uint32_t request,
                                void *commandData,
                                size_t commmandSize);
 
+int BluetoothHCISendRawACLData(void *commandData,
+                               size_t commandSize,
+                               uint32_t handle,
+                               uint32_t request);
+
 int BluetoothHCIDispatchUserClientRoutine(struct IOBluetoothHCIDispatchParams *arguments,
                                           unsigned char *returnValue,
                                           size_t *returnValueSize);

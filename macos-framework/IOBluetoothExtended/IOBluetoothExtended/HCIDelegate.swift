@@ -92,7 +92,13 @@ extension HCIDelegate: IOBluetoothHostControllerDelegate {
                     let length: UInt8 = receiveBuffer[1]
 
                     // Send command to Bluetooth HCI Controller
-                    HCICommunicator.sendArbitraryCommand4(&command, len: length)
+                    let hci_type = [UInt8](receiveBuffer)[0]
+                    if hci_type == 0x01 {
+                        HCICommunicator.sendHCICommand(&command, len: length)
+                    }
+                    else {
+                        HCICommunicator.sendACLCommand(&command, len: length)
+                    }
                 }
             }
             print("Exiting...")

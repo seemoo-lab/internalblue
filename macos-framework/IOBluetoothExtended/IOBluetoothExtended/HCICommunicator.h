@@ -13,7 +13,8 @@
 
 @interface HCICommunicator: NSObject
 
-+ (NSArray *) sendArbitraryCommand4:(uint8_t [])arg1 len:(uint8_t)arg2;
++ (void) sendHCICommand:(uint8_t [])arg1 len:(uint8_t)arg2;
++ (void) sendACLCommand:(uint8_t [])arg1 len:(uint8_t)arg2;
 
 @end
 

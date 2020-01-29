@@ -18,6 +18,7 @@ class macOSCore(InternalBlue):
         super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".", replay=replay)
         self.doublecheck = False
         self.iobe = None
+        self.serial = None
         if not replay:
             import objc
             objc.initFrameworkWrapper("IOBluetoothExtended",
@@ -43,28 +44,6 @@ class macOSCore(InternalBlue):
         device_list = [(self, "mac", "mac")]
 
         return device_list
-
-    def sendH4(self, h4type, data, timeout=2):
-        """
-        Send an arbitrary HCI packet by pushing a send-task into the
-        sendQueue. This function blocks until the response is received
-        or the timeout expires. The return value is the Payload of the
-        HCI Command Complete Event which was received in response to
-        the command or None if no response was received within the timeout.
-        """
-
-        queue = Queue.Queue(1)
-
-        try:
-            self.sendQueue.put((h4type, data, queue, None), timeout=timeout)
-            ret = queue.get(timeout=timeout)
-            return ret
-        except Queue.Empty:
-            log.warn("sendH4: waiting for response timed out!")
-            return None
-        except Queue.Full:
-            log.warn("sendH4: send queue is full!")
-            return None
 
     def local_connect(self):
         if not self._setupSockets():
@@ -157,6 +136,12 @@ class macOSCore(InternalBlue):
             opcode = binascii.hexlify(data[1]) + binascii.hexlify(data[0])
             log.debug("Sending command: 0x" + binascii.hexlify(data) + ", opcode: " + opcode)
 
+            if not(h4type == 0x01 or h4type == 0x02):
+                log.warn("H4 Type {0} not supported by macOS Core!".format(str(h4type)))
+                if queue is not None:
+                    queue.put(None)
+                continue
+
             # if the caller expects a response: register a queue to receive the response
             if queue is not None and filter_function is not None:
                 recvQueue = Queue.Queue(1)
@@ -182,9 +167,6 @@ class macOSCore(InternalBlue):
                 self.unregisterHciRecvQueue(recvQueue)
 
         log.debug("Send Thread terminated.")
-
-    def enableBroadcomDiagnosticLogging(self, enable):
-        return
 
     def _teardownSockets(self):
         if self.s_inject is not None:
