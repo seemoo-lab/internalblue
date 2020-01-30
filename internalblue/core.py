@@ -732,6 +732,10 @@ class InternalBlue:
             return ret
         except Queue.Empty:
             log.warn("sendHciCommand: waiting for response timed out!")
+            # If there was no response because the Trace Replay Hook throw an assert it will be in this attribute.
+            # Raise this so the main thread doesn't ignore this and it will be caught by any testing framework
+            if hasattr(self, 'test_failed'):
+                raise self.test_failed
             return None
         except Queue.Full:
             log.warn("sendHciCommand: send queue is full!")

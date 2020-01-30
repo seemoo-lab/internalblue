@@ -93,6 +93,8 @@ def commandLoop(internalblue, init_commands=None):
                 log.info("Got Ctrl-C; exiting...")
                 internalblue.exit_requested = True
                 break
+        except AssertionError as e:
+            raise
         except Exception as e:
             internalblue.exit_requested = True      # Make sure all threads terminate
             log.critical("Uncaught exception (%s). Abort." % str(e))

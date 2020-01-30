@@ -44,10 +44,11 @@ class SocketRecvHook():
         return data, addr
 
 class SocketInjectHook():
-    def __init__(self, socket):
-        # type: (socket.socket) -> None
+    def __init__(self, socket, core):
+        # type: (socket.socket, InternalBlue) -> None
         self.inject_socket = socket
         self.replace = False
+        self.core = core # type: InternalBlue
 
     def close(self):
         if self.inject_socket:
@@ -62,7 +63,11 @@ class SocketInjectHook():
                 self.send_exception(e)
                 raise e
         else:
-            self.send_replace(data)
+            try:
+                self.send_replace(data)
+            except Exception as e:
+                self.core.test_failed = e
+                raise
 
     def sendto(self, data, socket):
         self.sendto_hook(data, socket)
@@ -73,7 +78,11 @@ class SocketInjectHook():
                 self.send_exception(e)
                 raise e
         else:
-            self.send_replace(data)
+            try:
+                self.send_replace(data)
+            except Exception as e:
+                self.core.test_failed = e
+                raise e
 
     def getsockname(self):
         return self.snoop_socket.getsockname()
@@ -93,11 +102,12 @@ class SocketInjectHook():
 
 class SocketDuplexHook(SocketInjectHook, SocketRecvHook):
 
-    def __init__(self, snoop_socket, inject_socket, **kwargs):
-        # type: (socket.socket, socket.socket, Dict[str, Any]) -> None
+    def __init__(self, snoop_socket, inject_socket, core, **kwargs):
+        # type: (socket.socket, socket.socket, InternalBlue, Dict[str, Any]) -> None
         self.snoop_socket = snoop_socket
         self.inject_socket = inject_socket
         self.replace = False
+        self.core = core
 
     pass
 
@@ -175,8 +185,8 @@ class PrintTrace(SocketDuplexHook):
 
 
 class ReplaySocket(PrintTrace):
-    def __init__(self, snoop_socket, inject_socket, filename='/tmp/bt_hci.log'):
-        SocketDuplexHook.__init__(self, snoop_socket, inject_socket)
+    def __init__(self, snoop_socket, inject_socket, core=None, filename='/tmp/bt_hci.log'):
+        SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
         self.replace = True
         self.log = open(filename).readlines()
         self.index = 0
@@ -236,7 +246,7 @@ def hook(core, socket_hook, **hookkwargs):
                 status = orig_func(self, *args, **kwargs)
             else:
                 status = True
-            h = socket_hook(self.s_snoop, self.s_inject, **hookkwargs)
+            h = socket_hook(self.s_snoop, self.s_inject, core=self, **hookkwargs)
             self.s_inject = h
             self.s_snoop = h
             return status
