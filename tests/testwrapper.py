@@ -46,7 +46,7 @@ def get_trace_path_cmd_tuple(core, tracefile):
 
 
 
-def test_trace(core, tracepath, commands):
+def trace_test(core, tracepath, commands):
     args = _parse_argv("")
     args.device = core_to_device[core]
     args.replay = tracepath
@@ -64,4 +64,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     tracepath, commands = get_trace_path_cmd_tuple(args.core, args.trace)
-    test_trace(args.core, tracepath, commands)
+    trace_test(args.core, tracepath, commands)
