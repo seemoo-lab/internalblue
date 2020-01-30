@@ -1,4 +1,4 @@
-from testwrapper import test_trace, get_trace_path_cmd_tuple
+from testwrapper import trace_test, get_trace_path_cmd_tuple
 
 
 import os
@@ -29,7 +29,8 @@ def generate_test_suite():
         tracepath, cmd = get_trace_path_cmd_tuple(core, tracefile)
 
         def test():
-            test_trace(core, tracepath, cmd)
+            print("Running test %s " % (tracefile[:-6]))
+            trace_test(core, tracepath, cmd)
 
         # Rename the function to the tracefile name without .trace suffix
         test.__name__ = tracefile[:-6]
