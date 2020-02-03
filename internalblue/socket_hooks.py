@@ -61,7 +61,8 @@ class SocketInjectHook():
                 self.inject_socket.send(data)
             except Exception as e:
                 self.send_exception(e)
-                raise e
+                self.core.test_failed = e
+                raise
         else:
             try:
                 self.send_replace(data)
@@ -76,13 +77,14 @@ class SocketInjectHook():
                 self.inject_socket.sendto(data, socket)
             except Exception as e:
                 self.send_exception(e)
-                raise e
+                self.core.test_failed = e
+                raise
         else:
             try:
                 self.send_replace(data)
             except Exception as e:
                 self.core.test_failed = e
-                raise e
+                raise
 
     def getsockname(self):
         return self.snoop_socket.getsockname()
