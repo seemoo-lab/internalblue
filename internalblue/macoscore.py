@@ -9,15 +9,12 @@ from pwn import *
 from core import InternalBlue
 
 import objc
-from Foundation import *
-
 import binascii
 import os
-
 filepath = os.path.dirname(os.path.abspath(__file__))
 
 objc.initFrameworkWrapper("IOBluetoothExtended",
-    frameworkIdentifier="com.davidetoldo.IOBluetoothExtended",
+    frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
     frameworkPath=objc.pathForFramework(filepath+"/../macos-framework/IOBluetoothExtended.framework"),
     globals=globals())
 
@@ -117,7 +114,6 @@ class macOSCore(InternalBlue):
                 # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
                 record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
                 log.debug("Recv: " + str(record[0]))
-
                 # Put the record into all queues of registeredHciRecvQueues if their
                 # filter function matches.
                 for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
