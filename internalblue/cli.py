@@ -95,6 +95,10 @@ def commandLoop(internalblue, init_commands=None):
                 break
         except AssertionError as e:
             raise
+        except socket.error as e:
+            if e.args == (1, "Operation not permitted"):
+                log.critical("Received an 'Operation not permitted' socket.error, you might need root for the command '{}'".format(cmdline))
+                log.critical(traceback.format_exc())
         except Exception as e:
             internalblue.exit_requested = True      # Make sure all threads terminate
             log.critical("Uncaught exception (%s). Abort." % str(e))
