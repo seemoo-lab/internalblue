@@ -73,6 +73,10 @@ PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
 PATCHRAM_NUMBER_OF_SLOTS        = 128
 PATCHRAM_ALIGNED                = False
 
+# Heap
+BLOC_HEAD = 0x200490                    # g_dynamic_memory_GeneralUsePools
+BLOC_NG = True                          # Next Generation Bloc Buffer
+
 # Snippet for sendLcpPacket()
 SENDLCP_CODE_BASE_ADDRESS = 0x21f000
 SENDLCP_ASM_CODE = """

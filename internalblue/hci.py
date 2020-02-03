@@ -957,6 +957,7 @@ class StackDumpReceiver:
         if self.memdump_addr == None:
             self.memdump_addr = addr
         self.memdumps[addr-self.memdump_addr] = data[4:]
+        log.debug("Stack dump handling addr %08x", addr-self.memdump_addr)
 
     def finishStackDump(self):
         dump = fit(self.memdumps)
@@ -1090,6 +1091,16 @@ class StackDumpReceiver:
             log.info("End of stackdump block...")
             self.finishStackDump()
             return True
+
+        # On a Raspberry Pi 3, the last packet of a stack dump is '1b0340df0338'.... so it's 0x40
+        elif packet_type == 0xe8:
+            # FIXME Raspi memdump is divided in two parts!
+            # address change from 0001fe38 to packet type e8 and then it's computing addr -0130000
+            # negative addr does not work with finishStackDump()
+            # so even though the last packet is 0x40, let's just finish on 0xe8
+                log.info("End of first stackdump block, writing to file and skipping second...")
+                self.finishStackDump()
+                return True
 
         return False
 

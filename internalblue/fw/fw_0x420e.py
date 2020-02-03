@@ -23,8 +23,8 @@
 from fw import MemorySection
 
 # Firmware Infos
-# Evaluation Kit CYW927019
-FW_NAME = "CYW27039B1 (NOT iPhone X/XR!)"
+# Evaluation Kit CYW920719
+FW_NAME = "CYW20739B1 (NOT iPhone X/XR!)"
 # TODO this is not the iPhone firmware, we need to add a switch in fw.py
 
 # Device Infos
