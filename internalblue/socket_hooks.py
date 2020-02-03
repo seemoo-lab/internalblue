@@ -121,9 +121,9 @@ class HookBase():
 
 
 class TraceToFileHook(SocketDuplexHook):
-    def __init__(self, snoop_socket, inject_socket, filename='/tmp/bt_hci.log'):
-        # type: (socket.socket, socket.socket, str) -> None
-        SocketDuplexHook.__init__(self, snoop_socket, inject_socket)
+    def __init__(self, snoop_socket, inject_socket, core, filename='/tmp/bt_hci.log'):
+        # type: (socket.socket, socket.socket, InternalBlue, str) -> None
+        SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
         self.file = open(filename, 'a')
         self.replace = False
         self.log = []
@@ -185,7 +185,7 @@ class PrintTrace(SocketDuplexHook):
 
 
 class ReplaySocket(PrintTrace):
-    def __init__(self, snoop_socket, inject_socket, core=None, filename='/tmp/bt_hci.log'):
+    def __init__(self, snoop_socket, inject_socket, core, filename='/tmp/bt_hci.log'):
         SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
         self.replace = True
         self.log = open(filename).readlines()
