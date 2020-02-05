@@ -54,6 +54,17 @@ was also recorded and gives a more high level overview.
 
   Our talk [Playing with Bluetooth](https://media.ccc.de/v/2019-185-playing-with-bluetooth) focuses on new device support
   within *InternalBlue* and the Patchram state of various devices.
+  
+* **36C3 Talk** (12/2019)
+  
+  The rather generic talk [All wireless communication stacks are equally broken](https://media.ccc.de/v/36c3-10531-all_wireless_communication_stacks_are_equally_broken)
+  points out a couple of new research directions and new Bluetooth projects coming up.
+
+* **EWSN Paper & Demo** (02/2020)
+
+  We did some work on improving blacklisting performance of BLE data connections. Currently in a separate *blacklisting* branch.
+
+  
 
 
 Supported Features
@@ -214,7 +225,7 @@ can replace them with anything you want.
 License
 -------
 
-Copyright 2018-2019 Dennis Mantz, Jiska Classen
+Copyright 2018-2020 The InternalBlue Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
