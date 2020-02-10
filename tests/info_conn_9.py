@@ -1,5 +1,5 @@
 from internalblue.cli import _parse_argv
-from .adbcore import ADBCore
+from internalblue.adbcore import ADBCore
 
 import os
 import nose
@@ -27,14 +27,14 @@ dummy = {
 
 args = _parse_argv('')
 args.device = 'adb_replay'
-args.replay = 'tests/traces/adbcore/info_conn_9.trace'
+args.replay = 'tests/traces/adbcore/dictionary_tests/info_conn_9.trace'
 
 data_directory = os.path.expanduser('~') + '/.internalblue'
 
 if not os.path.exists(data_directory):
     os.mkdir(data_directory)
 
-from .socket_hooks import hook, ReplaySocket
+from internalblue.socket_hooks import hook, ReplaySocket
 hook(ADBCore, ReplaySocket, filename=args.replay)
 
 connection_methods = [ADBCore(log_level='info', data_directory=data_directory, replay=True)]

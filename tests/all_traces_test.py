@@ -32,7 +32,7 @@ def generate_test_suite():
     for core in os.listdir(tracedir):
         core_suite = unittest.TestSuite()
         for tracefile in os.listdir(os.path.join(tracedir, core)):
-            if tracefile != '.gitkeep':
+            if tracefile != '.gitkeep' and tracefile != 'dictionary_tests':
                 core_suite.addTest(
                     unittest.FunctionTestCase(generate_test_from_file(core, tracefile), description=tracefile))
         suite.addTest(core_suite)
