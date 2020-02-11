@@ -10,7 +10,7 @@ except ImportError:
     pass
 
 
-tracedir = os.path.join(os.path.dirname(__file__), "traces")
+tracedir = os.path.dirname(__file__)
 
 
 class Fakeargs():
