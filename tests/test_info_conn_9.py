@@ -1,5 +1,6 @@
 from internalblue.cli import _parse_argv
 from internalblue.adbcore import ADBCore
+from internalblue.objects.connection_information import Connection_Information
 
 import os
 import nose
@@ -11,20 +12,9 @@ except ImportError:
 
 
 def test_info_conn_9():
-    dummy = {
-        'connection_handle': 12,
-        'connection_number': 9,
-        'master_of_connection': False,
-        'remote_name_address': 0,
-        'remote_address': '000000000000'.decode('hex'),
-        'id': '00'.decode('hex'),
-        'public_rand': '00000000000000000000000000000000'.decode('hex'),
-        'extended_lmp_feat': '0000000000000000'.decode('hex'),
-        'link_key': '',
-        'tx_pwr_lvl_dBm': -87,
-        'effective_key_len': 0,
-        'host_supported_feat': '0000000000000000'.decode('hex')
-    }
+    dummy = Connection_Information(9, '000000000000'.decode('hex'), 0, False, 12,
+        '00000000000000000000000000000000'.decode('hex'), 0, '', -87, '0000000000000000'.decode('hex'),
+        '0000000000000000'.decode('hex'), '00'.decode('hex'))
 
     trace = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          'traces/adbcore/dictionary_tests/info_conn_9.trace')
@@ -53,6 +43,6 @@ def test_info_conn_9():
     information = reference.readConnectionInformation(9)
     print(information)
 
-    nose.tools.assert_dict_equal(information, dummy)
+    nose.tools.assert_dict_equal(vars(information), vars(dummy))
 
     reference.shutdown()

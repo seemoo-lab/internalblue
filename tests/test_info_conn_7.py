@@ -1,5 +1,6 @@
 from internalblue.cli import _parse_argv
 from internalblue.adbcore import ADBCore
+from internalblue.objects.connection_information import Connection_Information
 
 import os
 import nose
@@ -11,20 +12,9 @@ except ImportError:
 
 
 def test_info_conn_7():
-    dummy = {
-        'connection_handle': 0xc,
-        'connection_number': 7,
-        'master_of_connection': True,
-        'remote_name_address': 0,
-        'remote_address': '0023023a1a2e'.decode('hex'),
-        'id': '00'.decode('hex'),
-        'public_rand': 'e98a5eaaff39ecb5ce4447590dfb73a4'.decode('hex'),
-        'extended_lmp_feat': '0a00c821ffff8ffa'.decode('hex'),
-        'link_key': 'dbea2d9c47bc1aa6afe664ff31591aa6'.decode('hex'),
-        'tx_pwr_lvl_dBm': -87,
-        'effective_key_len': 16,
-        'host_supported_feat': '9bff598701000000'.decode('hex')
-    }
+    dummy = Connection_Information(7, '0023023a1a2e'.decode('hex'), 0, True, 0xc,
+        'e98a5eaaff39ecb5ce4447590dfb73a4'.decode('hex'), 16, 'dbea2d9c47bc1aa6afe664ff31591aa6'.decode('hex'), -87,
+        '0a00c821ffff8ffa'.decode('hex'), '9bff598701000000'.decode('hex'), '00'.decode('hex'))
 
     trace = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          'traces/adbcore/dictionary_tests/info_conn_7.trace')
@@ -53,6 +43,6 @@ def test_info_conn_7():
     information = reference.readConnectionInformation(7)
     print(information)
 
-    nose.tools.assert_dict_equal(information, dummy)
+    nose.tools.assert_dict_equal(vars(information), vars(dummy))
 
     reference.shutdown()

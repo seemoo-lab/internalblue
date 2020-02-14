@@ -34,6 +34,7 @@ import time
 import Queue
 from . import hci
 from .objects.queue_element import Queue_Element
+from .objects.connection_information import Connection_Information
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -1206,7 +1207,7 @@ class InternalBlue:
         return True
 
     def readConnectionInformation(self, conn_number):
-        # type: (ConnectionNumber) -> Optional[ConnectionDict]
+        # type: (ConnectionNumber) -> Optional[Connection_Information]
         """
         Reads and parses a connection struct based on the connection number.
         Note: The connection number is different from the connection index!
@@ -1252,23 +1253,12 @@ class InternalBlue:
         if connection == b'\x00'*self.fw.CONNECTION_STRUCT_LENGTH:
             return None
 
-        conn_dict = {}
-        conn_dict["connection_number"]    = u32(connection[:4])
-        conn_dict["remote_address"]       = connection[0x28:0x2E][::-1]
-        conn_dict["remote_name_address"]  = u32(connection[0x4C:0x50])
-        conn_dict["master_of_connection"] = u32(connection[0x1C:0x20]) & 1<<15 == 0
-        conn_dict["connection_handle"]    = u16(connection[0x64:0x66])
-        conn_dict["public_rand"]          = connection[0x78:0x88]
-        #conn_dict["pin"]                  = connection[0x8C:0x92]
-        #conn_dict["bt_addr_for_key"]      = connection[0x92:0x98][::-1]
-        effective_key_len                 = u8(connection[0xa7:0xa8])
-        conn_dict["effective_key_len"]    = effective_key_len
-        conn_dict["link_key"]             = connection[0x68:0x68+effective_key_len]
-        #new fields - TODO verify
-        conn_dict["tx_pwr_lvl_dBm"]       = u8(connection[0x9c:0x9d]) - 127
-        conn_dict["extended_lmp_feat"]    = connection[0x30:0x38] #standard p. 527
-        conn_dict["host_supported_feat"]  = connection[0x38:0x40]
-        conn_dict["id"]                   = connection[0x0c:0x0d] #not sure if this is an id?
+        effective_key_len = u8(connection[0xa7:0xa8])
+        conn_dict = Connection_Information(u32(connection[:4]), connection[0x28:0x2E][::-1], u32(connection[0x4C:0x50]),
+            u32(connection[0x1C:0x20]) & 1<<15 == 0, u16(connection[0x64:0x66]), connection[0x78:0x88],
+            effective_key_len, connection[0x68:0x68+effective_key_len], u8(connection[0x9c:0x9d]) - 127,
+            connection[0x30:0x38], connection[0x38:0x40], connection[0x0c:0x0d])
+
         return conn_dict
 
     def sendLmpPacket(self, opcode, payload='', is_master=True, conn_handle=0x0c, extended_op=False):

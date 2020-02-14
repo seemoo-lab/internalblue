@@ -1075,9 +1075,9 @@ class CmdSendLmp(Cmd):
                     connection = self.internalblue.readConnectionInformation(i+1)
                     if connection == None:
                         continue
-                    if connection["connection_handle"] != 0 and connection["remote_address"] != b'\x00\x00\x00\x00\x00\x00':
-                        args.conn_handle = connection["connection_handle"]
-                        is_master = connection["master_of_connection"]
+                    if connection.connection_handle != 0 and connection.remote_address != b'\x00\x00\x00\x00\x00\x00':
+                        args.conn_handle = connection.connection_handle
+                        is_master = connection.master_of_connection
                         break
         
         # if still not set, typical connection handles seem to be 0x0b...0x0d
@@ -1178,20 +1178,20 @@ class CmdInfo(Cmd):
                 continue
 
             log.info("### | Connection ---%02d--- ###" % i)
-            log.info("    - Number:            %d"     % connection["connection_number"])
-            log.info("    - Remote BT address: %s"     % bt_addr_to_str(connection["remote_address"]))
-            log.info("    - Remote BT name:    %08X"   % connection["remote_name_address"])
-            log.info("    - Master of Conn.:   %s"     % str(connection["master_of_connection"]))
-            log.info("    - Conn. Handle:      0x%X"   % connection["connection_handle"])
-            log.info("    - Public RAND:       %s"     % connection["public_rand"].encode('hex'))
-            #log.info("    - PIN:               %s"     % connection["pin"].encode('hex'))
-            #log.info("    - BT addr for key:   %s"     % bt_addr_to_str(connection["bt_addr_for_key"]))
-            log.info("    - Effective Key Len: %d byte (%d bit)" % (connection["effective_key_len"], 8*connection["effective_key_len"]))
-            log.info("    - Link Key:          %s"     % connection["link_key"].encode('hex'))
-            log.info("    - LMP Features:      %s"     % connection["extended_lmp_feat"].encode('hex'))
-            log.info("    - Host Supported F:  %s"     % connection["host_supported_feat"].encode('hex'))
-            log.info("    - TX Power (dBm):    %d"     % connection["tx_pwr_lvl_dBm"])
-            log.info("    - Array Index:       %s"     % connection["id"].encode('hex'))
+            log.info("    - Number:            %d"     % connection.connection_number)
+            log.info("    - Remote BT address: %s"     % bt_addr_to_str(connection.remote_address))
+            log.info("    - Remote BT name:    %08X"   % connection.remote_name_address)
+            log.info("    - Master of Conn.:   %s"     % str(connection.master_of_connection))
+            log.info("    - Conn. Handle:      0x%X"   % connection.connection_handle)
+            log.info("    - Public RAND:       %s"     % connection.public_rand.encode('hex'))
+            #log.info("    - PIN:               %s"     % connection.pin.encode('hex'))
+            #log.info("    - BT addr for key:   %s"     % bt_addr_to_str(connection.bt_addr_for_key))
+            log.info("    - Effective Key Len: %d byte (%d bit)" % (connection.effective_key_len, 8*connection["effective_key_len"]))
+            log.info("    - Link Key:          %s"     % connection.link_key.encode('hex'))
+            log.info("    - LMP Features:      %s"     % connection.extended_lmp_feat.encode('hex'))
+            log.info("    - Host Supported F:  %s"     % connection.host_supported_feat.encode('hex'))
+            log.info("    - TX Power (dBm):    %d"     % connection.tx_pwr_lvl_dBm)
+            log.info("    - Array Index:       %s"     % connection.id.encode('hex'))
         print
         return True
 
@@ -1608,7 +1608,7 @@ class CmdReadAfhChannelMap(Cmd):
                     if connection == None:
                         continue
                     else:
-                        self.readafh(connection["connection_handle"])
+                        self.readafh(connection.connection_handle)
                 return True
             # if not set but connection struct unknown, typical connection handles seem to be 0x0b...0x0d
             else:
