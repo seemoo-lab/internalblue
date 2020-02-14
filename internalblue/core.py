@@ -33,6 +33,7 @@ import datetime
 import time
 import Queue
 from . import hci
+from .objects.queue_element import Queue_Element
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -1691,22 +1692,13 @@ class InternalBlue:
             if queue_fields[0] != u32("UEUQ"):
                 log.warn("readQueueInformation: QUEUE double-linked list contains non-QUEU element. abort.")
                 return None
-            current_element = {}
-            current_element["index"]           = index
-            current_element["address"]         = current_queue_struct_address
-            current_element["item_size"]       = queue_fields[2] * 4 # Item size is measured in dwords (4 Byte)
-            current_element["capacity"]        = queue_fields[3]
-            current_element["available_items"] = queue_fields[4]
-            current_element["free_slots"]      = queue_fields[5]
-            current_element["queue_buf_start"] = queue_fields[6]
-            current_element["queue_buf_end"]   = queue_fields[7]
-            current_element["next_item"]       = queue_fields[8]
-            current_element["next_free_slot"]  = queue_fields[9]
-            current_element["thread_waitlist"] = queue_fields[10]
-            current_element["waitlist_length"] = queue_fields[11]
-            current_element["next"]            = queue_fields[12]
-            current_element["prev"]            = queue_fields[13]
-            current_element["name"]            = self.fw.QUEUE_NAMES[index]
+
+            current_element = Queue_Element(index, current_queue_struct_address, queue_fields[2] * 4,
+                queue_fields[3], queue_fields[4], queue_fields[5], queue_fields[6],
+                queue_fields[7], queue_fields[8], queue_fields[9], queue_fields[10],
+                queue_fields[11], queue_fields[12], queue_fields[13],
+                self.fw.QUEUE_NAMES[index])
+
             queuelist.append(current_element)
 
             current_queue_struct_address = current_element["next"]

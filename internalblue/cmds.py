@@ -1330,7 +1330,7 @@ class CmdInfo(Cmd):
         
         log.info("[ Idx  ] @Queue-Addr  Queue-Name          Items/Free/Capacity  Item-Size  Buffer")
         log.info("------------------------------------------------------------______--------------")
-        for queue in queuelist:
+        for queue in [vars(element) for element in queuelist]:
             # TODO: waitlist
             log.info(("QUEU[{index:2d}] @ 0x{address:06X}:  {name:21s} {available_items:2d} /"
                       " {free_slots:2d} / {capacity:2d}      {item_size:2d} Bytes    0x{queue_buf_start:06X}").format(**queue))
