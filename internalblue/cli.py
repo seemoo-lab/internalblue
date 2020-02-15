@@ -240,7 +240,7 @@ def internalblue_cli(argv, args=None):
         # Restore readline history:
         if os.path.exists(reference.data_directory + "/" + HISTFILE):
             readline_history = read(reference.data_directory + "/" + HISTFILE)
-            term.readline.history = readline_history.split('\n')
+            term.readline.history = readline_history.split(b'\n')
 
         # Connect to device
         if not reference.connect():
