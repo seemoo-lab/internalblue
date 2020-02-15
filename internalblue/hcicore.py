@@ -71,7 +71,7 @@ class HCICore(InternalBlue):
         # Do ioctl(s,HCIGETDEVLIST,arg) to get the number of available devices:
         # arg is struct hci_dev_list_req (/usr/include/bluetooth/hci.h)
         arg =  p32(16) # dl->dev_num = HCI_MAX_DEV which is 16 (little endian)
-        arg += "\x00"*(8*16)
+        arg += b"\x00"*(8*16)
         devices_raw = fcntl.ioctl(s.fileno(), HCIGETDEVLIST, arg)
         num_devices = u16(devices_raw[:2])
         log.debug("Found %d HCI devices via ioctl(HCIGETDEVLIST)!" % num_devices)
@@ -82,10 +82,10 @@ class HCICore(InternalBlue):
             dev_id = u16(devices_raw[dev_struct_start:dev_struct_start+2])
             # arg is struct hci_dev_info (/usr/include/bluetooth/hci.h)
             arg =  p16(dev_id) # di->dev_id = <device_id>
-            arg += "\x00"*20   # Enough space for name, bdaddr and flags
-            dev_info_raw = fcntl.ioctl(s.fileno(), HCIGETDEVINFO, arg)
-            dev_name   = dev_info_raw[2:10].replace("\x00","")
-            dev_bdaddr = ":".join(["%02X" % ord(x) for x in dev_info_raw[10:16][::-1]])
+            arg += b"\x00"*20   # Enough space for name, bdaddr and flags
+            dev_info_raw = bytearray(fcntl.ioctl(s.fileno(), HCIGETDEVINFO, arg))
+            dev_name   = dev_info_raw[2:10].replace(b"\x00",b"").decode()
+            dev_bdaddr = ":".join(["%02X" % x for x in dev_info_raw[10:16][::-1]])
             dev_flags  = u32(dev_info_raw[16:20])
             if dev_flags == 0:
                 dev_flags_str = "DOWN"
