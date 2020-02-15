@@ -1253,13 +1253,8 @@ class InternalBlue:
         if connection == b'\x00'*self.fw.CONNECTION_STRUCT_LENGTH:
             return None
 
-        effective_key_len = u8(connection[0xa7:0xa8])
-        conn_dict = ConnectionInformation(u32(connection[:4]), connection[0x28:0x2E][::-1],
-                                          u32(connection[0x4C:0x50]), u32(connection[0x1C:0x20]) & 1 << 15 == 0,
-                                          u16(connection[0x64:0x66]), connection[0x78:0x88],
-                                          effective_key_len, connection[0x68:0x68+effective_key_len],
-                                          u8(connection[0x9c:0x9d]) - 127,
-                                          connection[0x30:0x38], connection[0x38:0x40], connection[0x0c:0x0d])
+
+        conn_dict = ConnectionInformation.from_connection_buffer(connection)
 
         return conn_dict
 
