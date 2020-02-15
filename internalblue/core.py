@@ -33,8 +33,8 @@ import datetime
 import time
 import Queue
 from . import hci
-from .objects.queue_element import Queue_Element
-from .objects.connection_information import Connection_Information
+from .objects.queue_element import QueueElement
+from .objects.connection_information import ConnectionInformation
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -99,7 +99,7 @@ class InternalBlue:
         self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
         self.sendThread = None                  # The thread which is responsible for the HCI inject socket
 
-        self.tracepoints = []                   # A list of currently active tracepoints 
+        self.tracepoints = []                   # A list of currently active tracepoints
                                                 # The list contains tuples:
                                                 # [0] target address
                                                 # [1] address of the hook code
@@ -195,7 +195,7 @@ class InternalBlue:
         time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
         time_since_2000_epoch = datetime.timedelta(microseconds=time) - datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
         return datetime.datetime(2000, 1, 1) + time_since_2000_epoch
-    
+
     @abstractmethod
     def _recvThreadFunc(self):
         # type: () -> None
@@ -334,7 +334,7 @@ class InternalBlue:
             registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % \
                         tuple(self.tracepoint_registers[13:16])
             log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
-            
+
             filename = self.data_directory + "/" + "internalblue_tracepoint_registers_%s.bin" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             log.info("Captured Registers for Tracepoint to %s" % filename)
             f = open(filename, "w")
@@ -358,7 +358,7 @@ class InternalBlue:
 
             if self.tracepoint_memdump_address == None:
                 self.tracepoint_memdump_address = dump_address
-            normalized_address = dump_address - self.tracepoint_memdump_address 
+            normalized_address = dump_address - self.tracepoint_memdump_address
             self.tracepoint_memdump_parts[normalized_address] = data
 
             # Check if this was the last packet
@@ -539,7 +539,7 @@ class InternalBlue:
 
         # register hci callback:
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
-        
+
         if not self.initialize_fimware():
             log.warn("connect: Failed to initialize firmware!")
             return False
@@ -551,7 +551,7 @@ class InternalBlue:
     @abstractmethod
     def local_connect(self):
         return True
-    
+
     def initialize_fimware(self):
         # type: () -> bool
         """
@@ -561,7 +561,7 @@ class InternalBlue:
 
         # send Read_Local_Version_Information
         version = self.sendHciCommand(0x1001, '')
-        
+
         if not version or len(version) < 11:
             log.warn("""initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
             adb: Check if you installed a custom bluetooth.default.so properly on your
@@ -582,12 +582,12 @@ class InternalBlue:
                 iOS = True
 
             self.fw = Firmware(subversion, iOS).firmware
-        
+
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.
         log.info("Try to enable debugging on H4 (warning if not supported)...")
         self.enableBroadcomDiagnosticLogging(True)
-            
+
         return True
 
     def shutdown(self):
@@ -774,7 +774,7 @@ class InternalBlue:
         a blocking manner. Consider using the registerHciCallback()
         functionality as an alternative which works asynchronously.
         """
-        
+
         log.debug("recvPacket: called")
 
         if not self.check_running():
@@ -807,7 +807,7 @@ class InternalBlue:
         byte_counter = 0            # tracks the number of received bytes
         outbuffer = ''              # buffer which stores all accumulated data read from the chip
         if bytes_total == 0:        # If no total bytes where given just use length
-            bytes_total = length        
+            bytes_total = length
         retry = 3                   # Retry on failures
         while read_addr < address+length:  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
@@ -864,7 +864,7 @@ class InternalBlue:
             read_addr += len(data)
             byte_counter += len(data)
             if(progress_log != None):
-                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
+                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter,
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
             retry = 3  # this round worked, so we re-enable retries
@@ -960,7 +960,7 @@ class InternalBlue:
             read_addr += len(data)
             byte_counter += len(data)
             if progress_log is not None:
-                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter, 
+                msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter,
                         bytes_total, (bytes_done+byte_counter)*100/bytes_total)
                 progress_log.status(msg)
 
@@ -981,7 +981,7 @@ class InternalBlue:
         """
 
         log.debug("writeMem: writing to 0x%x" % address)
-        
+
         if not self.check_running():
             return None
 
@@ -1027,12 +1027,12 @@ class InternalBlue:
         if response[3] != '\x00':
             log.warn("Got error code %x in command complete event." % u8(response[3]))
             return False
-        
+
         # Nexus 6P Bugfix
         if 'LAUNCH_RAM_PAUSE' in dir(self.fw) and self.fw.LAUNCH_RAM_PAUSE:
             log.debug("launchRam: Bugfix, sleeping %ds" % self.fw.LAUNCH_RAM_PAUSE)
             time.sleep(self.fw.LAUNCH_RAM_PAUSE)
-            
+
         return True
 
     def getPatchramState(self):
@@ -1053,7 +1053,7 @@ class InternalBlue:
                 return False
 
         slot_count      = self.fw.PATCHRAM_NUMBER_OF_SLOTS
-        
+
         # On Nexus 5, ReadMemAligned is required, while Nexus 6P supports this memory area with ReadRAM
         if self.fw.PATCHRAM_ALIGNED:
             slot_dump       = self.readMemAligned(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
@@ -1062,14 +1062,14 @@ class InternalBlue:
             slot_dump       = self.readMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
             table_addr_dump = self.readMem(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
         table_val_dump  = self.readMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS, slot_count*4)
-        
+
         table_addresses = []
         table_values    = []
         slot_dwords     = []
         slot_bits       = []
         for dword in range(slot_count/32):
             slot_dwords.append(slot_dump[dword*32:(dword+1)*32])
-        
+
         for dword in slot_dwords:
             slot_bits.extend(bits(dword[::-1])[::-1])
         for i in range(slot_count):
@@ -1107,7 +1107,7 @@ class InternalBlue:
         if len(patch) != 4:
             log.warn("patchRom: patch (%s) must be a 32-bit dword!" % patch)
             return False
-        
+
         log.debug("patchRom: applying patch 0x%x to address 0x%x" % (u32(patch), address))
 
         alignment = address % 4
@@ -1207,7 +1207,7 @@ class InternalBlue:
         return True
 
     def readConnectionInformation(self, conn_number):
-        # type: (ConnectionNumber) -> Optional[Connection_Information]
+        # type: (ConnectionNumber) -> Optional[ConnectionInformation]
         """
         Reads and parses a connection struct based on the connection number.
         Note: The connection number is different from the connection index!
@@ -1218,7 +1218,7 @@ class InternalBlue:
         In the Nexus 5 firmware all connection numbers are simply the connection
         index increased by 1.
 
-        The return value is a dictionary containing all information that could
+        The return value is a ConnectionInformation object containing all information that could
         be parsed from the connection structure. If the connection struct at the
         specified connection number is empty, the return value is None.
         """
@@ -1229,7 +1229,7 @@ class InternalBlue:
         for const in ['CONNECTION_MAX', 'CONNECTION_ARRAY_ADDRESS', 'CONNECTION_STRUCT_LENGTH']:
             if const not in dir(self.fw):
                 is_array = False
-                
+
                 # Do we have a list implementation?
                 for const in ['CONNECTION_LIST_ADDRESS']:
                     if const not in dir(self.fw):
@@ -1254,10 +1254,12 @@ class InternalBlue:
             return None
 
         effective_key_len = u8(connection[0xa7:0xa8])
-        conn_dict = Connection_Information(u32(connection[:4]), connection[0x28:0x2E][::-1], u32(connection[0x4C:0x50]),
-            u32(connection[0x1C:0x20]) & 1<<15 == 0, u16(connection[0x64:0x66]), connection[0x78:0x88],
-            effective_key_len, connection[0x68:0x68+effective_key_len], u8(connection[0x9c:0x9d]) - 127,
-            connection[0x30:0x38], connection[0x38:0x40], connection[0x0c:0x0d])
+        conn_dict = ConnectionInformation(u32(connection[:4]), connection[0x28:0x2E][::-1],
+                                          u32(connection[0x4C:0x50]), u32(connection[0x1C:0x20]) & 1 << 15 == 0,
+                                          u16(connection[0x64:0x66]), connection[0x78:0x88],
+                                          effective_key_len, connection[0x68:0x68+effective_key_len],
+                                          u8(connection[0x9c:0x9d]) - 127,
+                                          connection[0x30:0x38], connection[0x38:0x40], connection[0x0c:0x0d])
 
         return conn_dict
 
@@ -1283,47 +1285,47 @@ class InternalBlue:
 
         Returns True on success and False on failure.
         """
-        
+
         # Check the connection handle
         # Range: 0x0000-0x0EFF (all other values reserved for future use)
         if conn_handle < 0 or conn_handle > 0x0EFF:
             log.warn("sendLmpPacket: connection handle out of bounds: %d" % conn_handle)
             return False
-        
+
         # must be string...
         if payload == None:
             payload = ''
-        
+
         if ((not extended_op) and opcode > (0xff>>1)) or (extended_op and opcode > 0xff):
             log.warn("sendLmpPacket: opcode out of range!")
             return False
-        
+
         # Build the LMP packet
         opcode_data = p8(opcode<<1 | (not is_master)) if not extended_op else p8(0x7F<<1 | (not is_master)) + p8(opcode)
-        
+
         # Nexus 5 (2012) simply takes any length as argument, but later withdraws bytes if too many were passed.
         # Nexus 6P, Raspi 3+ and evaulation board (2014-2018) require a fixed 20 byte length parameter to be passed!
         #   -> 2 bytes connection handle, 1 byte length, which means 17 bytes for opcode and payload remaining
         #   sendlmp --data 11223344556677889900112233445566 01 -> actually works
         #   always pad to 17 data bytes...
         data = opcode_data + payload + '\x00'*(17 - len(opcode_data) - len(payload))
-        
+
         if len(data) > 17:
             log.warn("sendLmpPacket: Vendor specific HCI command only allows for 17 bytes LMP content.")
-        
+
         #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
         result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(payload + opcode_data)) + data)
-        
+
         if result == None:
             log.warn("sendLmpPacket: did not get a result from firmware, maybe crashed internally?")
             return False
-        
+
         result = u8(result[3])
-        
+
         if result != 0:
             log.warn("sendLmpPacket: got error status 0x%02x" % result)
             return False
-        
+
         return True
 
     def fuzzLmp(self):
@@ -1393,7 +1395,7 @@ class InternalBlue:
         # Prepare the assembler snippet by injecting the connection number
         # and appending the LMP packet data.
         asm_code = self.fw.SENDLMP_ASM_CODE % (conn_nr) # type: str
-        asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x) 
+        asm_code_with_data = asm_code + ''.join([".byte 0x%02x\n" % ord(x)
                 for x in data.ljust(20, "\x00")])
 
         # Assemble the snippet and write it to SENDLMP_CODE_BASE_ADDRESS
@@ -1642,7 +1644,7 @@ class InternalBlue:
 
 
     def readQueueInformation(self):
-        # type: () -> Optional[Union[bool, QueueInformation]]
+        # type: () -> Optional[List[QueueElement]]
         """
         Traverses the double-linked list of QUEUE structs and returns them as a
         list of dictionaries. The dicts have the following fields:
@@ -1668,7 +1670,7 @@ class InternalBlue:
         for const in ['QUEUE_HEAD']:
             if const not in dir(self.fw):
                 log.warn("readQueueInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
-                return False
+                return None
 
         # Read address of first queue struct:
         first_queue_struct_address = u32(self.readMem(self.fw.QUEUE_HEAD, 4))
@@ -1683,11 +1685,11 @@ class InternalBlue:
                 log.warn("readQueueInformation: QUEUE double-linked list contains non-QUEU element. abort.")
                 return None
 
-            current_element = Queue_Element(index, current_queue_struct_address, queue_fields[2] * 4,
-                queue_fields[3], queue_fields[4], queue_fields[5], queue_fields[6],
-                queue_fields[7], queue_fields[8], queue_fields[9], queue_fields[10],
-                queue_fields[11], queue_fields[12], queue_fields[13],
-                self.fw.QUEUE_NAMES[index])
+            current_element = QueueElement(index, current_queue_struct_address, queue_fields[2] * 4,
+                                           queue_fields[3], queue_fields[4], queue_fields[5], queue_fields[6],
+                                           queue_fields[7], queue_fields[8], queue_fields[9], queue_fields[10],
+                                           queue_fields[11], queue_fields[12], queue_fields[13],
+                                           self.fw.QUEUE_NAMES[index])
 
             queuelist.append(current_element)
 

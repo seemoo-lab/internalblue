@@ -1,6 +1,6 @@
 from internalblue.cli import _parse_argv
 from internalblue.adbcore import ADBCore
-from internalblue.objects.connection_information import Connection_Information
+from internalblue.objects.connection_information import ConnectionInformation
 
 import os
 import nose
@@ -12,9 +12,10 @@ except ImportError:
 
 
 def test_info_conn_9():
-    dummy = Connection_Information(9, '000000000000'.decode('hex'), 0, False, 12,
-        '00000000000000000000000000000000'.decode('hex'), 0, '', -87, '0000000000000000'.decode('hex'),
-        '0000000000000000'.decode('hex'), '00'.decode('hex'))
+    dummy = ConnectionInformation(9, '000000000000'.decode('hex'), 0, False, 12,
+                                  '00000000000000000000000000000000'.decode('hex'), 0, '', -87,
+                                  '0000000000000000'.decode('hex'),
+                                  '0000000000000000'.decode('hex'), '00'.decode('hex'))
 
     trace = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          'traces/adbcore/dictionary_tests/info_conn_9.trace')

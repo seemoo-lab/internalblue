@@ -1,4 +1,4 @@
-class Connection_Information:
+class ConnectionInformation:
     connection_handle = 0
     connection_number = 0
     master_of_connection = False

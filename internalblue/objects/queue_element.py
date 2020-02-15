@@ -1,4 +1,4 @@
-class Queue_Element:
+class QueueElement:
     index = 0
     next_item = 0
     prev = 0
