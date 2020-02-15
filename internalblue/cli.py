@@ -28,6 +28,8 @@
 #   Software.
 
 
+from __future__ import print_function
+from builtins import str
 from pwn import *
 import os
 import traceback

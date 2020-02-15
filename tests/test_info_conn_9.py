@@ -1,3 +1,4 @@
+from __future__ import print_function
 from internalblue.cli import _parse_argv
 from internalblue.adbcore import ADBCore
 from internalblue.objects.connection_information import ConnectionInformation

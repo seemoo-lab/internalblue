@@ -1,12 +1,16 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
 import socket
-import Queue
-import hci
+import queue as queue2k
+from . import hci
 
 from pwn import *
 
-from core import InternalBlue
+from .core import InternalBlue
 import binascii
 
 filepath = os.path.dirname(os.path.abspath(__file__))
@@ -55,16 +59,16 @@ class testCore(InternalBlue):
         the command or None if no response was received within the timeout.
         """
 
-        queue = Queue.Queue(1)
+        queue = queue2k.Queue(1)
 
         try:
             self.sendQueue.put((h4type, data, queue, None), timeout=timeout)
             ret = queue.get(timeout=timeout)
             return ret
-        except Queue.Empty:
+        except queue2k.Empty:
             log.warn("sendH4: waiting for response timed out!")
             return None
-        except Queue.Full:
+        except queue.Full:
             log.warn("sendH4: send queue is full!")
             return None
 
@@ -105,7 +109,7 @@ class testCore(InternalBlue):
             # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
-            except Queue.Empty:
+            except queue2k.Empty:
                 continue
 
             # Extract the components of the task
@@ -121,7 +125,7 @@ class testCore(InternalBlue):
 
             # if the caller expects a response: register a queue to receive the response
             if queue is not None and filter_function is not None:
-                recvQueue = Queue.Queue(1)
+                recvQueue = queue2k.Queue(1)
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
             # if the caller expects a response:

@@ -25,6 +25,9 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from builtins import hex
+from builtins import range
+from builtins import object
 from pwn import *
 
 HCI_UART_TYPE_CLASS = {}
@@ -573,7 +576,7 @@ class HCI_Cmd(HCI):
         0xffed : "COMND VSC_EnterDownloadMode"
     }
 
-    HCI_CMD_STR_REVERSE = {v: k for k, v in HCI_CMD_STR.iteritems()}
+    HCI_CMD_STR_REVERSE = {v: k for k, v in HCI_CMD_STR.items()}
 
     @staticmethod
     def cmd_name(opcode):
@@ -917,7 +920,7 @@ def parse_hci_packet(data):
     return HCI.from_data(data)
 
 
-class StackDumpReceiver:
+class StackDumpReceiver(object):
     memdump_addr = None
     memdumps = {}
     stack_dump_has_happend = False

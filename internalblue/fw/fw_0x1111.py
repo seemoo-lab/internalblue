@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # fw_0x420e.py
 #
 # Generic firmware file in case we do not know something...
@@ -20,7 +21,7 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from fw import MemorySection
+from .fw import MemorySection
 
 # Firmware Infos
 # Samsung S10/S10e/S10+

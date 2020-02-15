@@ -1,6 +1,8 @@
 
+from future import standard_library
+standard_library.install_aliases()
 try:
-    from Queue import Queue
+    from queue import Queue
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable, Dict
 
     if TYPE_CHECKING:

@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import object
 import binascii
 import time
 
@@ -8,7 +10,7 @@ except ImportError:
     pass
 
 
-class SocketRecvHook():
+class SocketRecvHook(object):
     def __init__(self, socket):
         # type: (socket.socket) -> None
         self.snoop_socket = socket
@@ -43,7 +45,7 @@ class SocketRecvHook():
         self.recvfrom_hook(data, addr)
         return data, addr
 
-class SocketInjectHook():
+class SocketInjectHook(object):
     def __init__(self, socket, core):
         # type: (socket.socket, InternalBlue) -> None
         self.inject_socket = socket
@@ -114,7 +116,7 @@ class SocketDuplexHook(SocketInjectHook, SocketRecvHook):
     pass
 
 
-class HookBase():
+class HookBase(object):
     def send_hook(self, data):
         raise NotImplementedError
 

@@ -1,4 +1,5 @@
-class QueueElement:
+from builtins import object
+class QueueElement(object):
     index = 0
     next_item = 0
     prev = 0

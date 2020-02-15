@@ -27,13 +27,14 @@
 
 # Firmware Infos
 # This runs on Rasperry Pi 3+
+from builtins import object
 FW_NAME = "BCM4345C0"
 
 # Device Infos
 DEVICE_NAME = 0x204954
 
 # Memory Sections
-class MemorySection:
+class MemorySection(object):
     def __init__(self, start_addr, end_addr, is_rom, is_ram):
         self.start_addr = start_addr
         self.end_addr = end_addr

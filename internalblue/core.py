@@ -25,16 +25,25 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from builtins import hex
+from builtins import str
+from builtins import range
+from builtins import object
+from past.utils import old_div
 from abc import ABCMeta, abstractmethod
 
 from pwn import *
 from .fw.fw import Firmware
 import datetime
 import time
-import Queue
+import queue as queue2k
 from . import hci
 from .objects.queue_element import QueueElement
 from .objects.connection_information import ConnectionInformation
+from future.utils import with_metaclass
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -50,9 +59,7 @@ except:
 #import logging
 #log = logging.getLogger(__name__)
 
-class InternalBlue:
-    __metaclass__ = ABCMeta
-
+class InternalBlue(with_metaclass(ABCMeta, object)):
     def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory=".", replay=False):
         # type: (int, str, str, bool, str, bool) -> None
         context.log_level = log_level
@@ -94,7 +101,7 @@ class InternalBlue:
         # firmware (the response is recognized with the help of the filter function).
         # Once the response arrived, it puts the response into the response_queue from
         # the tuple. See sendH4() and sendHciCommand().
-        self.sendQueue = Queue.Queue(queue_size) # type: Queue.Queue[Task]
+        self.sendQueue = queue2k.Queue(queue_size) # type: Queue.Queue[Task]
 
         self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
         self.sendThread = None                  # The thread which is responsible for the HCI inject socket
@@ -225,7 +232,7 @@ class InternalBlue:
             # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
-            except Queue.Empty:
+            except queue2k.Empty:
                 continue
 
             # Extract the components of the task
@@ -277,7 +284,7 @@ class InternalBlue:
 
             # if the caller expects a response: register a queue to receive the response
             if queue != None and filter_function != None:
-                recvQueue = Queue.Queue(1)
+                recvQueue = queue2k.Queue(1)
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
             # Send command to the chip using s_inject socket
@@ -299,7 +306,7 @@ class InternalBlue:
                     record = recvQueue.get(timeout=2)
                     hcipkt = record[0]
                     data   = hcipkt.data
-                except Queue.Empty:
+                except queue2k.Empty:
                     log.warn("_sendThreadFunc: No response from the firmware.")
                     data = None
                     self.unregisterHciRecvQueue(recvQueue)
@@ -702,7 +709,7 @@ class InternalBlue:
         #      return this instead of the Command Complete Event (which will
         #      follow later and will be ignored). This should be fixed..
 
-        queue = Queue.Queue(1)
+        queue = queue2k.Queue(1)
 
         # standard HCI command structure
         payload = p16(opcode) + p8(len(data)) + data
@@ -732,14 +739,14 @@ class InternalBlue:
                                timeout=timeout)
             ret = queue.get(timeout=timeout)
             return ret
-        except Queue.Empty:
+        except queue2k.Empty:
             log.warn("sendHciCommand: waiting for response timed out!")
             # If there was no response because the Trace Replay Hook throw an assert it will be in this attribute.
             # Raise this so the main thread doesn't ignore this and it will be caught by any testing framework
             if hasattr(self, 'test_failed'):
                 raise self.test_failed
             return None
-        except Queue.Full:
+        except queue.Full:
             log.warn("sendHciCommand: send queue is full!")
             return None
 
@@ -756,7 +763,7 @@ class InternalBlue:
         try:
             self.sendQueue.put((h4type, data, None, None), timeout=timeout)
             return True
-        except Queue.Full:
+        except queue.Full:
             log.warn("sendH4: send queue is full!")
             return False
 
@@ -782,7 +789,7 @@ class InternalBlue:
 
         try:
             return self.recvQueue.get(timeout=timeout)
-        except Queue.Empty:
+        except queue2k.Empty:
             return None
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
@@ -865,7 +872,7 @@ class InternalBlue:
             byte_counter += len(data)
             if(progress_log != None):
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter,
-                        bytes_total, (bytes_done+byte_counter)*100/bytes_total)
+                        bytes_total, old_div((bytes_done+byte_counter)*100,bytes_total))
                 progress_log.status(msg)
             retry = 3  # this round worked, so we re-enable retries
         return outbuffer
@@ -907,7 +914,7 @@ class InternalBlue:
             log.warn("readMemAligned: address (0x%x) must be 4-byte aligned!" % address)
             return None
 
-        recvQueue = Queue.Queue(1)
+        recvQueue = queue2k.Queue(1)
         def hciFilterFunction(record):
             # type: (Record) -> bool
             hcipkt = record[0]
@@ -933,7 +940,7 @@ class InternalBlue:
                 blocksize = 244
 
             # Customize the assembler snippet with the current read_addr and blocksize
-            code = asm(self.fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, blocksize/4), vma=self.fw.READ_MEM_ALIGNED_ASM_LOCATION, arch='thumb')
+            code = asm(self.fw.READ_MEM_ALIGNED_ASM_SNIPPET % (blocksize, read_addr, old_div(blocksize,4)), vma=self.fw.READ_MEM_ALIGNED_ASM_LOCATION, arch='thumb')
 
             # Write snippet to the RAM (TODO: maybe backup and restore content of this area?)
             self.writeMem(self.fw.READ_MEM_ALIGNED_ASM_LOCATION, code)
@@ -950,7 +957,7 @@ class InternalBlue:
             # wait for the custom HCI event sent by the snippet:
             try:
                 record = recvQueue.get(timeout=1)
-            except Queue.Empty:
+            except queue2k.Empty:
                 log.warn("readMemAligned: No response from assembler snippet.")
                 return None
 
@@ -961,7 +968,7 @@ class InternalBlue:
             byte_counter += len(data)
             if progress_log is not None:
                 msg = "receiving data... %d / %d Bytes (%d%%)" % (bytes_done+byte_counter,
-                        bytes_total, (bytes_done+byte_counter)*100/bytes_total)
+                        bytes_total, old_div((bytes_done+byte_counter)*100,bytes_total))
                 progress_log.status(msg)
 
         self.unregisterHciRecvQueue(recvQueue)
@@ -1056,10 +1063,10 @@ class InternalBlue:
 
         # On Nexus 5, ReadMemAligned is required, while Nexus 6P supports this memory area with ReadRAM
         if self.fw.PATCHRAM_ALIGNED:
-            slot_dump       = self.readMemAligned(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
+            slot_dump       = self.readMemAligned(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, old_div(slot_count,4))
             table_addr_dump = self.readMemAligned(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
         else:
-            slot_dump       = self.readMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, slot_count/4)
+            slot_dump       = self.readMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS, old_div(slot_count,4))
             table_addr_dump = self.readMem(self.fw.PATCHRAM_TARGET_TABLE_ADDRESS, slot_count*4)
         table_val_dump  = self.readMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS, slot_count*4)
 
@@ -1067,7 +1074,7 @@ class InternalBlue:
         table_values    = []
         slot_dwords     = []
         slot_bits       = []
-        for dword in range(slot_count/32):
+        for dword in range(old_div(slot_count,32)):
             slot_dwords.append(slot_dump[dword*32:(dword+1)*32])
 
         for dword in slot_dwords:
@@ -1157,7 +1164,7 @@ class InternalBlue:
 
         # Enable patchram slot (enable bitfield starts at 0x310204)
         # (We need to enable the slot by setting a bit in a multi-dword bitfield)
-        target_dword = int(slot / 32)
+        target_dword = int(old_div(slot, 32))
         table_slots[slot] = 1
         slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
         self.writeMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)
@@ -1196,7 +1203,7 @@ class InternalBlue:
 
         # Disable patchram slot (enable bitfield starts at 0x310204)
         # (We need to disable the slot by clearing a bit in a multi-dword bitfield)
-        target_dword = int(slot / 32)
+        target_dword = int(old_div(slot, 32))
         table_slots[slot] = 0
         slot_dword = unbits(table_slots[target_dword*32:(target_dword+1)*32][::-1])[::-1]
         self.writeMem(self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword*4, slot_dword)

@@ -1,8 +1,11 @@
 #!/usr/bin/env python2
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import datetime
 import socket
-import Queue
+import queue as queue2k
 import random
 from internalblue import hci
 
@@ -201,7 +204,7 @@ class ADBCore(InternalBlue):
                 if filter_function == None or filter_function(record):
                     try:
                         queue.put(record, block=False)
-                    except Queue.Full:
+                    except queue.Full:
                         log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
             # Call all callback functions inside registeredHciCallbacks and pass the

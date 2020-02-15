@@ -1,3 +1,4 @@
+from builtins import object
 import argparse
 
 from internalblue.cli import internalblue_cli, _parse_argv
@@ -13,7 +14,7 @@ except ImportError:
 tracedir = os.path.dirname(__file__)
 
 
-class Fakeargs():
+class Fakeargs(object):
     def __init__(self):
         self.data_directory = None
         self.verbose = False

@@ -1,12 +1,18 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import zip
+from builtins import range
 import subprocess
 import datetime
 from pwn import *
 import fcntl
 from .core import InternalBlue
-import hci
-import Queue
+from . import hci
+import queue as queue2k
 import threading
 
 try:
@@ -227,7 +233,7 @@ class HCICore(InternalBlue):
                 if filter_function == None or filter_function(record):
                     try:
                         queue.put(record, block=False)
-                    except Queue.Full:
+                    except queue.Full:
                         log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
             # Call all callback functions inside registeredHciCallbacks and pass the

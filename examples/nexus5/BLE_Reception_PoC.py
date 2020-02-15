@@ -4,6 +4,7 @@
 
 # Get receive statistics on a Nexus 5 for BLE connection events
 
+from builtins import range
 from pwn import *
 from internalblue.adbcore import ADBCore
 import internalblue.hci as hci

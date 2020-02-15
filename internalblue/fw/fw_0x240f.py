@@ -25,7 +25,8 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from fw import MemorySection
+from __future__ import absolute_import
+from .fw import MemorySection
 
 # Firmware Infos
 # This runs on Nexus 6P, Samsung Galaxy S6, Samsung Galaxy S6 edge

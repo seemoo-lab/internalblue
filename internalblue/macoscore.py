@@ -1,12 +1,16 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import socket
-import Queue
-import hci
+import queue as queue2k
+from . import hci
 
 from pwn import *
 
-from core import InternalBlue
+from .core import InternalBlue
 
 import binascii
 import os
@@ -103,7 +107,7 @@ class macOSCore(InternalBlue):
                 for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
                     try:
                         queue.put(record, block=False)
-                    except Queue.Full:
+                    except queue.Full:
                         log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
 
                 # Call all callback functions inside registeredHciCallbacks and pass the
@@ -122,7 +126,7 @@ class macOSCore(InternalBlue):
             # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
-            except Queue.Empty:
+            except queue2k.Empty:
                 continue
 
             # Extract the components of the task
@@ -144,7 +148,7 @@ class macOSCore(InternalBlue):
 
             # if the caller expects a response: register a queue to receive the response
             if queue is not None and filter_function is not None:
-                recvQueue = Queue.Queue(1)
+                recvQueue = queue2k.Queue(1)
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
             # Sending command
@@ -157,7 +161,7 @@ class macOSCore(InternalBlue):
                     record = recvQueue.get(timeout=10)
                     hcipkt = record[0]
                     data   = hcipkt.data
-                except Queue.Empty:
+                except queue2k.Empty:
                     log.warn("_sendThreadFunc: No response from the firmware.")
                     data = None
                     self.unregisterHciRecvQueue(recvQueue)

@@ -23,6 +23,11 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from __future__ import print_function
+from builtins import str
+from builtins import hex
+from builtins import range
+from builtins import object
 from pwn import *
 import os
 import sys
@@ -105,7 +110,7 @@ def parse_bt_addr(bt_addr):
     return addr
 
 
-class Cmd:
+class Cmd(object):
     """ This class is the superclass of a CLI command. Every CLI command
     must be defined as subclass of Cmd. The subclass must define the
     'keywords' list as member variable. The actual implementation of the
@@ -316,7 +321,7 @@ class CmdMonitor(Cmd):
     parser.add_argument("command", 
                         help="One of: start, stop, kill")
 
-    class MonitorController:
+    class MonitorController(object):
         instance = None
 
         @staticmethod
@@ -326,7 +331,7 @@ class CmdMonitor(Cmd):
                 CmdMonitor.MonitorController.instance = CmdMonitor.MonitorController.__MonitorController(internalblue, 0xC9)
             return CmdMonitor.MonitorController.instance
 
-        class __MonitorController:
+        class __MonitorController(object):
             def __init__(self, internalblue, pcap_data_link_type):
                 self.internalblue = internalblue
                 self.running = False
@@ -546,7 +551,7 @@ class CmdDumpMem(Cmd):
             bytes_total = sum([s.size() for s in self.internalblue.fw.SECTIONS if s.is_ram])
             bytes_done = 0
             self.progress_log = log.progress("Downloading RAM sections...")
-            for section in filter(lambda s: s.is_ram, self.internalblue.fw.SECTIONS):
+            for section in [s for s in self.internalblue.fw.SECTIONS if s.is_ram]:
                 filename = args.file + "_" + hex(section.start_addr)
                 if os.path.exists(filename):
                     if not (args.overwrite or yesno("Update '%s'?" % filename)):
@@ -1190,7 +1195,7 @@ class CmdInfo(Cmd):
             log.info("    - Host Supported F:  %s"     % connection.host_supported_feat.encode('hex'))
             log.info("    - TX Power (dBm):    %d"     % connection.tx_pwr_lvl_dBm)
             log.info("    - Array Index:       %s"     % connection.id.encode('hex'))
-        print
+        print()
         return True
 
     def infoDevice(self, args):
@@ -1306,7 +1311,7 @@ class CmdInfo(Cmd):
 
         # Print Buffer Details
         buffer_size  = bloc_for_details["buffer_size"] + 4
-        for buffer_address, buffer_hdr in bloc_for_details["buffer_headers"].iteritems():
+        for buffer_address, buffer_hdr in bloc_for_details["buffer_headers"].items():
             progress_log.status("Dumping buffers from BLOC[%d]: 0x%06X" % (bloc_for_details["index"], buffer_address))
             # Buffer in use!
             if buffer_hdr == bloc_for_details["address"]:
@@ -1362,7 +1367,7 @@ class CmdInfo(Cmd):
         if args.type in subcommands:
             return subcommands[args.type](args.args)
         else:
-            log.warn("Unkown type: %s\nKnown types: %s" % (args.type, subcommands.keys()))
+            log.warn("Unkown type: %s\nKnown types: %s" % (args.type, list(subcommands.keys())))
             return False
 
 
@@ -1521,7 +1526,7 @@ class CmdCustom(Cmd):
             return True
 
         if args.do == 'list':
-            custom_cmds= ["\t%s\t\t%s\n" % (k, v) for k, v in sorted(CmdCustom.custom_commands.iteritems())]
+            custom_cmds= ["\t%s\t\t%s\n" % (k, v) for k, v in sorted(CmdCustom.custom_commands.items())]
             log.info("Custom commands:\n%s" % ''.join(custom_cmds))
             return True
 

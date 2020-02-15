@@ -27,6 +27,7 @@
 
 # Firmware Infos
 # This runs on Rasperry Pi 3
+from builtins import object
 FW_NAME = "BCM43430A1"
 
 # Device Infos
@@ -34,7 +35,7 @@ DEVICE_NAME = 0x20401C
 BD_ADDR = 0x201C64
 
 # Memory Sections
-class MemorySection:
+class MemorySection(object):
     def __init__(self, start_addr, end_addr, is_rom, is_ram):
         self.start_addr = start_addr
         self.end_addr = end_addr

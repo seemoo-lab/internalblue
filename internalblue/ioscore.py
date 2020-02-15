@@ -1,12 +1,16 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import socket
-import Queue
-import hci
+import queue as queue2k
+from . import hci
 
 from pwn import *
 
-from core import InternalBlue
+from .core import InternalBlue
 
 class iOSCore(InternalBlue):
 
@@ -49,16 +53,16 @@ class iOSCore(InternalBlue):
         the command or None if no response was received within the timeout.
         """
 
-        queue = Queue.Queue(1)
+        queue = queue2k.Queue(1)
 
         try:
             self.sendQueue.put((h4type, data, queue, None), timeout=timeout)
             ret = queue.get(timeout=timeout)
             return ret
-        except Queue.Empty:
+        except queue2k.Empty:
             log.warn("sendH4: waiting for response timed out!")
             return None
-        except Queue.Full:
+        except queue.Full:
             log.warn("sendH4: send queue is full!")
             return None
 
@@ -173,7 +177,7 @@ class iOSCore(InternalBlue):
                 for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
                     try:
                         queue.put(record, block=False)
-                    except Queue.Full:
+                    except queue.Full:
                         log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
 
                 # Call all callback functions inside registeredHciCallbacks and pass the

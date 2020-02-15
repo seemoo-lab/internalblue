@@ -1,7 +1,8 @@
+from builtins import object
 from pwnlib.util.packing import u32, u16, u8
 
 
-class ConnectionInformation:
+class ConnectionInformation(object):
     connection_handle = 0
     connection_number = 0
     master_of_connection = False

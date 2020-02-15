@@ -1,5 +1,7 @@
+from __future__ import print_function
+from __future__ import absolute_import
 
-from testwrapper import trace_test, get_trace_path_cmd_tuple
+from .testwrapper import trace_test, get_trace_path_cmd_tuple
 
 
 import os

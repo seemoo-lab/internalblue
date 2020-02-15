@@ -23,10 +23,12 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from builtins import hex
+from builtins import object
 from pwn import log
 
 
-class Firmware:
+class Firmware(object):
     def __init__(self, version=None, iOS=False):
         """
         Load and initialize the actual firmware add-ons for Nexus 5, Raspi3, etc.
@@ -60,7 +62,7 @@ class Firmware:
         log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
 
 
-class MemorySection:
+class MemorySection(object):
     """
     All firmwares have memory sections that can be RAM, ROM or neither of both.
     """
