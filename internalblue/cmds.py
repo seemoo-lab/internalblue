@@ -289,7 +289,8 @@ class CmdLogLevel(Cmd):
     log_levels = ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'NOTSET', 'WARN', 'WARNING']
 
     for keyword in list(keywords):
-        keywords.extend(['%s %s' % (keyword, log_level) for log_level in log_levels])
+        for log_level in log_levels:
+            keywords.append('%s %s' % (keyword, log_level))
 
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
@@ -1491,7 +1492,8 @@ class CmdCustom(Cmd):
     actions = ['list', 'add', 'run', 'remove']
 
     for keyword in list(keywords):
-        keywords.extend(['%s %s' % (keyword, action) for action in actions])
+        for action in actions:
+            keywords.append('%s %s' % (keyword, action))
 
     parser = argparse.ArgumentParser(prog=keywords[0],
                                      description=description,
