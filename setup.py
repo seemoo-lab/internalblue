@@ -12,6 +12,7 @@ setup(name='internalblue',
       packages=['internalblue', 'internalblue/fw'],
       install_requires=[
           'pwntools',
+          'pyelftools',
       ],
       extras_require={
 	"macoscore": ["pyobjc"],
