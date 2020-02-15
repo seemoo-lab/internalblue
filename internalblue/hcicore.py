@@ -284,7 +284,7 @@ class HCICore(InternalBlue):
         """
         # TODO still seems to only forward incoming events?!
         self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_FILTER,
- '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00') #type mask, event mask, event mask, opcode
+ b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00') #type mask, event mask, event mask, opcode
 
         interface_num = device["dev_id"]
         log.debug("Socket interface number: %s" % (interface_num))
@@ -298,7 +298,7 @@ class HCICore(InternalBlue):
         # Write Header to btsnoop file (if file is still empty):
         if self.write_btsnooplog and self.btsnooplog_file.tell() == 0:
             # BT Snoop Header: btsnoop\x00, version: 1, data link type: 1002
-            btsnoop_hdr = "btsnoop\x00" + p32(1,endian="big") + p32(1002,endian="big")
+            btsnoop_hdr = b"btsnoop\x00" + p32(1,endian="big") + p32(1002,endian="big")
             with self.btsnooplog_file_lock:
                 self.btsnooplog_file.write(btsnoop_hdr)
                 self.btsnooplog_file.flush()
