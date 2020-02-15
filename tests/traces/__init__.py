@@ -34,7 +34,7 @@ def generate_test_suite_from_traces():
         if os.path.isdir(os.path.join(tracedir,core)):
             core_suite = unittest.TestSuite()
             for tracefile in os.listdir(os.path.join(tracedir, core)):
-                if tracefile != '.gitkeep' and tracefile != 'dictionary_tests':
+                if tracefile.endswith(".trace"):
                     core_suite.addTest(
                         unittest.FunctionTestCase(generate_test_from_file(core, tracefile), description=tracefile))
             suite.addTest(core_suite)
