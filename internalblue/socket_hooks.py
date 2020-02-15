@@ -186,14 +186,35 @@ class PrintTrace(SocketDuplexHook):
         print("Exception: {}".format(e))
 
 
-class ReplaySocket(PrintTrace):
-    def __init__(self, snoop_socket, inject_socket, core, filename='/tmp/bt_hci.log'):
+class ReplaySocket(SocketDuplexHook):
+    def __init__(self, snoop_socket, inject_socket, core, filename='/tmp/bt_hci.log', debug=False):
         SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
         self.replace = True
         self.log = open(filename).readlines()
         self.index = 0
+        self.debug = debug
         if self.log[0].startswith("#"):
             self.index = 1
+
+    def send_hook(self, data, **kwargs):
+        if self.debug:
+            print("Sent: {}".format(binascii.hexlify(data)))
+
+    def recv_hook(self, data, **kwargs):
+        if self.debug:
+            print("Recv: {}".format(binascii.hexlify(data)))
+
+    def recvfrom_hook(self, data, addr, **kwargs):
+        if self.debug:
+            print("Recv: {}".format(binascii.hexlify(data)))
+
+    def sendto_hook(self, data, socket, **kwargs):
+        if self.debug:
+            print("Sent: {}".format(binascii.hexlify(data)))
+
+    def send_exception(self, e):
+        if self.debug:
+            print("Exception: {}".format(e))
 
     def send_replace(self, data, **kwargs):
         encoded_data = ""  # type: str
