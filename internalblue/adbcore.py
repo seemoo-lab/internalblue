@@ -166,7 +166,7 @@ class ADBCore(InternalBlue):
             orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", record_hdr)
 
             # Read the record data
-            record_data = b''
+            record_data = bytearray()
             while(not self.exit_requested and len(record_data) < inc_len):
                 try:
                     recv_data = self.s_snoop.recv(inc_len - len(record_data))
@@ -174,7 +174,7 @@ class ADBCore(InternalBlue):
                         log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping..")
                         self.exit_requested = True
                         break
-                    record_data += recv_data
+                    record_data += bytearray(recv_data)
                 except socket.timeout:
                     pass # this is ok. just try again without error
 

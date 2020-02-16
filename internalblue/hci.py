@@ -25,6 +25,8 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from __future__ import absolute_import
+from future import standard_library
 from builtins import hex
 from builtins import range
 from builtins import object
@@ -55,7 +57,7 @@ class HCI(object):
 
     @staticmethod
     def from_data(data):
-        uart_type = ord(data[0])
+        uart_type = data[0]
         return HCI_UART_TYPE_CLASS[uart_type].from_data(data[1:])
 
     def __init__(self, uart_type):
@@ -610,7 +612,7 @@ class HCI_Cmd(HCI):
 
     @staticmethod
     def from_data(data):
-        return HCI_Cmd(u16(data[0:2]), ord(data[2]), data[3:])
+        return HCI_Cmd(u16(data[0:2]), data[2], data[3:])
 
     def __init__(self, opcode, length, data):
         HCI.__init__(self, HCI.HCI_CMD)
@@ -626,7 +628,7 @@ class HCI_Cmd(HCI):
         cmdname = "unknown"
         if self.opcode in self.HCI_CMD_STR:
             cmdname = self.HCI_CMD_STR[self.opcode]
-        return parent + "<0x%04x %s (len=%d): %s>" % (self.opcode, cmdname, self.length, self.data[0:16].encode('hex'))
+        return parent + "<0x%04x %s (len=%d): %s>" % (self.opcode, cmdname, self.length, ''.join(format(x, '02x') for x in self.data[0:16]))
 
 class HCI_Acl(HCI):
 
@@ -701,7 +703,7 @@ class HCI_Diag(HCI):
         cmdname = "unknown"
         if self.opcode in self.BCM_DIAG_STR:
             cmdname = self.BCM_DIAG_STR[self.opcode]
-        return parent + "<0x%02x %s: %s>" % (self.opcode, cmdname, self.data[0:16].encode('hex'))
+        return parent + "<0x%02x %s: %s>" % (self.opcode, cmdname, ''.join(format(x, '02x') for x in self.data[0:16]))
 
 class HCI_Event(HCI): 
 
@@ -890,7 +892,7 @@ class HCI_Event(HCI):
 
     @staticmethod
     def from_data(data):
-        return HCI_Event(ord(data[0]), ord(data[1]), data[2:])
+        return HCI_Event(data[0], data[1], data[2:])
 
     def __init__(self, event_code, length, data):
         HCI.__init__(self, HCI.HCI_EVT)
@@ -906,7 +908,7 @@ class HCI_Event(HCI):
         eventname = "unknown"
         if self.event_code in self.HCI_EVENT_STR:
             eventname = self.HCI_EVENT_STR[self.event_code]
-        return parent + "<0x%02x %s (len=%d): %s>" % (self.event_code, eventname, self.length, self.data[0:].encode('hex'))
+        return parent + "<0x%02x %s (len=%d): %s>" % (self.event_code, eventname, self.length, ''.join(format(x, '02x') for x in self.data[0:]))
 
 HCI_UART_TYPE_CLASS = {
         HCI.HCI_CMD  : HCI_Cmd,

@@ -567,7 +567,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         """
 
         # send Read_Local_Version_Information
-        version = self.sendHciCommand(0x1001, '')
+        version = self.sendHciCommand(0x1001, ''.encode('utf-8'))
 
         if not version or len(version) < 11:
             log.warn("""initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
@@ -577,12 +577,12 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             return False
 
         # Broadcom uses 0x000f as vendor ID, Cypress 0x0131
-        vendor = (u8(version[9]) << 8) + u8(version[8])
+        vendor = (version[9] << 8) + version[8]
         if vendor != 0xf and vendor != 0x131:
             log.critical("Not running on a Broadcom or Cypress chip!")
             return False
         else:
-            subversion = (u8(version[11]) << 8) + u8(version[10])
+            subversion = (version[11] << 8) + version[10]
 
             iOS = False
             if self.__class__.__name__ == "iOSCore":
@@ -812,7 +812,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         read_addr = address         # read_addr is the address of the next Read_RAM HCI command
         byte_counter = 0            # tracks the number of received bytes
-        outbuffer = ''              # buffer which stores all accumulated data read from the chip
+        outbuffer = bytearray()     # buffer which stores all accumulated data read from the chip
         if bytes_total == 0:        # If no total bytes where given just use length
             bytes_total = length
         retry = 3                   # Retry on failures
@@ -847,7 +847,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 log.debug("readMem: insufficient bytes returned, retrying...")
                 continue
 
-            status = ord(response[3])
+            status = response[3]
             if status != 0:
                 # It is not yet reverse engineered what this byte means. For almost
                 # all memory addresses it will be 0. But for some it will be different,
@@ -1722,7 +1722,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         """
 
         if not self.serial:
-            self.sendH4(hci.HCI.BCM_DIAG, '\xf0' + p8(enable))
+            self.sendH4(hci.HCI.BCM_DIAG, b'\xf0' + b'\x01' if enable else b'\x00')
 
         # We can send the activation to the serial, but then the Android driver
         # itself crashes when receiving diagnostic frames...

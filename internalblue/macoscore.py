@@ -93,7 +93,7 @@ class macOSCore(InternalBlue):
             # read record data
             try:
                 data, addr = self.s_snoop.recvfrom(1024)
-                record_data = data
+                record_data = bytearray(data)
             except socket.timeout:
                 continue # this is ok. just try again without error
 
@@ -137,8 +137,10 @@ class macOSCore(InternalBlue):
 
             # Send command to the chip using IOBluetoothExtended framework
             h4type, data, queue, filter_function = task
-            opcode = binascii.hexlify(data[1]) + binascii.hexlify(data[0])
-            log.debug("Sending command: 0x" + binascii.hexlify(data) + ", opcode: " + opcode)
+            data = bytearray(data)
+            opcode = format(data[1], '02x') + format(data[0], '02x')
+
+            log.debug("Sending command: 0x" + ''.join(format(x, '02x') for x in data) + ", opcode: " + opcode)
 
             if not(h4type == 0x01 or h4type == 0x02):
                 log.warn("H4 Type {0} not supported by macOS Core!".format(str(h4type)))

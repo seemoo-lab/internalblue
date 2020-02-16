@@ -70,9 +70,9 @@ def commandLoop(internalblue, init_commands=None):
         cmd_instance = None
         try:
             if cmdstack:
-                cmdline = cmdstack.pop().strip()
+                cmdline = cmdstack.pop().strip().decode('utf-8')
             else:
-                cmdline = term.readline.readline(prompt='> ').strip()
+                cmdline = term.readline.readline(prompt='> ').strip().decode('utf-8')
             cmdword = cmdline.split(' ')[0].split('=')[0]
             if(cmdword == ''):
                 continue
@@ -82,7 +82,6 @@ def commandLoop(internalblue, init_commands=None):
                 log.warn("Command unknown: " + cmdline)
                 continue
             cmd_instance = matching_cmd(cmdline, internalblue)
-
             if(not cmd_instance.work()):
                 log.warn("Command failed: " + str(cmd_instance))
         except ValueError as e:

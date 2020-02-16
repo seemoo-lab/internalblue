@@ -657,7 +657,7 @@ class CmdHexdump(Cmd):
         if dump == None:
             return False
 
-        log.hexdump(dump, begin=args.address)
+        log.hexdump(bytes(dump), begin=args.address)
         return True
 
 class CmdTelescope(Cmd):
