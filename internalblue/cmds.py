@@ -40,7 +40,7 @@ import struct
 import time
 import select
 import json
-
+from internalblue.utils import bytes_to_hex
 
 
 
@@ -86,7 +86,7 @@ def bt_addr_to_str(bt_addr):
     # type: (BluetoothAddress) -> str
     """ Convert a Bluetooth address (6 bytes) into a human readable format.
     """
-    return ":".join([b.encode("hex") for b in bt_addr])
+    return ":".join(format(x, '02x') for x in bytearray(bt_addr))
 
 def parse_bt_addr(bt_addr):
     # type: (Any) -> Optional[BluetoothAddress]
@@ -605,10 +605,10 @@ class CmdSearchMem(Cmd):
         highlight = pattern
         if args.hex:
             try:
-                pattern = pattern.decode('hex')
+                pattern = bytearray.fromhex(pattern)
                 highlight = pattern
             except TypeError as e:
-                log.warn("Search pattern cannot be converted to hexstring: " + str(e))
+                log.warn("Search pattern cannot be converted to bytestring: " + str(e))
                 return False
         elif args.address:
             pattern = p32(int(pattern, 16))
@@ -772,9 +772,9 @@ class CmdWriteMem(Cmd):
             data = ' '.join(args.data)
             if args.hex:
                 try:
-                    data = data.decode('hex')
+                    data = bytearray.fromhex(data)
                 except TypeError as e:
-                    log.warn("Data string cannot be converted to hexstring: " + str(e))
+                    log.warn("Hex string cannot be converted to bytestring: " + str(e))
                     return False
             elif args.int:
                 data = p32(auto_int(data))
@@ -957,7 +957,7 @@ class CmdSendHciCmd(Cmd):
             log.info("cmdcode needs to be in the range of 0x0000 - 0xffff")
             return False
 
-        data = ''
+        data = b''
         for data_part in args.data:
             if data_part[0:2] == "0x":
                 data += p32(auto_int(data_part))
@@ -1187,15 +1187,15 @@ class CmdInfo(Cmd):
             log.info("    - Remote BT name:    %08X"   % connection.remote_name_address)
             log.info("    - Master of Conn.:   %s"     % str(connection.master_of_connection))
             log.info("    - Conn. Handle:      0x%X"   % connection.connection_handle)
-            log.info("    - Public RAND:       %s"     % connection.public_rand.encode('hex'))
-            #log.info("    - PIN:               %s"     % connection.pin.encode('hex'))
+            log.info("    - Public RAND:       %s"     % bytes_to_hex(connection.public_rand))
+            #log.info("    - PIN:               %s"     % bytes_to_hex(connection.pin)
             #log.info("    - BT addr for key:   %s"     % bt_addr_to_str(connection.bt_addr_for_key))
             log.info("    - Effective Key Len: %d byte (%d bit)" % (connection.effective_key_len, 8*connection["effective_key_len"]))
-            log.info("    - Link Key:          %s"     % connection.link_key.encode('hex'))
-            log.info("    - LMP Features:      %s"     % connection.extended_lmp_feat.encode('hex'))
-            log.info("    - Host Supported F:  %s"     % connection.host_supported_feat.encode('hex'))
+            log.info("    - Link Key:          %s"     % bytes_to_hex(connection.link_key))
+            log.info("    - LMP Features:      %s"     % bytes_to_hex(connection.extended_lmp_feat))
+            log.info("    - Host Supported F:  %s"     % bytes_to_hex(connection.host_supported_feat))
             log.info("    - TX Power (dBm):    %d"     % connection.tx_pwr_lvl_dBm)
-            log.info("    - Array Index:       %s"     % connection.id.encode('hex'))
+            log.info("    - Array Index:       %s"     % bytes_to_hex(connection.id))
         print()
         return True
 
@@ -1205,14 +1205,14 @@ class CmdInfo(Cmd):
                 log.warn(" '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
         bt_addr      = self.readMem(self.internalblue.fw.BD_ADDR, 6)[::-1]
-        bt_addr_str  = ":".join([b.encode("hex") for b in bt_addr])
+        bt_addr_str =  bt_addr_to_str(bt_addr)
         device_name  = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
-        device_name_len = u8(device_name[0])-1
+        device_name_len = device_name[0]-1
         device_name  = device_name[2:2+device_name_len]
         adb_serial   = context.device
 
         log.info("### | Device ###")
-        log.info("    - Name:       %s" % device_name)
+        log.info("    - Name:       %s" % device_name.decode('utf-8'))
         log.info("    - ADB Serial: %s" % adb_serial)
         log.info("    - Address:    %s" % bt_addr_str)
         return True
@@ -1234,7 +1234,7 @@ class CmdInfo(Cmd):
                 code = disasm(table_values[i],vma=table_addresses[i],byte=False,offset=False)
                 code = code.replace("    ", " ").replace("\n", ";  ")
                 log.info("[%03d] 0x%08X: %s (%s)" % (i, table_addresses[i],
-                                                 table_values[i].encode('hex'),
+                                                 bytes_to_hex(table_values[i]),
                                                  code))
         return True
 
@@ -1634,7 +1634,7 @@ class CmdReadAfhChannelMap(Cmd):
         log.info("AFH Enabled: %s" % bool(response[7] != '\x00'))
         channels = ""
         for c in response[8:]:
-            bits = format(ord(c), '08b')
+            bits = format(c, '08b')
             for b in bits:
                 if b == "1":
                     channels = channels + " *"

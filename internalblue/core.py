@@ -44,6 +44,7 @@ from . import hci
 from .objects.queue_element import QueueElement
 from .objects.connection_information import ConnectionInformation
 from future.utils import with_metaclass
+from internalblue.utils import bytes_to_hex
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -289,7 +290,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
             # Send command to the chip using s_inject socket
             try:
-                log.debug("_sendThreadFunc: Send: " + str(out.encode('hex')))
+                log.debug("_sendThreadFunc: Send: " + bytes_to_hex(out))
                 self.s_inject.send(out)
             except socket.error:
                 pass
@@ -1007,8 +1008,8 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             if(response == None):
                 log.warn("writeMem: Timeout while reading response, probably need to wait longer.")
                 return False
-            elif (response[3] != '\x00'):
-                log.warn("writeMem: Got error code %s in command complete event." % response[3].encode('hex'))
+            elif (response[3] != 0):
+                log.warn("writeMem: Got error code %s in command complete event." % bytes_to_hex(response[3]))
                 return False
             write_addr += blocksize
             byte_counter += blocksize

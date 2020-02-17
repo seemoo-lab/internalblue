@@ -70,7 +70,7 @@ def commandLoop(internalblue, init_commands=None):
         cmd_instance = None
         try:
             if cmdstack:
-                cmdline = cmdstack.pop().strip().decode('utf-8')
+                cmdline = cmdstack.pop().strip()
             else:
                 cmdline = term.readline.readline(prompt='> ').strip().decode('utf-8')
             cmdword = cmdline.split(' ')[0].split('=')[0]
@@ -254,9 +254,10 @@ def internalblue_cli(argv, args=None):
         reference.shutdown()
 
         # Save readline history:
-        f = open(reference.data_directory + "/" + HISTFILE, "w")
-        f.write("\n".join(term.readline.history))
-        f.close()
+        # TODO: - This causes issues, have to fix ASAP
+        # f = open(reference.data_directory + "/" + HISTFILE, "w")
+        # f.write("\n".join(term.readline.history))
+        # f.close()
 
     # Cleanup
     log.info("Goodbye")

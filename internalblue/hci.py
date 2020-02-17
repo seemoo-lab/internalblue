@@ -26,7 +26,6 @@
 #   Software.
 
 from __future__ import absolute_import
-from future import standard_library
 from builtins import hex
 from builtins import range
 from builtins import object

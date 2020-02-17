@@ -8,6 +8,7 @@ import socket
 import queue as queue2k
 import random
 from internalblue import hci
+from internalblue.utils import bytes_to_hex
 
 from pwn import *
 
@@ -144,7 +145,7 @@ class ADBCore(InternalBlue):
             while(not self.exit_requested and len(record_hdr) < 24):
                 try:
                     recv_data = self.s_snoop.recv(24 - len(record_hdr))
-                    log.debug("recvThreadFunc: received bt_snoop data " + recv_data.encode('hex'))
+                    log.debug("recvThreadFunc: received bt_snoop data " + bytes_to_hex(recv_data))
                     if len(recv_data) == 0:
                         log.info("recvThreadFunc: bt_snoop socket was closed by remote site. stopping recv thread...")
                         self.exit_requested = True

@@ -17,9 +17,11 @@ btsnoop.log
 # xcode
 xcuserdata
 *.xcworkspace
+macos-framework/IOBluetoothExtended.framework/
 
 # venv
 venv
+venv3
 
 # pycharm
 *.idea
