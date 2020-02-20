@@ -86,7 +86,7 @@ def commandLoop(internalblue, init_commands=None):
                 log.warn("Command failed: " + str(cmd_instance))
         except ValueError as e:
             log.warn("commandLoop: ValueError: " + str(e))
-            continue
+            raise
         except KeyboardInterrupt:
             if(cmd_instance != None):
                 cmd_instance.abort_cmd()
@@ -104,7 +104,7 @@ def commandLoop(internalblue, init_commands=None):
             internalblue.exit_requested = True      # Make sure all threads terminate
             log.critical("Uncaught exception (%s). Abort." % str(e))
             print(traceback.format_exc())
-            break
+            raise
         cmd_instance = None
 
 def _parse_argv(argv):

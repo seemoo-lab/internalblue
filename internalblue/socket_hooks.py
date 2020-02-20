@@ -256,6 +256,8 @@ class ReplaySocket(SocketDuplexHook):
     def getsockname(self):
         return (None, 0)
 
+    def close(self):
+        assert self.index + 1 == len(self.log)
 
 from internalblue.core import InternalBlue
 
