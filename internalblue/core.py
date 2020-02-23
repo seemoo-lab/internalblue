@@ -1079,7 +1079,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             slot_dwords.append(slot_dump[dword*32:(dword+1)*32])
 
         for dword in slot_dwords:
-            slot_bits.extend(bits(dword[::-1])[::-1])
+            slot_bits.extend(bits(bytes(dword[::-1]))[::-1])
         for i in range(slot_count):
             if slot_bits[i]:
                 table_addresses.append(u32(table_addr_dump[i*4:i*4+4])<<2)
