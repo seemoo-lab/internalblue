@@ -1626,12 +1626,12 @@ class CmdReadAfhChannelMap(Cmd):
         """
         response = self.internalblue.sendHciCommand(0x1406, p16(handle))
                 
-        if len(response) < 17 or response[8:] == '\x00'*9:
+        if len(response) < 17 or response[8:] == b'\x00'*9:
             log.info("Connection 0x%04x is not established." % handle)
             return False
     
         log.info("Connection Handle: 0x%04x" % handle)
-        log.info("AFH Enabled: %s" % bool(response[7] != '\x00'))
+        log.info("AFH Enabled: %s" % bool(response[7] != 0))
         channels = ""
         for c in response[8:]:
             bits = format(c, '08b')

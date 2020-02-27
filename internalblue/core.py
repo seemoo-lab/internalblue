@@ -698,7 +698,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         log.warn("registerHciRecvQueue: no such queue is registered!")
 
     def sendHciCommand(self, opcode, data, timeout=3):
-        # type: (Opcode, bytes, int) -> Optional[Any]
+        # type: (Opcode, bytes, int) -> Optional[bytearray]
         """
         Send an arbitrary HCI command packet by pushing a send-task into the
         sendQueue. This function blocks until the response is received
@@ -1032,8 +1032,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             log.warn("Empty HCI response during launchRam, driver crashed due to invalid code or destination")
             return False
 
-        if response[3] != '\x00':
-            log.warn("Got error code %x in command complete event." % u8(response[3]))
+        error_code = response[3]
+        if error_code != 0:
+            log.warn("Got error code %x in command complete event." % error_code)
             return False
 
         # Nexus 6P Bugfix
