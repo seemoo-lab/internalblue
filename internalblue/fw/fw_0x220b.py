@@ -20,27 +20,27 @@ from __future__ import absolute_import
 #   liability, whether in an action of contract, tort or otherwise, arising from,
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
+from .fw import MemorySection, FirmwareDefinition
 
-from .fw import MemorySection
+class CYW20706(FirmwareDefinition):
+    # Firmware Infos
+    # Evaluation Kit CYW20706
+    FW_NAME = "CYW20706"
 
-# Firmware Infos
-# Evaluation Kit CYW20706
-FW_NAME = "CYW20706"
 
+    # Memory Sections
+    #                          start,    end,           is_rom? is_ram?
+    SECTIONS = [ MemorySection(0x00000000, 0x000c7fff,  True,  False),  # Internal ROM
+                 MemorySection(0x000d0000, 0x000dffff,  False, True ),
+                 MemorySection(0x00200000, 0x00247fff,  False, True),   # Internal Memory Cortex M3
+                 ]
 
-# Memory Sections
-#                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x000c7fff,  True,  False),  # Internal ROM
-             MemorySection(0x000d0000, 0x000dffff,  False, True ),
-             MemorySection(0x00200000, 0x00247fff,  False, True),   # Internal Memory Cortex M3
-             ]
-
-# Patchram
-#PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
-#PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-#PATCHRAM_VALUE_TABLE_ADDRESS    = 0x0d0000
-#PATCHRAM_NUMBER_OF_SLOTS        = 256
-PATCHRAM_ALIGNED                = True
-# only seems to work 4-byte aligned here ...
+    # Patchram
+    #PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+    #PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+    #PATCHRAM_VALUE_TABLE_ADDRESS    = 0x0d0000
+    #PATCHRAM_NUMBER_OF_SLOTS        = 256
+    PATCHRAM_ALIGNED                = True
+    # only seems to work 4-byte aligned here ...
 
 

@@ -36,7 +36,8 @@ import pwnlib
 from pwnlib.asm import asm
 from pwnlib.exception import PwnlibException
 from pwnlib.util.fiddling import bits, unbits
-from .utils.pwnlib_wrapper import p16, p8, u32, u16, p32, u8
+from .utils.pwnlib_wrapper import p16, p8, u32, u16, p32, u8, log, context, flat
+from .fw import FirmwareDefinition
 
 standard_library.install_aliases()
 from builtins import hex
@@ -56,7 +57,6 @@ from .objects.connection_information import ConnectionInformation
 from future.utils import with_metaclass
 from internalblue.utils import bytes_to_hex
 
-from internalblue.utils.pwnlib_wrapper import log, context, flat
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -80,7 +80,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         context.arch = "thumb"
 
         self.interface = None   # holds the context.device / hci interaface which is used to connect, is set in cli
-        self.fw = None          # holds the firmware file
+        self.fw: FirmwareDefinition = None          # holds the firmware file
 
 
         self.data_directory = data_directory
@@ -114,16 +114,16 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # firmware (the response is recognized with the help of the filter function).
         # Once the response arrived, it puts the response into the response_queue from
         # the tuple. See sendH4() and sendHciCommand().
-        self.sendQueue = queue2k.Queue(queue_size) # type: Queue.Queue[Task]
+        self.sendQueue = queue2k.Queue(queue_size) # type: queue2k.Queue[Task]
 
-        self.recvThread = None                  # The thread which is responsible for the HCI snoop socket
-        self.sendThread = None                  # The thread which is responsible for the HCI inject socket
+        self.recvThread: Optional[pwnlib.context.Thread] = None                  # The thread which is responsible for the HCI snoop socket
+        self.sendThread: Optional[pwnlib.context.Thread] = None                  # The thread which is responsible for the HCI inject socket
 
         self.tracepoints = []                   # A list of currently active tracepoints
                                                 # The list contains tuples:
                                                 # [0] target address
                                                 # [1] address of the hook code
-        self.tracepoint_registers       = None  # Last captured register values from a tracepoint
+        self.tracepoint_registers: Optional[List[int]]       = None  # Last captured register values from a tracepoint
         self.tracepoint_memdump_parts   = {}    # Last captured RAM dump from a tracepoint
         self.tracepoint_memdump_address = None  # Start address of the RAM dump
 
@@ -139,7 +139,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # filter_function will be called for each packet that is received and only if it returns
         # True, the packet will be put into the queue. The filter_function can be None in order
         # to put all packets into the queue.
-        self.registeredHciRecvQueues = [] # type: List[Tuple[Queue.Queue[Record], FilterFunction]]
+        self.registeredHciRecvQueues = [] # type: List[Tuple[queue2k.Queue[Record], FilterFunction]]
 
         self.exit_requested = False             # Will be set to true when the framework wants to shut down (e.g. on error or user exit)
         self.running = False                    # 'running' is True once the connection to the HCI sockets is established
@@ -343,16 +343,16 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         if hcipkt.data[0:6] == "TRACE_": # My custom header (see hook code)
             data = hcipkt.data[6:]
-            self.tracepoint_registers = [u32(data[i:i+4]) for i in range(0, 68, 4)]
-            pc = self.tracepoint_registers[0]
+            tracepoint_registers = [u32(data[i:i+4]) for i in range(0, 68, 4)]
+            pc = tracepoint_registers[0]
             registers  = "pc:  0x%08x   lr:  0x%08x   sp:  0x%08x   cpsr: 0x%08x\n" % \
-                        (pc, self.tracepoint_registers[16], self.tracepoint_registers[1], self.tracepoint_registers[2])
+                        (pc, tracepoint_registers[16], tracepoint_registers[1], tracepoint_registers[2])
             registers += "r0:  0x%08x   r1:  0x%08x   r2:  0x%08x   r3:  0x%08x   r4:  0x%08x\n" % \
-                        tuple(self.tracepoint_registers[3:8])
+                        tuple(tracepoint_registers[3:8])
             registers += "r5:  0x%08x   r6:  0x%08x   r7:  0x%08x   r8:  0x%08x   r9:  0x%08x\n" % \
-                        tuple(self.tracepoint_registers[8:13])
+                        tuple(tracepoint_registers[8:13])
             registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % \
-                        tuple(self.tracepoint_registers[13:16])
+                        tuple(tracepoint_registers[13:16])
             log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
 
             filename = self.data_directory + "/" + "internalblue_tracepoint_registers_%s.bin" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -360,7 +360,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             f = open(filename, "w")
             f.write(registers)
             f.close()
-
+            self.tracepoint_registers = tracepoint_registers
             # remove tracepoint from self.tracepoints
             for tp in self.tracepoints:
                 if tp[0] == pc:
@@ -675,7 +675,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         log.warn("registerHciCallback: no such callback is registered!")
 
     def registerHciRecvQueue(self, queue, filter_function=None):
-        # type: (Queue.Queue[Record], FilterFunction) -> None
+        # type: (queue2k.Queue[Record], FilterFunction) -> None
         """
         Add a new queue to self.registeredHciRecvQueues.
         The queue will be filled by the recvThread every time the thread receives
@@ -698,7 +698,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.registeredHciRecvQueues.append((queue, filter_function))
 
     def unregisterHciRecvQueue(self, queue):
-        # type: (Queue.Queue[Tuple[HCI, int, int, int, Any, datetime]]) -> None
+        # type: (queue2k.Queue[Tuple[HCI, int, int, int, Any, datetime]]) -> None
         """
         Remove a queue from self.registeredHciRecvQueues.
         """
@@ -806,7 +806,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             return None
 
     def readMem(self, address, length, progress_log=None, bytes_done=0, bytes_total=0):
-        # type: (int, int, Optional[Any], int, int) -> Optional[bytes]
+        # type: (Address, int, Optional[Any], int, int) -> Optional[bytes]
         """
         Reads <length> bytes from the memory space of the firmware at the given
         address. Reading from unmapped memory or certain memory-mapped-IO areas
@@ -1103,7 +1103,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         return (table_addresses, table_values, slot_bits)
 
     def patchRom(self, address, patch, slot=None):
-        # type: (int, Any, Optional[Any]) -> bool
+        # type: (Address, Any, Optional[Any]) -> bool
         """
         Patch a 4-byte value (DWORD) inside the ROM section of the firmware
         (0x0 - 0x8FFFF) using the patchram mechanism. There are 128 available
@@ -1262,11 +1262,11 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             return None
 
         if is_array:
-            connection = self.readMem(self.fw.CONNECTION_ARRAY_ADDRESS +
-                            self.fw.CONNECTION_STRUCT_LENGTH*(conn_number-1),
+            connection = self.readMem(Address(self.fw.CONNECTION_ARRAY_ADDRESS +
+                            self.fw.CONNECTION_STRUCT_LENGTH*(conn_number-1)),
                             self.fw.CONNECTION_STRUCT_LENGTH)
         else:
-            connection_memaddr = u32(self.readMem(self.fw.CONNECTION_LIST_ADDRESS + 4*(conn_number-1), 4))
+            connection_memaddr = Address(u32(self.readMem(Address(self.fw.CONNECTION_LIST_ADDRESS + 4*(conn_number-1)), 4)))
             if (connection_memaddr == 0x00000000):
                 return None
             connection = self.readMem(connection_memaddr, self.fw.CONNECTION_STRUCT_LENGTH)
@@ -1332,14 +1332,14 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         #log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
         result = self.sendHciCommand(0xfc58, p16(conn_handle) + p8(len(payload + opcode_data)) + data)
 
-        if result == None:
+        if result is None:
             log.warn("sendLmpPacket: did not get a result from firmware, maybe crashed internally?")
             return False
+        else:
+            error_status = u8(result[3])
 
-        result = u8(result[3])
-
-        if result != 0:
-            log.warn("sendLmpPacket: got error status 0x%02x" % result)
+        if error_status != 0:
+            log.warn("sendLmpPacket: got error status 0x%02x" % error_status)
             return False
 
         return True
@@ -1514,11 +1514,13 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         Create Connection
         """
 
-        hcipkt    = record[0]   # get HCI Event packet
+        _hcipkt = record[0]
+        if not issubclass(_hcipkt.__class__, hci.HCI_Event):
+            return
+        hcipkt: hci.HCI_Event    = _hcipkt   # get HCI Event packet
         timestamp = record[5]   # get timestamp
 
-        if not issubclass(hcipkt.__class__, hci.HCI_Event):
-            return
+
 
         # Check if event is Connection Create Status Event
         if hcipkt.event_code == 0x0f:
@@ -1592,7 +1594,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 return False
 
         # Read address of first bloc struct:
-        first_bloc_struct_address = u32(self.readMem(self.fw.BLOC_HEAD, 4))
+        first_bloc_struct_address = Address(u32(self.readMem(self.fw.BLOC_HEAD, 4)))
 
         # Traverse the double-linked list
         bloclist = []

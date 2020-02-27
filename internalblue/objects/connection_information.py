@@ -1,5 +1,7 @@
 from builtins import object
 from internalblue.utils.pwnlib_wrapper import u32, u16, u8
+from typing import Any
+
 
 
 class ConnectionInformation(object):

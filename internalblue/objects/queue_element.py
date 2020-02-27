@@ -1,4 +1,7 @@
 from builtins import object
+from typing import Any
+
+
 class QueueElement(object):
     index = 0
     next_item = 0

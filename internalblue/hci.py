@@ -37,7 +37,7 @@ from pwnlib.util.packing import flat
 HCI_UART_TYPE_CLASS = {}
 
 class HCI(object):
-
+    data: bytes
     """
     HCI Packet types for UART Transport layer
     Core specification 4.1 [vol 4] Part A (Section 2) - Protocol

@@ -21,15 +21,15 @@
 #   liability, whether in an action of contract, tort or otherwise, arising from,
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
+from .fw import MemorySection, FirmwareDefinition
 
-from .fw import MemorySection
+class DefaultFirmware(FirmwareDefinition):
+    # Firmware Infos
+    FW_NAME = "default (unknown firmware)"
 
-# Firmware Infos
-FW_NAME = "default (unknown firmware)"
-
-# Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-             MemorySection(0xd0000,  0xd8000,  False, True ),
-             MemorySection(0x200000, 0x228000, False, True )
+    # Memory Sections
+    #                          start,    end,      is_rom? is_ram?
+    SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
+                 MemorySection(0xd0000,  0xd8000,  False, True ),
+                 MemorySection(0x200000, 0x228000, False, True )
             ]

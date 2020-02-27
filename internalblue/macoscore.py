@@ -30,7 +30,7 @@ class macOSCore(InternalBlue):
         self.iobe = None
         self.serial = None
         if not replay:
-            import objc
+            import objc # type: ignore
             objc.initFrameworkWrapper("IOBluetoothExtended",
                   frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
                   frameworkPath=objc.pathForFramework(
