@@ -14,8 +14,15 @@ from pwnlib import term
 from pwnlib.util import iters
 from pwnlib.util.misc import read
 from pwnlib.context import context
-import pwnlib.log
-log = pwnlib.log.getLogger('internalbue')
+
+#TODO: Logging via pwnlib doesn't work yet, so for now it is still used via pwn
+# import pwnlib.log
+# pwnlib.log.install_default_handler()
+# log = pwnlib.log.getLogger('internalbue')
+
+from pwn import log
+
+
 from pwnlib.term import text
 from pwnlib.ui import options, yesno
 from pwnlib.util.packing import flat
