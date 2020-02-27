@@ -33,7 +33,7 @@ from __future__ import print_function
 import socket
 import sys
 from builtins import str
-import internalblue.utils.pwnlib as pwnlib
+import internalblue.utils.pwnlib_wrapper as pwnlib
 import os
 import traceback
 import argparse

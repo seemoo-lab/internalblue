@@ -30,8 +30,8 @@ from builtins import hex
 from builtins import range
 from builtins import object
 
-from internalblue.utils.pwnlib import p8, u16, p16, unbits, bits_str, u8, bits, p32, u32
-from internalblue.utils.pwnlib import log
+from internalblue.utils.pwnlib_wrapper import p8, u16, p16, unbits, bits_str, u8, bits, p32, u32
+from internalblue.utils.pwnlib_wrapper import log
 from pwnlib.util.packing import flat
 
 HCI_UART_TYPE_CLASS = {}

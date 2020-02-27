@@ -36,7 +36,7 @@ import pwnlib
 from pwnlib.asm import asm
 from pwnlib.exception import PwnlibException
 from pwnlib.util.fiddling import bits, unbits
-from .utils.pwnlib import p16, p8, u32, u16, p32, u8
+from .utils.pwnlib_wrapper import p16, p8, u32, u16, p32, u8
 
 standard_library.install_aliases()
 from builtins import hex
@@ -56,7 +56,7 @@ from .objects.connection_information import ConnectionInformation
 from future.utils import with_metaclass
 from internalblue.utils import bytes_to_hex
 
-from internalblue.utils.pwnlib import log, context, flat
+from internalblue.utils.pwnlib_wrapper import log, context, flat
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable

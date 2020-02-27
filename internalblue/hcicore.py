@@ -12,7 +12,7 @@ from builtins import zip
 from builtins import range
 import subprocess
 import datetime
-from internalblue.utils.pwnlib import log, context, p32, u16, p16, u32
+from internalblue.utils.pwnlib_wrapper import log, context, p32, u16, p16, u32
 import fcntl
 from .core import InternalBlue
 from . import hci

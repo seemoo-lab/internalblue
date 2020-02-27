@@ -16,7 +16,7 @@ import socket
 import queue as queue2k
 from . import hci
 
-from internalblue.utils.pwnlib import log, p8
+from internalblue.utils.pwnlib_wrapper import log, p8
 
 from .core import InternalBlue
 import binascii

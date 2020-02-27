@@ -48,7 +48,7 @@ from pwnlib.exception import PwnlibException
 from pwnlib.ui import yesno
 from pwnlib.util.fiddling import isprint
 
-from internalblue.utils.pwnlib import log, flat, read, p8, p32, u32, p16
+from internalblue.utils.pwnlib_wrapper import log, flat, read, p8, p32, u32, p16
 from internalblue.utils import bytes_to_hex
 
 try:

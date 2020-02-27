@@ -9,9 +9,9 @@ Use an IPython shell to run "from pwn import *" and check where some method/modu
 
 
 # Imports that used to be imported via 'from pwn import *'
-
-from pwnlib.util import iters
+import pwnlib
 from pwnlib import term
+from pwnlib.util import iters
 from pwnlib.util.misc import read
 from pwnlib.context import context
 import pwnlib.log
@@ -41,20 +41,41 @@ This means:
 # Imports needed for this hack
 from pwnlib.util.packing import ops, sizes, make_multi
 import sys
-from typing import Union, Optional, Literal
+try:
+    from typing import Union, Optional, Literal
+    endianess = Union[Literal['big']]
+
+except ImportError:
+    pass
 mod = sys.modules[__name__]
 
 
 _DEFINES = ['u8', 'p8', 'u32', 'u16', 'p32']
 
-endianess = Union[Literal['big']]
 
-def u8(data: bytes, endian: Optional[endianess] = None) -> int: ...
-def p8(number: int, endian: Optional[endianess] = None) -> bytes: ...
-def u16(data: bytes, endian: Optional[endianess] = None) -> int: ...
-def p16(number: int, endian: Optional[endianess] = None) -> bytes: ...
-def u32(data: bytes, endian: Optional[endianess] = None) -> int: ...
-def p32(number: int, endian: Optional[endianess] = None) -> bytes: ...
+
+def u8(data, endian = None):
+    # type: (bytes, Optional[endianess]) -> int
+    pass
+
+def p8(number, endian = None):
+    # type: (int, Optional[endianess]) -> bytes
+    pass
+def u16(data, endian = None):
+    # type: (bytes, Optional[endianess]) -> int
+    pass
+
+def p16(number, endian = None):
+    # type: (int, Optional[endianess]) -> bytes
+    pass
+
+def u32(data, endian = None):
+    # type: (bytes, Optional[endianess]) -> int
+    pass
+
+def p32(number, endian = None):
+    # type: (int, Optional[endianess]) -> bytes
+    pass
 
 
 for op, size in iters.product(ops, sizes):

@@ -17,7 +17,7 @@ from internalblue import hci
 from internalblue.utils import bytes_to_hex
 
 
-from internalblue.utils.pwnlib import log, context, u32
+from internalblue.utils.pwnlib_wrapper import log, context, u32
 from .core import InternalBlue
 
 
