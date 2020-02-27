@@ -1,6 +1,12 @@
 #!/usr/bin/env python2
+import struct
+from time import sleep
 
 from future import standard_library
+
+from pwnlib import adb
+from pwnlib.exception import PwnlibException
+
 standard_library.install_aliases()
 from builtins import str
 import datetime
@@ -10,8 +16,8 @@ import random
 from internalblue import hci
 from internalblue.utils import bytes_to_hex
 
-from pwn import *
 
+from internalblue.utils.pwnlib import log, context, u32
 from .core import InternalBlue
 
 

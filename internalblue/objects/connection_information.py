@@ -1,5 +1,5 @@
 from builtins import object
-from pwnlib.util.packing import u32, u16, u8
+from internalblue.utils.pwnlib import u32, u16, u8
 
 
 class ConnectionInformation(object):

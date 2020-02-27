@@ -15,7 +15,8 @@ setup(name='internalblue',
           'pyelftools',
       ],
       extras_require={
-	"macoscore": ["pyobjc"],
+            "macoscore": ["pyobjc"],
+            "ipython": ["IPython"]
 	},
       entry_points = {
         'console_scripts': ['internalblue=internalblue.cli:internalblue_cli']

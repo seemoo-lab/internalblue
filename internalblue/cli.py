@@ -29,8 +29,11 @@
 
 
 from __future__ import print_function
+
+import socket
+import sys
 from builtins import str
-from pwn import *
+import internalblue.utils.pwnlib as pwnlib
 import os
 import traceback
 import argparse
@@ -62,7 +65,7 @@ def print_banner():
 
 type <help> for usage information!\n\n"""
     for line in banner:
-        term.output(text.blue(line))
+        pwnlib.term.output(pwnlib.text.blue(line))
 
 def commandLoop(internalblue, init_commands=None):
     cmdstack = init_commands.split(';')[::-1] if init_commands else None
@@ -72,37 +75,37 @@ def commandLoop(internalblue, init_commands=None):
             if cmdstack:
                 cmdline = cmdstack.pop().strip()
             else:
-                cmdline = term.readline.readline(prompt='> ').strip().decode('utf-8')
+                cmdline = pwnlib.term.readline.readline(prompt='> ').strip().decode('utf-8')
             cmdword = cmdline.split(' ')[0].split('=')[0]
             if(cmdword == ''):
                 continue
-            log.debug("Command Line: [[" + cmdword + "]] " + cmdline)
+            pwnlib.log.debug("Command Line: [[" + cmdword + "]] " + cmdline)
             matching_cmd = cmds.findCmd(cmdword)
             if matching_cmd == None:
-                log.warn("Command unknown: " + cmdline)
+                pwnlib.log.warn("Command unknown: " + cmdline)
                 continue
             cmd_instance = matching_cmd(cmdline, internalblue)
             if(not cmd_instance.work()):
-                log.warn("Command failed: " + str(cmd_instance))
+                pwnlib.log.warn("Command failed: " + str(cmd_instance))
         except ValueError as e:
-            log.warn("commandLoop: ValueError: " + str(e))
+            pwnlib.log.warn("commandLoop: ValueError: " + str(e))
             raise
         except KeyboardInterrupt:
             if(cmd_instance != None):
                 cmd_instance.abort_cmd()
             else:
-                log.info("Got Ctrl-C; exiting...")
+                pwnlib.log.info("Got Ctrl-C; exiting...")
                 internalblue.exit_requested = True
                 break
         except AssertionError as e:
             raise
         except socket.error as e:
             if e.args == (1, "Operation not permitted"):
-                log.critical("Received an 'Operation not permitted' socket.error, you might need root for the command '{}'".format(cmdline))
-                log.critical(traceback.format_exc())
+                pwnlib.log.critical("Received an 'Operation not permitted' socket.error, you might need root for the command '{}'".format(cmdline))
+                pwnlib.log.critical(traceback.format_exc())
         except Exception as e:
             internalblue.exit_requested = True      # Make sure all threads terminate
-            log.critical("Uncaught exception (%s). Abort." % str(e))
+            pwnlib.log.critical("Uncaught exception (%s). Abort." % str(e))
             print(traceback.format_exc())
             raise
         cmd_instance = None
@@ -146,8 +149,8 @@ def internalblue_cli(argv, args=None):
     for cmd in cmds.getCmdList():
         for keyword in cmd.keywords:
             cmd_keywords.append(keyword)
-    readline_completer = term.completer.LongestPrefixCompleter(words=cmd_keywords)
-    term.readline.set_completer(readline_completer)
+    readline_completer = pwnlib.term.completer.LongestPrefixCompleter(words=cmd_keywords)
+    pwnlib.term.readline.set_completer(readline_completer)
 
 
 
@@ -218,18 +221,18 @@ def internalblue_cli(argv, args=None):
         elif args.device:
             matching_devices = [ dev for dev in devices if dev[1] == args.device]
             if len(matching_devices) > 1:
-                log.critical("Found multiple matching devices")
+                pwnlib.log.critical("Found multiple matching devices")
                 exit(-1)
             elif len(matching_devices) == 1:
-                log.info("Found device is: {}".format(matching_devices[0]))
+                pwnlib.log.info("Found device is: {}".format(matching_devices[0]))
                 device = matching_devices[0]
             else:
-                log.critical("No matching devices found")
+                pwnlib.log.critical("No matching devices found")
                 exit(-1)
         elif len(devices) == 1:
             device = devices[0]
         else:
-            i = options('Please specify device:',  [d[2] for d in devices], 0)
+            i = pwnlib.options('Please specify device:',  [d[2] for d in devices], 0)
             device = devices[i]
 
         # Setup device
@@ -238,16 +241,16 @@ def internalblue_cli(argv, args=None):
 
         # Restore readline history:
         if os.path.exists(reference.data_directory + "/" + HISTFILE):
-            readline_history = read(reference.data_directory + "/" + HISTFILE)
-            term.readline.history = readline_history.split(b'\n')
+            readline_history = pwnlib.read(reference.data_directory + "/" + HISTFILE)
+            pwnlib.term.readline.history = readline_history.split(b'\n')
 
         # Connect to device
         if not reference.connect():
-            log.critical("No connection to target device.")
+            pwnlib.log.critical("No connection to target device.")
             exit(-1)
 
         # Enter command loop (runs until user quits)
-        log.info("Starting commandLoop for reference {}".format(reference))
+        pwnlib.log.info("Starting commandLoop for reference {}".format(reference))
         commandLoop(reference, init_commands=args.commands)
 
         # shutdown connection
@@ -260,7 +263,7 @@ def internalblue_cli(argv, args=None):
         # f.close()
 
     # Cleanup
-    log.info("Goodbye")
+    pwnlib.log.info("Goodbye")
 
 
 if __name__ == "__main__":

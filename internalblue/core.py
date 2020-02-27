@@ -26,7 +26,18 @@
 #   Software.
 
 from __future__ import division
+
+import socket
+import struct
+
 from future import standard_library
+
+import pwnlib
+from pwnlib.asm import asm
+from pwnlib.exception import PwnlibException
+from pwnlib.util.fiddling import bits, unbits
+from .utils.pwnlib import p16, p8, u32, u16, p32, u8
+
 standard_library.install_aliases()
 from builtins import hex
 from builtins import str
@@ -35,7 +46,6 @@ from builtins import object
 from past.utils import old_div
 from abc import ABCMeta, abstractmethod
 
-from pwn import *
 from .fw.fw import Firmware
 import datetime
 import time
@@ -45,6 +55,8 @@ from .objects.queue_element import QueueElement
 from .objects.connection_information import ConnectionInformation
 from future.utils import with_metaclass
 from internalblue.utils import bytes_to_hex
+
+from internalblue.utils.pwnlib import log, context, flat
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable
@@ -371,7 +383,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
             # Check if this was the last packet
             if len(self.tracepoint_memdump_parts) == self.fw.TRACEPOINT_RAM_DUMP_PKT_COUNT:
-                dump = fit(self.tracepoint_memdump_parts)
+                dump = flat(self.tracepoint_memdump_parts)
                 #TODO: use this to start qemu
                 filename = self.data_directory + "/" + "internalblue_tracepoint_0x%x_%s.bin" % (self.tracepoint_memdump_address, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
                 log.info("Captured Ram Dump for Tracepoint 0x%x to %s" % (self.tracepoint_memdump_address, filename))
@@ -747,7 +759,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             if hasattr(self, 'test_failed'):
                 raise self.test_failed
             return None
-        except queue.Full:
+        except queue2k.Full:
             log.warn("sendHciCommand: send queue is full!")
             return None
 
@@ -764,7 +776,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         try:
             self.sendQueue.put((h4type, data, None, None), timeout=timeout)
             return True
-        except queue.Full:
+        except queue2k.Full:
             log.warn("sendH4: send queue is full!")
             return False
 
@@ -864,7 +876,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 response_check = self.sendHciCommand(0xfc4d, p32(read_addr) + p8(blocksize))
                 if response != response_check:
                     log.debug("readMem: double checking response failed at 0x%x! retry..." % read_addr)
-                    sleep(0.3)
+                    time.sleep(0.3)
                     retry = retry - 1
                     continue
 
@@ -1045,7 +1057,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         return True
 
     def getPatchramState(self):
-        # type: () -> Tuple[List[Optional[int]], List[Any], List[Any]]
+        # type: () -> Union[bool, Tuple[List[Optional[int]], List[Union[Union[int, bytes, None], Any]], list]]
         """
         Retrieves the current state of the patchram unit. The return value
         is a tuple containing 3 lists which are indexed by the slot number:

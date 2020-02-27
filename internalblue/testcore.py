@@ -2,13 +2,21 @@
 
 from __future__ import print_function
 from __future__ import absolute_import
+
+import os
+import random
+import time
+
 from future import standard_library
+
+from pwnlib.context import context
+
 standard_library.install_aliases()
 import socket
 import queue as queue2k
 from . import hci
 
-from pwn import *
+from internalblue.utils.pwnlib import log, p8
 
 from .core import InternalBlue
 import binascii

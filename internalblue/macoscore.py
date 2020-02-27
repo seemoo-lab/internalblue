@@ -1,6 +1,10 @@
 #!/usr/bin/env python2
 
 from __future__ import absolute_import
+
+import random
+import time
+
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
@@ -8,13 +12,15 @@ import socket
 import queue as queue2k
 from . import hci
 
-from pwn import *
 
+from internalblue.utils.pwnlib import log, context, p8
 from .core import InternalBlue
 
 import binascii
 import os
 filepath = os.path.dirname(os.path.abspath(__file__))
+
+IOBE = None
 
 class macOSCore(InternalBlue):
 

@@ -24,11 +24,12 @@
 #   Software.
 
 from __future__ import print_function
+
+import re
 from builtins import str
 from builtins import hex
 from builtins import range
 from builtins import object
-from pwn import *
 import os
 import sys
 import inspect
@@ -40,11 +41,15 @@ import struct
 import time
 import select
 import json
+
+from pwnlib.context import context
+from pwnlib.asm import disasm, asm
+from pwnlib.exception import PwnlibException
+from pwnlib.ui import yesno
+from pwnlib.util.fiddling import isprint
+
+from internalblue.utils.pwnlib import log, flat, read, p8, p32, u32, p16
 from internalblue.utils import bytes_to_hex
-
-
-
-
 
 try:
     from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Type
@@ -191,7 +196,7 @@ class Cmd(object):
                 dumped_sections[section.start_addr] = self.readMem(section.start_addr, section.size(), self.progress_log, bytes_done, bytes_total)
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
-            Cmd.memory_image = fit(dumped_sections, filler='\x00')
+            Cmd.memory_image = flat(dumped_sections, filler='\x00')
             f = open(self.memory_image_template_filename, 'wb')
             f.write(Cmd.memory_image)
             f.close()

@@ -1,6 +1,10 @@
 #!/usr/bin/env python2
 
 from __future__ import absolute_import
+
+import socket
+import struct
+
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
@@ -8,7 +12,7 @@ from builtins import zip
 from builtins import range
 import subprocess
 import datetime
-from pwn import *
+from internalblue.utils.pwnlib import log, context, p32, u16, p16, u32
 import fcntl
 from .core import InternalBlue
 from . import hci

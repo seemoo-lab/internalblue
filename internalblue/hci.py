@@ -29,7 +29,10 @@ from __future__ import absolute_import
 from builtins import hex
 from builtins import range
 from builtins import object
-from pwn import *
+
+from internalblue.utils.pwnlib import p8, u16, p16, unbits, bits_str, u8, bits, p32, u32
+from internalblue.utils.pwnlib import log
+from pwnlib.util.packing import flat
 
 HCI_UART_TYPE_CLASS = {}
 
@@ -965,7 +968,7 @@ class StackDumpReceiver(object):
         log.debug("Stack dump handling addr %08x", addr-self.memdump_addr)
 
     def finishStackDump(self):
-        dump = fit(self.memdumps)
+        dump = flat(self.memdumps)
         log.warn("Stack dump @0x%08x written to %s!" % (self.memdump_addr, self.stack_dump_filename))
         f = open(self.stack_dump_filename, "wb")
         f.write(dump)
