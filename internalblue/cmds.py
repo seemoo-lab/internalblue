@@ -136,7 +136,7 @@ class Cmd(object):
     progress_log: Optional[Progress]
     memory_image: Optional[bytes] = None
 
-    def __init__(self, cmdline: str, internalblue: InternalBlue) -> None:
+    def __init__(self, cmdline: str, internalblue: 'InternalBlue') -> None:
         self.cmdline = cmdline
         self.internalblue = internalblue
         self.memory_image_template_filename = (
