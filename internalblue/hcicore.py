@@ -11,7 +11,6 @@ standard_library.install_aliases()
 from builtins import str
 from builtins import zip
 from builtins import range
-import subprocess
 import datetime
 from internalblue.utils.pwnlib_wrapper import log, context, p32, u16, p16, u32
 import fcntl
@@ -20,13 +19,9 @@ from . import hci
 import queue as queue2k
 import threading
 
-try:
-    from typing import List
-    from internalblue import Device
+from typing import List, cast
+from internalblue import Device
 
-
-except:
-    pass
 
 # from /usr/include/bluetooth/hci.h:
 # define HCIDEVUP	_IOW('H', 201, int)
@@ -34,12 +29,12 @@ except:
 # define HCIGETDEVINFO	_IOR('H', 211, int)
 
 # ioctl numbers. see http://code.activestate.com/recipes/578225-linux-ioctl-numbers-in-python/
-def _IOR(type, nr, size):
-    return 2 << 30 | type << 8 | nr << 0 | size << 16
+def _IOR(_type, nr, size):
+    return 2 << 30 | _type << 8 | nr << 0 | size << 16
 
 
-def _IOW(type, nr, size):
-    return 1 << 30 | type << 8 | nr << 0 | size << 16
+def _IOW(_type, nr, size):
+    return 1 << 30 | _type << 8 | nr << 0 | size << 16
 
 
 HCIDEVUP = _IOW(ord("H"), 201, 4)
@@ -146,7 +141,7 @@ class HCICore(InternalBlue):
                 }
             )
         s.close()
-        return device_list
+        return cast("List[Device]", device_list)
 
     def bringHciDeviceUp(self, dev_id):
         """
@@ -201,7 +196,7 @@ class HCICore(InternalBlue):
         if len(device_list) == 0:
             log.info("No connected HCI device found")
 
-        return device_list
+        return cast("List[Device]", device_list)
 
     def local_connect(self):
         """
@@ -307,10 +302,10 @@ class HCICore(InternalBlue):
             # Put the record into all queues of registeredHciRecvQueues if their
             # filter function matches.
             for queue, filter_function in self.registeredHciRecvQueues:
-                if filter_function == None or filter_function(record):
+                if filter_function is None or filter_function(record):
                     try:
                         queue.put(record, block=False)
-                    except queue.Full:
+                    except queue2k.Full:
                         log.warn(
                             "recvThreadFunc: A recv queue is full. dropping packets.."
                         )
@@ -373,7 +368,7 @@ class HCICore(InternalBlue):
         )  # type mask, event mask, event mask, opcode
 
         interface_num = device["dev_id"]
-        log.debug("Socket interface number: %s" % (interface_num))
+        log.debug("Socket interface number: %s" % interface_num)
         self.s_snoop.bind((interface_num,))
         self.s_snoop.settimeout(2)
         log.debug("_setupSockets: Bound socket.")
@@ -398,7 +393,7 @@ class HCICore(InternalBlue):
         Close s_snoop and s_inject socket. (equal)
         """
 
-        if self.s_inject != None:
+        if self.s_inject is not None:
             self.s_inject.close()
             self.s_inject = None
             self.s_snoop = None
