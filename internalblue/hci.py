@@ -45,8 +45,6 @@ from internalblue.utils.pwnlib_wrapper import (
 from internalblue.utils.pwnlib_wrapper import log
 from pwnlib.util.packing import flat
 
-HCI_UART_TYPE_CLASS = {}
-
 
 class HCI_COMND(Enum):
     Inquiry = 0x401
@@ -872,7 +870,7 @@ class HCI_Event(HCI):
         e = HCI_Event.HCI_EVENT_VSC_STR
         if code_int == 0xFF:
             if code_int in e:
-                return e[int(self.data[0], 16)]
+                return e[self.data[0]]
 
         d = HCI_Event.HCI_EVENT_STR
         if code_int in d:
