@@ -18,6 +18,8 @@ from .core import InternalBlue
 
 
 class iOSCore(InternalBlue):
+    buffer: bytes
+
     def __init__(
         self,
         ios_addr,
@@ -38,7 +40,7 @@ class iOSCore(InternalBlue):
         self.ios_port = parts[1]
         self.serial = False
         self.doublecheck = True
-        self.buffer = ""
+        self.buffer = b""
 
     def device_list(self):
         """
@@ -76,7 +78,7 @@ class iOSCore(InternalBlue):
         except queue2k.Empty:
             log.warn("sendH4: waiting for response timed out!")
             return None
-        except queue.Full:
+        except queue2k.Full:
             log.warn("sendH4: send queue is full!")
             return None
 
@@ -111,8 +113,8 @@ class iOSCore(InternalBlue):
 
         return True
 
-    def _getLatestH4Blob(self, new_data=""):
-        data_out = ""
+    def _getLatestH4Blob(self, new_data: bytes = b""):
+        data_out: bytes = b""
         self.buffer += new_data
         if len(self.buffer) > 0:
 
@@ -122,20 +124,22 @@ class iOSCore(InternalBlue):
             else:
                 # log.info(self.buffer[0].encode("hex"))
                 # for ACL data the length field is at offset 3
-                if self.buffer[0] == "\x02":
+                if self.buffer[0] == 0x2:
                     acl_len = struct.unpack_from("h", self.buffer[3:])[0]
                     required_len = acl_len + 5
                 # for HCI cmd data the length is at offset 3 (but just one byte)
-                elif self.buffer[0] == "\x01":
+                elif self.buffer[0] == 0x1:
                     hci_len = struct.unpack_from("b", self.buffer[3:])[0]
                     required_len = hci_len + 4
                 # for HCI event data the length is at offset 2 (one byte)
-                elif self.buffer[0] == "\x04":
+                elif self.buffer[0] == 0x4:
                     hci_len = struct.unpack_from("b", self.buffer[2:])[0]
                     required_len = hci_len + 3
                 # for BCM data the length should always be 64
-                elif self.buffer[0] == "\x07":
+                elif self.buffer[0] == 0x07:
                     required_len = 64
+                else:
+                    raise ValueError("Could not derive required_len from buffer")
 
                 # if we don't have all the data we need, we just wait for more
                 if len(self.buffer) < required_len:
@@ -158,7 +162,7 @@ class iOSCore(InternalBlue):
                 else:
                     # log.info("Got exactly the right amount of data")
                     data_out = self.buffer
-                    self.buffer = ""
+                    self.buffer = b""
                     return (data_out, False)
         else:
             return (None, False)
@@ -231,7 +235,7 @@ class iOSCore(InternalBlue):
         Close s_snoop and s_inject (which are the same)
         """
 
-        if self.s_inject != None:
+        if self.s_inject is not None:
             self.s_inject.close()
             self.s_inject = None
 
