@@ -45,12 +45,13 @@ class SocketRecvHook(object):
         self.recvfrom_hook(data, addr)
         return data, addr
 
+
 class SocketInjectHook(object):
     def __init__(self, socket, core):
         # type: (socket.socket, InternalBlue) -> None
         self.inject_socket = socket
         self.replace = False
-        self.core = core # type: InternalBlue
+        self.core = core  # type: InternalBlue
 
     def close(self):
         if self.inject_socket:
@@ -105,7 +106,6 @@ class SocketInjectHook(object):
 
 
 class SocketDuplexHook(SocketInjectHook, SocketRecvHook):
-
     def __init__(self, snoop_socket, inject_socket, core, **kwargs):
         # type: (socket.socket, socket.socket, InternalBlue, Dict[str, Any]) -> None
         self.snoop_socket = snoop_socket
@@ -125,10 +125,10 @@ class HookBase(object):
 
 
 class TraceToFileHook(SocketDuplexHook):
-    def __init__(self, snoop_socket, inject_socket, core, filename='/tmp/bt_hci.log'):
+    def __init__(self, snoop_socket, inject_socket, core, filename="/tmp/bt_hci.log"):
         # type: (socket.socket, socket.socket, InternalBlue, str) -> None
         SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
-        self.file = open(filename, 'a')
+        self.file = open(filename, "a")
         self.replace = False
         self.log = []
         self.closed = False
@@ -167,11 +167,11 @@ class TraceToFileHook(SocketDuplexHook):
             self.file.close()
             self.closed = True
 
+
 import socket
 
 
 class PrintTrace(SocketDuplexHook):
-
     def send_hook(self, data, **kwargs):
         print("Sent: {}".format(binascii.hexlify(data)))
 
@@ -189,7 +189,9 @@ class PrintTrace(SocketDuplexHook):
 
 
 class ReplaySocket(SocketDuplexHook):
-    def __init__(self, snoop_socket, inject_socket, core, filename='/tmp/bt_hci.log', debug=False):
+    def __init__(
+        self, snoop_socket, inject_socket, core, filename="/tmp/bt_hci.log", debug=False
+    ):
         SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
         self.replace = True
         self.log = open(filename).readlines()
@@ -226,8 +228,8 @@ class ReplaySocket(SocketDuplexHook):
             # Some recieves aren't handled yet, wait a bit so the recv thread takes care of them.
             time.sleep(0.2)
             direction, encoded_data = self.log[self.index].split(" ", 1)
-        assert (direction == "TX")
-        log_data = binascii.unhexlify(encoded_data.rstrip('\n'))
+        assert direction == "TX"
+        log_data = binascii.unhexlify(encoded_data.rstrip("\n"))
         assert data == log_data, "Got {}, expected {}".format(hex_data, encoded_data)
         self.index += 1
         ty, data = self.log[self.index].split(" ", 1)
@@ -240,7 +242,7 @@ class ReplaySocket(SocketDuplexHook):
         direction, encoded_data = self.log[self.index].split(" ", 1)
         if direction == "RX":
             self.index += 1
-            return binascii.unhexlify(encoded_data.rstrip('\n'))
+            return binascii.unhexlify(encoded_data.rstrip("\n"))
         else:
             raise socket.timeout()
 
@@ -249,7 +251,7 @@ class ReplaySocket(SocketDuplexHook):
         direction, encoded_data = self.log[self.index].split(" ", 1)
         if direction == "RX":
             self.index += 1
-            return binascii.unhexlify(encoded_data.rstrip('\n')), 1234
+            return binascii.unhexlify(encoded_data.rstrip("\n")), 1234
         else:
             raise socket.timeout()
 
@@ -259,9 +261,8 @@ class ReplaySocket(SocketDuplexHook):
     def close(self):
         assert self.index + 1 == len(self.log)
 
+
 from internalblue.core import InternalBlue
-
-
 
 
 def hook(core, socket_hook, **hookkwargs):
@@ -289,10 +290,10 @@ def hook(core, socket_hook, **hookkwargs):
             else:
                 self.s_inject.close()
                 self.s_snoop.close()
+
         return wrapped_teardown_sockets
 
     core._teardownSockets = wrap_teardown_sockets(core._teardownSockets)
-
 
     def wrap_device_list(orig_func):
         def wrapped_device_list(self, *args, **kwargs):
@@ -300,8 +301,7 @@ def hook(core, socket_hook, **hookkwargs):
                 return orig_func(self, *args, **kwargs)
             else:
                 return [(self, "ReplayDevice", "ReplayDevice")]
+
         return wrapped_device_list
-
-
 
     core.device_list = wrap_device_list(core.device_list)

@@ -1,13 +1,23 @@
-
 from future import standard_library
+
 standard_library.install_aliases()
 
 import datetime
 
 from queue import Queue
-from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable, Dict
+from typing import (
+    List,
+    Optional,
+    Any,
+    TYPE_CHECKING,
+    Tuple,
+    Union,
+    NewType,
+    Callable,
+    Dict,
+)
 
-#Address = NewType("Address", int)
+# Address = NewType("Address", int)
 Address = int
 ConnectionNumber = NewType("ConnectionNumber", int)
 ConnectionIndex = NewType("ConnectionIndex", int)
@@ -15,7 +25,7 @@ ConnectionIndex = NewType("ConnectionIndex", int)
 BluetoothAddress = NewType("BluetoothAddress", bytes)
 ConnectionDict = NewType("ConnectionDict", Dict[str, Any])
 HeapInformation = NewType("HeapInformation", Dict[str, Any])
-QueueInformation = NewType('QueueInformation', Dict[str, Any])
+QueueInformation = NewType("QueueInformation", Dict[str, Any])
 
 try:
 
@@ -26,8 +36,8 @@ try:
         Record = Tuple[HCI, int, int, int, Any, datetime.datetime]
         FilterFunction = Callable[[Record], bool]
 
-        Opcode = NewType('Opcode', int)
-        HCI_CMD = NewType('HCI_CMD', int)
+        Opcode = NewType("Opcode", int)
+        HCI_CMD = NewType("HCI_CMD", int)
         Task = Tuple[HCI_CMD, bytes, Queue, Callable[[Record], bool]]
 
         Device = NewType("Device", Dict[str, Any])
@@ -42,4 +52,3 @@ try:
 
 except:
     pass
-

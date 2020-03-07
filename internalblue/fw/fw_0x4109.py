@@ -29,17 +29,20 @@ FW_NAME = "BCM4345B0"
 
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x000c07ff,  True,  False),  # Internal ROM
-             MemorySection(0x000d0000, 0x000dffff,  False, True),   # Internal Memory Patchram Contents
-             MemorySection(0x00200400, 0x00201cff,  False, True),   # Internal Memory Cortex M3
-             ]
+SECTIONS = [
+    MemorySection(0x00000000, 0x000C07FF, True, False),  # Internal ROM
+    MemorySection(
+        0x000D0000, 0x000DFFFF, False, True
+    ),  # Internal Memory Patchram Contents
+    MemorySection(0x00200400, 0x00201CFF, False, True),  # Internal Memory Cortex M3
+]
 
 # Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000  # needs to be aligned read
+PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000  # needs to be aligned read
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
-PATCHRAM_NUMBER_OF_SLOTS        = 128
-PATCHRAM_ALIGNED                = True
+PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
+PATCHRAM_NUMBER_OF_SLOTS = 128
+PATCHRAM_ALIGNED = True
 
 
 # Assembler snippet for the readMemAligned() function

@@ -55,6 +55,7 @@ except:
 
 HISTFILE = "_internalblue.hist"
 
+
 def print_banner():
     banner = """\
    ____     __                    _____  __
@@ -67,17 +68,20 @@ type <help> for usage information!\n\n"""
     for line in banner:
         pwnlib.term.output(pwnlib.text.blue(line))
 
+
 def commandLoop(internalblue, init_commands=None):
-    cmdstack = init_commands.split(';')[::-1] if init_commands else None
+    cmdstack = init_commands.split(";")[::-1] if init_commands else None
     while internalblue.running and not internalblue.exit_requested:
         cmd_instance = None
         try:
             if cmdstack:
                 cmdline = cmdstack.pop().strip()
             else:
-                cmdline = pwnlib.term.readline.readline(prompt='> ').strip().decode('utf-8')
-            cmdword = cmdline.split(' ')[0].split('=')[0]
-            if(cmdword == ''):
+                cmdline = (
+                    pwnlib.term.readline.readline(prompt="> ").strip().decode("utf-8")
+                )
+            cmdword = cmdline.split(" ")[0].split("=")[0]
+            if cmdword == "":
                 continue
             pwnlib.log.debug("Command Line: [[" + cmdword + "]] " + cmdline)
             matching_cmd = cmds.findCmd(cmdword)
@@ -85,13 +89,13 @@ def commandLoop(internalblue, init_commands=None):
                 pwnlib.log.warn("Command unknown: " + cmdline)
                 continue
             cmd_instance = matching_cmd(cmdline, internalblue)
-            if(not cmd_instance.work()):
+            if not cmd_instance.work():
                 pwnlib.log.warn("Command failed: " + str(cmd_instance))
         except ValueError as e:
             pwnlib.log.warn("commandLoop: ValueError: " + str(e))
             raise
         except KeyboardInterrupt:
-            if(cmd_instance != None):
+            if cmd_instance != None:
                 cmd_instance.abort_cmd()
             else:
                 pwnlib.log.info("Got Ctrl-C; exiting...")
@@ -101,34 +105,66 @@ def commandLoop(internalblue, init_commands=None):
             raise
         except socket.error as e:
             if e.args == (1, "Operation not permitted"):
-                pwnlib.log.critical("Received an 'Operation not permitted' socket.error, you might need root for the command '{}'".format(cmdline))
+                pwnlib.log.critical(
+                    "Received an 'Operation not permitted' socket.error, you might need root for the command '{}'".format(
+                        cmdline
+                    )
+                )
                 pwnlib.log.critical(traceback.format_exc())
         except Exception as e:
-            internalblue.exit_requested = True      # Make sure all threads terminate
+            internalblue.exit_requested = True  # Make sure all threads terminate
             pwnlib.log.critical("Uncaught exception (%s). Abort." % str(e))
             print(traceback.format_exc())
             raise
         cmd_instance = None
 
+
 def _parse_argv(argv):
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-directory", "-d", help="Set data directory. Default: ~/.internalblue")
-    parser.add_argument("--verbose", "-v", help="Set log level to DEBUG", action="store_true")
-    parser.add_argument("--ios-device", "-i", help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).")
-    parser.add_argument("--serialsu", "-s", help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.", action="store_true")
-    parser.add_argument("--testdevice", "-t", help="Use a dummy test device to execute testcases", action="store_true")
+    parser.add_argument(
+        "--data-directory", "-d", help="Set data directory. Default: ~/.internalblue"
+    )
+    parser.add_argument(
+        "--verbose", "-v", help="Set log level to DEBUG", action="store_true"
+    )
+    parser.add_argument(
+        "--ios-device",
+        "-i",
+        help="Tell internalblue to connect to a remote iPhone HCI socket. Specify socket IP address and port (i.e., 172.20.10.1:1234).",
+    )
+    parser.add_argument(
+        "--serialsu",
+        "-s",
+        help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--testdevice",
+        "-t",
+        help="Use a dummy test device to execute testcases",
+        action="store_true",
+    )
     parser.add_argument("--trace", help="Trace hci connection")
     parser.add_argument("--device", help="Specify device/core to be used")
-    parser.add_argument("--commands", "-c", help="CLI command to run before prompting, seperated by ';' (used for easier testing)")
-    parser.add_argument("--replay", help="Intercept and replace every communication with the core with the one in the specified file")
-    parser.add_argument("--save", help="Store a trace into the file that can be used with --replay")
+    parser.add_argument(
+        "--commands",
+        "-c",
+        help="CLI command to run before prompting, seperated by ';' (used for easier testing)",
+    )
+    parser.add_argument(
+        "--replay",
+        help="Intercept and replace every communication with the core with the one in the specified file",
+    )
+    parser.add_argument(
+        "--save", help="Store a trace into the file that can be used with --replay"
+    )
     return parser.parse_args(argv)
 
 
 # Main Program Start
 def internalblue_cli(argv, args=None):
-    #print_banner()
+    # print_banner()
 
     args = args or _parse_argv(argv)
 
@@ -149,77 +185,106 @@ def internalblue_cli(argv, args=None):
     for cmd in cmds.getCmdList():
         for keyword in cmd.keywords:
             cmd_keywords.append(keyword)
-    readline_completer = pwnlib.term.completer.LongestPrefixCompleter(words=cmd_keywords)
+    readline_completer = pwnlib.term.completer.LongestPrefixCompleter(
+        words=cmd_keywords
+    )
     pwnlib.term.readline.set_completer(readline_completer)
-
-
 
     if args.trace:
         from .socket_hooks import hook
         from internalblue import socket_hooks
+
         HookClass = getattr(socket_hooks, args.trace)
         hook(HCICore, HookClass)
         hook(ADBCore, HookClass)
     elif args.save:
         from .socket_hooks import hook, TraceToFileHook
+
         hook(HCICore, TraceToFileHook, filename=args.save)
         hook(ADBCore, TraceToFileHook, filename=args.save)
 
-
     # Initalize cores and get devices
     # As macOS has additional dependencies (objc), only import it here if needed
-    connection_methods = [] # type: List[InternalBlue]
+    connection_methods = []  # type: List[InternalBlue]
     if args.replay:
         from .socket_hooks import hook, ReplaySocket
         from .macoscore import macOSCore
-        replay_devices = ['macos_replay', 'adb_replay', 'hci_replay', 'ios_replay']
+
+        replay_devices = ["macos_replay", "adb_replay", "hci_replay", "ios_replay"]
         if args.device == "macos_replay":
             from .macoscore import macOSCore
+
             hook(macOSCore, ReplaySocket, filename=args.replay)
-            connection_methods = [macOSCore(log_level=log_level, data_directory=data_directory, replay=True)]
+            connection_methods = [
+                macOSCore(
+                    log_level=log_level, data_directory=data_directory, replay=True
+                )
+            ]
         elif args.device == "hci_replay":
             hook(HCICore, ReplaySocket, filename=args.replay)
-            connection_methods = [HCICore(log_level=log_level, data_directory=data_directory, replay=True)]
+            connection_methods = [
+                HCICore(log_level=log_level, data_directory=data_directory, replay=True)
+            ]
         elif args.device == "adb_replay":
             hook(ADBCore, ReplaySocket, filename=args.replay)
-            connection_methods = [ADBCore(log_level=log_level, data_directory=data_directory, replay=True)]
+            connection_methods = [
+                ADBCore(log_level=log_level, data_directory=data_directory, replay=True)
+            ]
         elif args.device == "ios_replay":
             raise NotImplementedError("ios replay is not implemented yet")
         else:
-            raise ValueError("--device is required with --replay and has to be one of {}".format(replay_devices))
+            raise ValueError(
+                "--device is required with --replay and has to be one of {}".format(
+                    replay_devices
+                )
+            )
 
     elif args.ios_device:
         from .ioscore import iOSCore
-        connection_methods = [iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)]
+
+        connection_methods = [
+            iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)
+        ]
     elif args.testdevice:
         from .testcore import testCore
-        connection_methods = [testCore(log_level=log_level, data_directory=data_directory)]
+
+        connection_methods = [
+            testCore(log_level=log_level, data_directory=data_directory)
+        ]
     elif platform == "darwin":
         from .macoscore import macOSCore
+
         connection_methods = [
-            macOSCore(log_level=log_level, data_directory=data_directory, replay=(args.replay and args.device == 'mac')),
-            ADBCore(log_level=log_level, data_directory=data_directory)]
+            macOSCore(
+                log_level=log_level,
+                data_directory=data_directory,
+                replay=(args.replay and args.device == "mac"),
+            ),
+            ADBCore(log_level=log_level, data_directory=data_directory),
+        ]
         if args.trace:
             hook(macOSCore, HookClass)
         elif args.save:
             hook(macOSCore, TraceToFileHook, filename=args.save)
     else:
         connection_methods = [
-            ADBCore(log_level=log_level, data_directory=data_directory, serial=args.serialsu),
-            HCICore(log_level=log_level, data_directory=data_directory)]
+            ADBCore(
+                log_level=log_level, data_directory=data_directory, serial=args.serialsu
+            ),
+            HCICore(log_level=log_level, data_directory=data_directory),
+        ]
 
-    devices = [] # type: List[DeviceTuple]
+    devices = []  # type: List[DeviceTuple]
     for connection_method in connection_methods:
         devices.extend(connection_method.device_list())
 
-
-    device = None # type: Optional[DeviceTuple]
+    device = None  # type: Optional[DeviceTuple]
     if len(devices) > 0:
         if args.replay:
             # There should only be one device that was created when --replay was passed
             device = devices[0]
         elif args.device:
-            matching_devices = [ dev for dev in devices if dev[1] == args.device]
+            matching_devices = [dev for dev in devices if dev[1] == args.device]
             if len(matching_devices) > 1:
                 pwnlib.log.critical("Found multiple matching devices")
                 exit(-1)
@@ -232,7 +297,7 @@ def internalblue_cli(argv, args=None):
         elif len(devices) == 1:
             device = devices[0]
         else:
-            i = pwnlib.options('Please specify device:',  [d[2] for d in devices], 0)
+            i = pwnlib.options("Please specify device:", [d[2] for d in devices], 0)
             device = devices[i]
 
         # Setup device
@@ -242,7 +307,7 @@ def internalblue_cli(argv, args=None):
         # Restore readline history:
         if os.path.exists(reference.data_directory + "/" + HISTFILE):
             readline_history = pwnlib.read(reference.data_directory + "/" + HISTFILE)
-            pwnlib.term.readline.history = readline_history.split(b'\n')
+            pwnlib.term.readline.history = readline_history.split(b"\n")
 
         # Connect to device
         if not reference.connect():
@@ -268,4 +333,3 @@ def internalblue_cli(argv, args=None):
 
 if __name__ == "__main__":
     internalblue_cli(sys.argv[1:])
-

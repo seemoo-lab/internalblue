@@ -6,6 +6,7 @@ import random
 import time
 
 from future import standard_library
+
 standard_library.install_aliases()
 from builtins import str
 import socket
@@ -18,24 +19,44 @@ from .core import InternalBlue
 
 import binascii
 import os
+
 filepath = os.path.dirname(os.path.abspath(__file__))
 
 IOBE = None
 
-class macOSCore(InternalBlue):
 
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory=".", replay=False):
-        super(macOSCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".", replay=replay)
+class macOSCore(InternalBlue):
+    def __init__(
+        self,
+        queue_size=1000,
+        btsnooplog_filename="btsnoop.log",
+        log_level="info",
+        fix_binutils="True",
+        data_directory=".",
+        replay=False,
+    ):
+        super(macOSCore, self).__init__(
+            queue_size,
+            btsnooplog_filename,
+            log_level,
+            fix_binutils,
+            data_directory=".",
+            replay=replay,
+        )
         self.doublecheck = False
         self.iobe = None
         self.serial = None
         if not replay:
-            import objc # type: ignore
-            objc.initFrameworkWrapper("IOBluetoothExtended",
-                  frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
-                  frameworkPath=objc.pathForFramework(
-                      filepath + "/../macos-framework/IOBluetoothExtended.framework"),
-                  globals=globals())
+            import objc  # type: ignore
+
+            objc.initFrameworkWrapper(
+                "IOBluetoothExtended",
+                frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
+                frameworkPath=objc.pathForFramework(
+                    filepath + "/../macos-framework/IOBluetoothExtended.framework"
+                ),
+                globals=globals(),
+            )
         self.hciport = -1
 
     def device_list(self):
@@ -62,14 +83,20 @@ class macOSCore(InternalBlue):
         return True
 
     def _setupSockets(self):
-        self.hciport = random.randint(60000, 65535-1)
-        log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
-        log.info("Wireshark configuration (on Loopback interface): udp.port == %d || udp.port == %d" % (self.hciport, self.hciport + 1))
+        self.hciport = random.randint(60000, 65535 - 1)
+        log.debug(
+            "_setupSockets: Selected random ports snoop=%d and inject=%d"
+            % (self.hciport, self.hciport + 1)
+        )
+        log.info(
+            "Wireshark configuration (on Loopback interface): udp.port == %d || udp.port == %d"
+            % (self.hciport, self.hciport + 1)
+        )
 
         # Create s_snoop socket
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.s_snoop.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s_snoop.bind(('127.0.0.1', self.hciport))
+        self.s_snoop.bind(("127.0.0.1", self.hciport))
         self.s_snoop.settimeout(0.5)
         self.s_snoop.setblocking(True)
 
@@ -81,7 +108,9 @@ class macOSCore(InternalBlue):
         # Create IOBluetoothExtended Object that listens for commands,
         # sends them to the Bluetooth chip and replies via UDP socket.
         if not self.replay:
-            self.iobe = IOBE.alloc().initWith_and_(str(self.hciport+1), str(self.hciport))
+            self.iobe = IOBE.alloc().initWith_and_(
+                str(self.hciport + 1), str(self.hciport)
+            )
         else:
             self.iobe = None
         time.sleep(0.5)
@@ -101,20 +130,35 @@ class macOSCore(InternalBlue):
                 data, addr = self.s_snoop.recvfrom(1024)
                 record_data = bytearray(data)
             except socket.timeout:
-                continue # this is ok. just try again without error
+                continue  # this is ok. just try again without error
 
             if not self.exit_requested:
                 # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-                record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0) #TODO not sure if this causes trouble?
+                record = (
+                    hci.parse_hci_packet(record_data),
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                )  # TODO not sure if this causes trouble?
                 log.debug("Recv: " + str(record[0]))
 
                 # Put the record into all queues of registeredHciRecvQueues if their
                 # filter function matches.
-                for queue, filter_function in self.registeredHciRecvQueues: # TODO filter_function not working with bluez modifications
+                for (
+                    queue,
+                    filter_function,
+                ) in (
+                    self.registeredHciRecvQueues
+                ):  # TODO filter_function not working with bluez modifications
                     try:
                         queue.put(record, block=False)
                     except queue.Full:
-                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..>" + record_data)
+                        log.warn(
+                            "recvThreadFunc: A recv queue is full. dropping packets..>"
+                            + record_data
+                        )
 
                 # Call all callback functions inside registeredHciCallbacks and pass the
                 # record as argument.
@@ -144,11 +188,16 @@ class macOSCore(InternalBlue):
             # Send command to the chip using IOBluetoothExtended framework
             h4type, data, queue, filter_function = task
             data = bytearray(data)
-            opcode = format(data[1], '02x') + format(data[0], '02x')
+            opcode = format(data[1], "02x") + format(data[0], "02x")
 
-            log.debug("Sending command: 0x" + ''.join(format(x, '02x') for x in data) + ", opcode: " + opcode)
+            log.debug(
+                "Sending command: 0x"
+                + "".join(format(x, "02x") for x in data)
+                + ", opcode: "
+                + opcode
+            )
 
-            if not(h4type == 0x01 or h4type == 0x02):
+            if not (h4type == 0x01 or h4type == 0x02):
                 log.warn("H4 Type {0} not supported by macOS Core!".format(str(h4type)))
                 if queue is not None:
                     queue.put(None)
@@ -160,7 +209,7 @@ class macOSCore(InternalBlue):
                 self.registerHciRecvQueue(recvQueue, filter_function)
 
             # Sending command
-            self.s_inject.sendto(out, ('127.0.0.1', self.hciport+1))
+            self.s_inject.sendto(out, ("127.0.0.1", self.hciport + 1))
 
             # if the caller expects a response:
             # Wait for the HCI event response by polling the recvQueue
@@ -168,7 +217,7 @@ class macOSCore(InternalBlue):
                 try:
                     record = recvQueue.get(timeout=10)
                     hcipkt = record[0]
-                    data   = hcipkt.data
+                    data = hcipkt.data
                 except queue2k.Empty:
                     log.warn("_sendThreadFunc: No response from the firmware.")
                     data = None
@@ -194,5 +243,5 @@ class macOSCore(InternalBlue):
     def shutdown(self):
         if not self.replay:
             self.iobe.shutdown()
-        self.s_inject.sendto(b'', ('127.0.0.1', self.s_snoop.getsockname()[1]))
+        self.s_inject.sendto(b"", ("127.0.0.1", self.s_snoop.getsockname()[1]))
         super(macOSCore, self).shutdown()

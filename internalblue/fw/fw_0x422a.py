@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# MacBook 15" early 2011 tested with Ubuntu 
+# MacBook 15" early 2011 tested with Ubuntu
 #
 # Generic firmware file in case we do not know something...
 #
@@ -30,8 +30,9 @@ FW_NAME = "BCM2070B0 (MacBook Pro 2011)"
 
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x58000,  True , False),
-             MemorySection(0x80000,  0x9b000,  False, True ),
-           ]
+SECTIONS = [
+    MemorySection(0x0, 0x58000, True, False),
+    MemorySection(0x80000, 0x9B000, False, True),
+]
 
 BLOC_HEAD = 0x88518

@@ -34,27 +34,30 @@ FW_NAME = "BCM4358A3"
 
 # Device Infos
 DEVICE_NAME = 0x213994  # [type: 1byte] [len: 1byte] [name: len byte] #works
-BD_ADDR = 0x201C48 #works
+BD_ADDR = 0x201C48  # works
 
 
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x9ef00,  True , False),
-             MemorySection(0xd0000,  0xd8000,  False, True ), # Patchram values with actual code / hooks
-            #MemorySection(0xe0000,  0x1e0000, True , False), # all zero
-             MemorySection(0x200000, 0x22a000, False, True ),
-             MemorySection(0x260000, 0x268000, True , False),
-            #MemorySection(0x280000, 0x2a0000, True , False), # all zero
-             MemorySection(0x300000, 0x301000, False, False),
-             MemorySection(0x310000, 0x318000, False, True ), # Patchram addresses
-             MemorySection(0x318000, 0x322000, False, False),
-             MemorySection(0x324000, 0x368000, False, False),
-             MemorySection(0x600000, 0x600800, False, False),
-             MemorySection(0x640000, 0x640800, False, False),
-             MemorySection(0x650000, 0x650800, False, False),
-            #MemorySection(0x680000, 0x800000, False, False)
-             #MemorySection(0x770000, 0x78ffff, False, False), #TODO maybe more, but all zero
-            ]
+SECTIONS = [
+    MemorySection(0x0, 0x9EF00, True, False),
+    MemorySection(
+        0xD0000, 0xD8000, False, True
+    ),  # Patchram values with actual code / hooks
+    # MemorySection(0xe0000,  0x1e0000, True , False), # all zero
+    MemorySection(0x200000, 0x22A000, False, True),
+    MemorySection(0x260000, 0x268000, True, False),
+    # MemorySection(0x280000, 0x2a0000, True , False), # all zero
+    MemorySection(0x300000, 0x301000, False, False),
+    MemorySection(0x310000, 0x318000, False, True),  # Patchram addresses
+    MemorySection(0x318000, 0x322000, False, False),
+    MemorySection(0x324000, 0x368000, False, False),
+    MemorySection(0x600000, 0x600800, False, False),
+    MemorySection(0x640000, 0x640800, False, False),
+    MemorySection(0x650000, 0x650800, False, False),
+    # MemorySection(0x680000, 0x800000, False, False)
+    # MemorySection(0x770000, 0x78ffff, False, False), #TODO maybe more, but all zero
+]
 
 
 # Connection Struct and Table
@@ -63,19 +66,19 @@ SECTIONS = [ MemorySection(0x0,      0x9ef00,  True , False),
 # address 0x21AD5C holds a list with pointers to connection structs!
 # CONNECTION_ARRAY_ADDRESS = 0x21ad88 #potentially the first valid address... but not part of an array
 # CONNECTION_ARRAY_SIZE    = 11 #is still 11 for Nexus 6P, but no longer hard-coded
-CONNECTION_LIST_ADDRESS   = 0x21AD5C
-CONNECTION_MAX            = 11
-CONNECTION_STRUCT_LENGTH  = 0x168 #??
+CONNECTION_LIST_ADDRESS = 0x21AD5C
+CONNECTION_MAX = 11
+CONNECTION_STRUCT_LENGTH = 0x168  # ??
 
 # Patchram
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
-PATCHRAM_NUMBER_OF_SLOTS        = 192
-PATCHRAM_ALIGNED                = False #we can use standard ReadRAM HCI on Nexus 6P  
+PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
+PATCHRAM_NUMBER_OF_SLOTS = 192
+PATCHRAM_ALIGNED = False  # we can use standard ReadRAM HCI on Nexus 6P
 
 
-LAUNCH_RAM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in seconds
+LAUNCH_RAM_PAUSE = 8  # bugfix: pause between multiple readMemAligned() calls in seconds
 # not a problem: doing multiple writeMem in a row
 # the thing that crashes: executing multiple launchRam() in a row: sendhcicmd 0xfc4e 0x473CC
 # crashes even when executing 0x5E860 twice, which is just a nullsub
@@ -83,8 +86,8 @@ LAUNCH_RAM_PAUSE = 8 # bugfix: pause between multiple readMemAligned() calls in 
 
 
 # Snippet for sendLmpPacket()
-SENDLMP_CODE_BASE_ADDRESS = 0xd5130
-#TODO already works except for correct mac address - so still a problem with the connection #
+SENDLMP_CODE_BASE_ADDRESS = 0xD5130
+# TODO already works except for correct mac address - so still a problem with the connection #
 SENDLMP_ASM_CODE = """
         push {r4,lr}
 
@@ -129,7 +132,7 @@ SENDLMP_ASM_CODE = """
         """
 
 # Assembler snippet for the readMemAligned() function
-READ_MEM_ALIGNED_ASM_LOCATION = 0xd5030 
+READ_MEM_ALIGNED_ASM_LOCATION = 0xD5030
 READ_MEM_ALIGNED_ASM_SNIPPET = """
         push {r4, lr}
         
@@ -166,5 +169,3 @@ READ_MEM_ALIGNED_ASM_SNIPPET = """
         b   0x20F4      // send_hci_event()
 
     """
-
-

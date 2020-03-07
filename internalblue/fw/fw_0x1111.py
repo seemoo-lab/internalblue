@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 # fw_0x420e.py
 #
 # Generic firmware file in case we do not know something...
@@ -29,35 +30,36 @@ FW_NAME = "BCM4375B1"
 
 
 # Device Infos
-DEVICE_NAME = 0x207f2a
-BD_ADDR = 0x2026e2
+DEVICE_NAME = 0x207F2A
+BD_ADDR = 0x2026E2
 
 
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x0013ffff,  True,  False),  # Internal ROM
-             MemorySection(0x00160000, 0x0017ffff,  False, True),   # Patches
-             MemorySection(0x00200000, 0x00288000,  False, True),   # Internal Memory Cortex M3
-             MemorySection(0x00300000, 0x0037ffff,  False, True),
-             ]
+SECTIONS = [
+    MemorySection(0x00000000, 0x0013FFFF, True, False),  # Internal ROM
+    MemorySection(0x00160000, 0x0017FFFF, False, True),  # Patches
+    MemorySection(0x00200000, 0x00288000, False, True),  # Internal Memory Cortex M3
+    MemorySection(0x00300000, 0x0037FFFF, False, True),
+]
 
 # Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0x160000
-PATCHRAM_NUMBER_OF_SLOTS        = 256
-PATCHRAM_ALIGNED                = False
+PATCHRAM_VALUE_TABLE_ADDRESS = 0x160000
+PATCHRAM_NUMBER_OF_SLOTS = 256
+PATCHRAM_ALIGNED = False
 
-BLOC_HEAD = 0x20075c
+BLOC_HEAD = 0x20075C
 BLOC_NG = True
 
 # Assembler snippet for tracepoints
 # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
 # TODO S10e does no longer have a patch uninstall function... writemem works to remove patches, but copying
 #      Assembly of the original function from an eval board does not work...
-#TRACEPOINT_BODY_ASM_LOCATION = 0x00218300
-#TRACEPOINT_HOOKS_LOCATION = 0x00218500
-#TRACEPOINT_HOOK_SIZE = 40
+# TRACEPOINT_BODY_ASM_LOCATION = 0x00218300
+# TRACEPOINT_HOOKS_LOCATION = 0x00218500
+# TRACEPOINT_HOOK_SIZE = 40
 TRACEPOINT_HOOK_ASM = """
         push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
         ldr  r6, =0x%x          // addTracepoint() injects pc of original tracepoint here

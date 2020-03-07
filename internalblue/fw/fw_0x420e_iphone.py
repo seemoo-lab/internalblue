@@ -28,14 +28,17 @@ FW_NAME = "BCM4347B1"
 
 # Memory Sections
 #                          start,    end,           is_rom? is_ram?
-SECTIONS = [ MemorySection(0x00000000, 0x00103fff,  True,  False),  # Internal ROM
-             MemorySection(0x00130000, 0x0014ffff,  False, True),   # Internal Memory Patchram Contents
-             MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
-            ]
+SECTIONS = [
+    MemorySection(0x00000000, 0x00103FFF, True, False),  # Internal ROM
+    MemorySection(
+        0x00130000, 0x0014FFFF, False, True
+    ),  # Internal Memory Patchram Contents
+    MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
+]
 
 # Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0x130000
-PATCHRAM_NUMBER_OF_SLOTS        = 256
-PATCHRAM_ALIGNED                = False
+PATCHRAM_VALUE_TABLE_ADDRESS = 0x130000
+PATCHRAM_NUMBER_OF_SLOTS = 256
+PATCHRAM_ALIGNED = False

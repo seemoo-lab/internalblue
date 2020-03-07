@@ -6,6 +6,7 @@ import socket
 import struct
 
 from future import standard_library
+
 standard_library.install_aliases()
 from builtins import str
 from builtins import zip
@@ -28,25 +29,42 @@ except:
     pass
 
 # from /usr/include/bluetooth/hci.h:
-#define HCIDEVUP	_IOW('H', 201, int)
-#define HCIGETDEVLIST	_IOR('H', 210, int)
-#define HCIGETDEVINFO	_IOR('H', 211, int)
+# define HCIDEVUP	_IOW('H', 201, int)
+# define HCIGETDEVLIST	_IOR('H', 210, int)
+# define HCIGETDEVINFO	_IOR('H', 211, int)
 
 # ioctl numbers. see http://code.activestate.com/recipes/578225-linux-ioctl-numbers-in-python/
 def _IOR(type, nr, size):
     return 2 << 30 | type << 8 | nr << 0 | size << 16
+
+
 def _IOW(type, nr, size):
     return 1 << 30 | type << 8 | nr << 0 | size << 16
 
-HCIDEVUP      = _IOW(ord('H'), 201, 4)
-HCIGETDEVLIST = _IOR(ord('H'), 210, 4)
-HCIGETDEVINFO = _IOR(ord('H'), 211, 4)
+
+HCIDEVUP = _IOW(ord("H"), 201, 4)
+HCIGETDEVLIST = _IOR(ord("H"), 210, 4)
+HCIGETDEVINFO = _IOR(ord("H"), 211, 4)
 
 
 class HCICore(InternalBlue):
-
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory=".", replay=False):
-        super(HCICore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory, replay)
+    def __init__(
+        self,
+        queue_size=1000,
+        btsnooplog_filename="btsnoop.log",
+        log_level="info",
+        fix_binutils="True",
+        data_directory=".",
+        replay=False,
+    ):
+        super(HCICore, self).__init__(
+            queue_size,
+            btsnooplog_filename,
+            log_level,
+            fix_binutils,
+            data_directory,
+            replay,
+        )
         self.btsnooplog_file_lock = threading.Lock()
         self.serial = False
         self.doublecheck = False
@@ -69,41 +87,64 @@ class HCICore(InternalBlue):
             s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
         # Ticket 6: does not run on Windows with Kali subsystem
         except socket.error:
-            log.warn("Opening a local Bluetooth socket failed. Not running on native Linux?")
+            log.warn(
+                "Opening a local Bluetooth socket failed. Not running on native Linux?"
+            )
             return []
 
         # Do ioctl(s,HCIGETDEVLIST,arg) to get the number of available devices:
         # arg is struct hci_dev_list_req (/usr/include/bluetooth/hci.h)
-        arg =  p32(16) # dl->dev_num = HCI_MAX_DEV which is 16 (little endian)
-        arg += b"\x00"*(8*16)
+        arg = p32(16)  # dl->dev_num = HCI_MAX_DEV which is 16 (little endian)
+        arg += b"\x00" * (8 * 16)
         devices_raw = fcntl.ioctl(s.fileno(), HCIGETDEVLIST, arg)
         num_devices = u16(devices_raw[:2])
         log.debug("Found %d HCI devices via ioctl(HCIGETDEVLIST)!" % num_devices)
 
         device_list = []
         for dev_nr in range(num_devices):
-            dev_struct_start = 4 + 8*dev_nr
-            dev_id = u16(devices_raw[dev_struct_start:dev_struct_start+2])
+            dev_struct_start = 4 + 8 * dev_nr
+            dev_id = u16(devices_raw[dev_struct_start : dev_struct_start + 2])
             # arg is struct hci_dev_info (/usr/include/bluetooth/hci.h)
-            arg =  p16(dev_id) # di->dev_id = <device_id>
-            arg += b"\x00"*20   # Enough space for name, bdaddr and flags
+            arg = p16(dev_id)  # di->dev_id = <device_id>
+            arg += b"\x00" * 20  # Enough space for name, bdaddr and flags
             dev_info_raw = bytearray(fcntl.ioctl(s.fileno(), HCIGETDEVINFO, arg))
-            dev_name   = dev_info_raw[2:10].replace(b"\x00",b"").decode()
+            dev_name = dev_info_raw[2:10].replace(b"\x00", b"").decode()
             dev_bdaddr = ":".join(["%02X" % x for x in dev_info_raw[10:16][::-1]])
-            dev_flags  = u32(dev_info_raw[16:20])
+            dev_flags = u32(dev_info_raw[16:20])
             if dev_flags == 0:
                 dev_flags_str = "DOWN"
             else:
-                dev_flags_str = " ".join([name for flag,name in zip(
-                                bin(dev_flags)[2:][::-1],
-                                ["UP", "INIT", "RUNNING", "PSCAN", "ISCAN", "AUTH",
-                                 "ENCRYPT" , "INQUIRY" , "RAW" , "RESET"]) if flag=="1"])
+                dev_flags_str = " ".join(
+                    [
+                        name
+                        for flag, name in zip(
+                            bin(dev_flags)[2:][::-1],
+                            [
+                                "UP",
+                                "INIT",
+                                "RUNNING",
+                                "PSCAN",
+                                "ISCAN",
+                                "AUTH",
+                                "ENCRYPT",
+                                "INQUIRY",
+                                "RAW",
+                                "RESET",
+                            ],
+                        )
+                        if flag == "1"
+                    ]
+                )
 
-            device_list.append({"dev_id":        dev_id,
-                                "dev_name":      dev_name,
-                                "dev_bdaddr":    dev_bdaddr,
-                                "dev_flags":     dev_flags,
-                                "dev_flags_str": dev_flags_str})
+            device_list.append(
+                {
+                    "dev_id": dev_id,
+                    "dev_name": dev_name,
+                    "dev_bdaddr": dev_bdaddr,
+                    "dev_flags": dev_flags,
+                    "dev_flags_str": dev_flags_str,
+                }
+            )
         s.close()
         return device_list
 
@@ -131,23 +172,34 @@ class HCICore(InternalBlue):
             log.warn("Error returned by ioctl: %s" % str(e))
             return False
 
-
     def device_list(self):
         """
         Return a list of connected hci devices.
         """
         if self.replay:
-            return [(self, "hci_replay", 'hci: ReplaySocket')]
+            return [(self, "hci_replay", "hci: ReplaySocket")]
         device_list = []
         for dev in self.getHciDeviceList():
-            log.info("HCI device: %s  [%s]  flags=%d<%s>" %
-                    (dev["dev_name"], dev["dev_bdaddr"],
-                     dev["dev_flags"], dev["dev_flags_str"]))
-            device_list.append((self, dev["dev_name"], 'hci: %s (%s) <%s>' %
-                    (dev["dev_bdaddr"], dev["dev_name"], dev["dev_flags_str"])))
+            log.info(
+                "HCI device: %s  [%s]  flags=%d<%s>"
+                % (
+                    dev["dev_name"],
+                    dev["dev_bdaddr"],
+                    dev["dev_flags"],
+                    dev["dev_flags_str"],
+                )
+            )
+            device_list.append(
+                (
+                    self,
+                    dev["dev_name"],
+                    "hci: %s (%s) <%s>"
+                    % (dev["dev_bdaddr"], dev["dev_name"], dev["dev_flags_str"]),
+                )
+            )
 
         if len(device_list) == 0:
-            log.info('No connected HCI device found')
+            log.info("No connected HCI device found")
 
         return device_list
 
@@ -158,7 +210,7 @@ class HCICore(InternalBlue):
         if not self.interface:
             log.warn("No HCI identifier is set")
             return False
-        
+
         if not self._setupSockets():
             log.critical("HCI socket could not be established!")
             return False
@@ -179,8 +231,10 @@ class HCICore(InternalBlue):
         this field as 0x00E03AB44A676000.
         """
         time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
-        time_since_2000_epoch = time - datetime.datetime(2000,1,1)
-        packed_time = time_since_2000_epoch + datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
+        time_since_2000_epoch = time - datetime.datetime(2000, 1, 1)
+        packed_time = time_since_2000_epoch + datetime.timedelta(
+            microseconds=time_betw_0_and_2000_ad
+        )
         return int(packed_time.total_seconds() * 1000 * 1000)
 
     def _recvThreadFunc(self):
@@ -204,29 +258,47 @@ class HCICore(InternalBlue):
                 record_data = self.s_snoop.recv(1024)
                 record_data = bytearray(record_data)
             except socket.timeout:
-                continue # this is ok. just try again without error
+                continue  # this is ok. just try again without error
             except Exception as e:
-                log.critical("Lost device interface with exception {}, terminating receive thread...".format(e))
+                log.critical(
+                    "Lost device interface with exception {}, terminating receive thread...".format(
+                        e
+                    )
+                )
                 self.exit_requested = True
                 continue
 
             # btsnoop record header data:
             btsnoop_orig_len = len(record_data)
-            btsnoop_inc_len  = len(record_data)
-            btsnoop_flags    = 0
-            btsnoop_drops    = 0
-            btsnoop_time     = datetime.datetime.now()
+            btsnoop_inc_len = len(record_data)
+            btsnoop_flags = 0
+            btsnoop_drops = 0
+            btsnoop_time = datetime.datetime.now()
 
             # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
-            record = (hci.parse_hci_packet(record_data), btsnoop_orig_len, btsnoop_inc_len,
-                      btsnoop_flags, btsnoop_drops, btsnoop_time)
+            record = (
+                hci.parse_hci_packet(record_data),
+                btsnoop_orig_len,
+                btsnoop_inc_len,
+                btsnoop_flags,
+                btsnoop_drops,
+                btsnoop_time,
+            )
 
-            log.debug("_recvThreadFunc Recv: [" + str(btsnoop_time) + "] " + str(record[0]))
+            log.debug(
+                "_recvThreadFunc Recv: [" + str(btsnoop_time) + "] " + str(record[0])
+            )
 
             # Write to btsnoop file:
             if self.write_btsnooplog:
-                btsnoop_record_hdr = struct.pack(">IIIIq", btsnoop_orig_len, btsnoop_inc_len, btsnoop_flags,
-                                                    btsnoop_drops, self._btsnoop_pack_time(btsnoop_time))
+                btsnoop_record_hdr = struct.pack(
+                    ">IIIIq",
+                    btsnoop_orig_len,
+                    btsnoop_inc_len,
+                    btsnoop_flags,
+                    btsnoop_drops,
+                    self._btsnoop_pack_time(btsnoop_time),
+                )
                 with self.btsnooplog_file_lock:
                     self.btsnooplog_file.write(btsnoop_record_hdr)
                     self.btsnooplog_file.write(record_data)
@@ -239,7 +311,9 @@ class HCICore(InternalBlue):
                     try:
                         queue.put(record, block=False)
                     except queue.Full:
-                        log.warn("recvThreadFunc: A recv queue is full. dropping packets..")
+                        log.warn(
+                            "recvThreadFunc: A recv queue is full. dropping packets.."
+                        )
 
             # Call all callback functions inside registeredHciCallbacks and pass the
             # record as argument.
@@ -248,9 +322,9 @@ class HCICore(InternalBlue):
 
             # Check if the stackDumpReceiver has noticed that the chip crashed.
             # if self.stackDumpReceiver.stack_dump_has_happend:
-                # A stack dump has happend!
-                # log.warn("recvThreadFunc: The controller send a stack dump.")
-                # self.exit_requested = True
+            # A stack dump has happend!
+            # log.warn("recvThreadFunc: The controller send a stack dump.")
+            # self.exit_requested = True
 
         log.debug("Receive Thread terminated.")
 
@@ -261,7 +335,9 @@ class HCICore(InternalBlue):
         """
 
         # Check if hci device is in state "UP". If not, set it to "UP" (requires root)
-        device = [dev for dev in self.getHciDeviceList() if dev["dev_name"] == self.interface]
+        device = [
+            dev for dev in self.getHciDeviceList() if dev["dev_name"] == self.interface
+        ]
         if len(device) == 0:
             log.warn("Device not found: " + self.interface)
             return False
@@ -277,9 +353,11 @@ class HCICore(InternalBlue):
         # TODO unload btusb module and check error messages here to give the user some output if sth fails
 
         # Connect to HCI socket
-        self.s_snoop = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
-        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR,1)
-        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP,1)
+        self.s_snoop = socket.socket(
+            socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI
+        )
+        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR, 1)
+        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP, 1)
         """
         struct hci_filter {
             uint32_t type_mask;     -> 4
@@ -288,8 +366,11 @@ class HCICore(InternalBlue):
         };
         """
         # TODO still seems to only forward incoming events?!
-        self.s_snoop.setsockopt(socket.SOL_HCI, socket.HCI_FILTER,
- b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00') #type mask, event mask, event mask, opcode
+        self.s_snoop.setsockopt(
+            socket.SOL_HCI,
+            socket.HCI_FILTER,
+            b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00",
+        )  # type mask, event mask, event mask, opcode
 
         interface_num = device["dev_id"]
         log.debug("Socket interface number: %s" % (interface_num))
@@ -303,7 +384,9 @@ class HCICore(InternalBlue):
         # Write Header to btsnoop file (if file is still empty):
         if self.write_btsnooplog and self.btsnooplog_file.tell() == 0:
             # BT Snoop Header: btsnoop\x00, version: 1, data link type: 1002
-            btsnoop_hdr = b"btsnoop\x00" + p32(1,endian="big") + p32(1002,endian="big")
+            btsnoop_hdr = (
+                b"btsnoop\x00" + p32(1, endian="big") + p32(1002, endian="big")
+            )
             with self.btsnooplog_file_lock:
                 self.btsnooplog_file.write(btsnoop_hdr)
                 self.btsnooplog_file.flush()
@@ -315,9 +398,9 @@ class HCICore(InternalBlue):
         Close s_snoop and s_inject socket. (equal)
         """
 
-        if (self.s_inject != None):
+        if self.s_inject != None:
             self.s_inject.close()
             self.s_inject = None
-            self.s_snoop  = None
+            self.s_snoop = None
 
         return True

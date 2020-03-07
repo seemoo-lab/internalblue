@@ -7,7 +7,6 @@ Use an IPython shell to run "from pwn import *" and check where some method/modu
 """
 
 
-
 # Imports that used to be imported via 'from pwn import *'
 import pwnlib
 from pwnlib import term
@@ -15,7 +14,7 @@ from pwnlib.util import iters
 from pwnlib.util.misc import read
 from pwnlib.context import context
 
-#TODO: Logging via pwnlib doesn't work yet, so for now it is still used via pwn
+# TODO: Logging via pwnlib doesn't work yet, so for now it is still used via pwn
 # import pwnlib.log
 # pwnlib.log.install_default_handler()
 # log = pwnlib.log.getLogger('internalbue')
@@ -28,8 +27,6 @@ from pwnlib.ui import options, yesno
 from pwnlib.util.packing import flat
 from pwnlib.asm import disasm
 from pwnlib.util.fiddling import isprint, unbits, bits_str, bits
-
-
 
 
 """
@@ -48,39 +45,46 @@ This means:
 # Imports needed for this hack
 from pwnlib.util.packing import ops, sizes, make_multi
 import sys
+
 try:
     from typing import Union, Optional, Literal
-    endianess = Union[Literal['big']]
+
+    endianess = Union[Literal["big"]]
 
 except ImportError:
     pass
 mod = sys.modules[__name__]
 
 
-_DEFINES = ['u8', 'p8', 'u32', 'u16', 'p32']
+_DEFINES = ["u8", "p8", "u32", "u16", "p32"]
 
 
-
-def u8(data, endian = None):
+def u8(data, endian=None):
     # type: (bytes, Optional[endianess]) -> int
     pass
 
-def p8(number, endian = None):
-    # type: (int, Optional[endianess]) -> bytes
-    pass
-def u16(data, endian = None):
-    # type: (bytes, Optional[endianess]) -> int
-    pass
 
-def p16(number, endian = None):
+def p8(number, endian=None):
     # type: (int, Optional[endianess]) -> bytes
     pass
 
-def u32(data, endian = None):
+
+def u16(data, endian=None):
     # type: (bytes, Optional[endianess]) -> int
     pass
 
-def p32(number, endian = None):
+
+def p16(number, endian=None):
+    # type: (int, Optional[endianess]) -> bytes
+    pass
+
+
+def u32(data, endian=None):
+    # type: (bytes, Optional[endianess]) -> int
+    pass
+
+
+def p32(number, endian=None):
     # type: (int, Optional[endianess]) -> bytes
     pass
 

@@ -26,6 +26,7 @@
 #   Software.
 from .fw import MemorySection, FirmwareDefinition
 
+
 class BCM4335C0(FirmwareDefinition):
     # Firmware Infos
     # This runs on Nexus 5, Xperia Z3, Samsung Galaxy Note 3
@@ -35,49 +36,62 @@ class BCM4335C0(FirmwareDefinition):
     DEVICE_NAME = 0x2178B4  # [type: 1byte] [len: 1byte] [name: len byte]
     BD_ADDR = 0x210C2C
 
-
     # Memory Sections
     #                          start,    end,      is_rom? is_ram?
-    SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-                 MemorySection(0xd0000,  0xd8000,  False, True ),
-                #MemorySection(0xe0000,  0x1f0000, True , False),
-                 MemorySection(0x200000, 0x228000, False, True ),
-                 MemorySection(0x260000, 0x268000, True , False),
-                #MemorySection(0x280000, 0x2a0000, True , False),
-                 MemorySection(0x318000, 0x320000, False, False),
-                 MemorySection(0x324000, 0x360000, False, False),
-                 MemorySection(0x362000, 0x362100, False, False),
-                 MemorySection(0x363000, 0x363100, False, False),
-                 MemorySection(0x600000, 0x600800, False, False),
-                 MemorySection(0x640000, 0x640800, False, False),
-                 MemorySection(0x650000, 0x650800, False, False),
-                #MemorySection(0x680000, 0x800000, False, False)
-                ]
+    SECTIONS = [
+        MemorySection(0x0, 0x90000, True, False),
+        MemorySection(0xD0000, 0xD8000, False, True),
+        # MemorySection(0xe0000,  0x1f0000, True , False),
+        MemorySection(0x200000, 0x228000, False, True),
+        MemorySection(0x260000, 0x268000, True, False),
+        # MemorySection(0x280000, 0x2a0000, True , False),
+        MemorySection(0x318000, 0x320000, False, False),
+        MemorySection(0x324000, 0x360000, False, False),
+        MemorySection(0x362000, 0x362100, False, False),
+        MemorySection(0x363000, 0x363100, False, False),
+        MemorySection(0x600000, 0x600800, False, False),
+        MemorySection(0x640000, 0x640800, False, False),
+        MemorySection(0x650000, 0x650800, False, False),
+        # MemorySection(0x680000, 0x800000, False, False)
+    ]
 
     # BLOC struct head which points to the first bloc struct (double-linked list)
     BLOC_HEAD = 0x203094
 
     # QUEU struct head which points to the first queue struct (double-linked list)
     QUEUE_HEAD = 0x20307C
-    QUEUE_NAMES = ["tran_HCIEvent", "tran_ACLData", "tran_SCOData", "tran_UartBridgeNonHCIEvent", "tran_DiagData",
-                   "tran_HIDUsbKBEvt", "tran_HIDUsbMSEvt", "tran_HIDUsbMSCtrl", "tran_HIDUsbKBCtrl", "tran_HidAuxData",
-                   "lm_Cmd", "hci_HciCommand", "lm_deferredAction", "lrmmsm_cmd", "liteHostEvent", "litehostRcvdL2capData"
-                   ]
-
+    QUEUE_NAMES = [
+        "tran_HCIEvent",
+        "tran_ACLData",
+        "tran_SCOData",
+        "tran_UartBridgeNonHCIEvent",
+        "tran_DiagData",
+        "tran_HIDUsbKBEvt",
+        "tran_HIDUsbMSEvt",
+        "tran_HIDUsbMSCtrl",
+        "tran_HIDUsbKBCtrl",
+        "tran_HidAuxData",
+        "lm_Cmd",
+        "hci_HciCommand",
+        "lm_deferredAction",
+        "lrmmsm_cmd",
+        "liteHostEvent",
+        "litehostRcvdL2capData",
+    ]
 
     # Connection Structure and Table
     CONNECTION_ARRAY_ADDRESS = 0x002038E8
-    CONNECTION_MAX           = 11
+    CONNECTION_MAX = 11
     CONNECTION_STRUCT_LENGTH = 0x14C
-
 
     # Patchram
     PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-    PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
-    PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
-    PATCHRAM_NUMBER_OF_SLOTS        = 128
-    PATCHRAM_ALIGNED                = True #use readMemAligned, not accessible via ReadRAM HCI command on Nexus 5
-
+    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+    PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
+    PATCHRAM_NUMBER_OF_SLOTS = 128
+    PATCHRAM_ALIGNED = (
+        True  # use readMemAligned, not accessible via ReadRAM HCI command on Nexus 5
+    )
 
     # Snippet for sendLcpPacket()
     SENDLCP_CODE_BASE_ADDRESS = 0x00211900
@@ -98,7 +112,7 @@ class BCM4335C0(FirmwareDefinition):
             """
 
     # Snippet for sendLmpPacketLegacy()
-    SENDLMP_CODE_BASE_ADDRESS = 0xd7500
+    SENDLMP_CODE_BASE_ADDRESS = 0xD7500
     SENDLMP_ASM_CODE = """
             push {r4,lr}
     
@@ -140,10 +154,9 @@ class BCM4335C0(FirmwareDefinition):
             payload:        // Note: the payload will be appended here by the sendLmpPacket() function
             """
 
-
     # Snippet for fuzzLmp()
-    FUZZLMP_HOOK_ADDRESS = 0x1e48c  # execute standard SendLmpPdu HCI to fill parameters
-    FUZZLMP_CODE_BASE_ADDRESS = 0xd7500
+    FUZZLMP_HOOK_ADDRESS = 0x1E48C  # execute standard SendLmpPdu HCI to fill parameters
+    FUZZLMP_CODE_BASE_ADDRESS = 0xD7500
     FUZZLMP_ASM_CODE = """
             // This hook is put into the end of bthci_cmd_vs_SendLmpPdu_1E45A,
             // so command parsing is still performed as normal. We jump in
@@ -208,9 +221,8 @@ class BCM4335C0(FirmwareDefinition):
                 .byte 0x00
             """
 
-
     # Assembler snippet for the readMemAligned() function
-    READ_MEM_ALIGNED_ASM_LOCATION = 0xd7900
+    READ_MEM_ALIGNED_ASM_LOCATION = 0xD7900
     READ_MEM_ALIGNED_ASM_SNIPPET = """
             push {r4, lr}
     
@@ -250,8 +262,8 @@ class BCM4335C0(FirmwareDefinition):
         """
 
     # Assembler snippet for tracepoints
-    TRACEPOINT_BODY_ASM_LOCATION = 0xd7a00
-    TRACEPOINT_HOOKS_LOCATION = 0xd7b00
+    TRACEPOINT_BODY_ASM_LOCATION = 0xD7A00
+    TRACEPOINT_HOOKS_LOCATION = 0xD7B00
     TRACEPOINT_HOOK_SIZE = 28
     TRACEPOINT_HOOK_ASM = """
             push {r0-r12, lr}       // save all registers on the stack (except sp and pc)
@@ -263,8 +275,11 @@ class BCM4335C0(FirmwareDefinition):
             // branch back to the original instruction
             b 0x%x                  // addTracepoint() injects the address of the tracepoint
     """
-    TRACEPOINT_RAM_DUMP_PKT_COUNT = 670     # <ramsize> / <packetsize>   where packetsize is 244
-    TRACEPOINT_BODY_ASM_SNIPPET = """
+    TRACEPOINT_RAM_DUMP_PKT_COUNT = (
+        670  # <ramsize> / <packetsize>   where packetsize is 244
+    )
+    TRACEPOINT_BODY_ASM_SNIPPET = (
+        """
             mov   r8, lr     // save link register in r8
     
             // save status register in r5
@@ -383,4 +398,6 @@ class BCM4335C0(FirmwareDefinition):
             bl   0x3FA36     // free_bloc_buffer_aligned
     
             pop  {r4-r6,pc}
-    """ % TRACEPOINT_RAM_DUMP_PKT_COUNT
+    """
+        % TRACEPOINT_RAM_DUMP_PKT_COUNT
+    )

@@ -32,18 +32,21 @@ from typing import List
 from internalblue import Address
 from pwn import log
 
+
 class MemorySection(object):
     """
     All firmwares have memory sections that can be RAM, ROM or neither of both.
     """
+
     def __init__(self, start_addr, end_addr, is_rom, is_ram):
         self.start_addr: Address = start_addr
-        self.end_addr: Address= end_addr
+        self.end_addr: Address = end_addr
         self.is_rom: bool = is_rom
         self.is_ram: bool = is_ram
 
     def size(self) -> int:
         return self.end_addr - self.start_addr
+
 
 class FirmwareDefinition:
 
@@ -92,6 +95,7 @@ class FirmwareDefinition:
 
 class Firmware(object):
     firmware: FirmwareDefinition
+
     def __init__(self, version=None, iOS=False):
         """
         Load and initialize the actual firmware add-ons for Nexus 5, Raspi3, etc.
@@ -103,23 +107,33 @@ class Firmware(object):
 
         if version:
             # get LMP Subversion
-            log.info("Chip identifier: 0x%04x (%03d.%03d.%03d)" %
-                     (version, version >> 13, (version & 0xf00) >> 8, version & 0xff))
+            log.info(
+                "Chip identifier: 0x%04x (%03d.%03d.%03d)"
+                % (version, version >> 13, (version & 0xF00) >> 8, version & 0xFF)
+            )
 
             try:
                 # Fix for duplicate version number of evaluation board / iPhones
-                if iOS and version==0x420e:
-                    self.firmware = self._module_to_firmware_definition(__import__(__name__ + '_' + hex(version) + '_iphone', fromlist=['']))
+                if iOS and version == 0x420E:
+                    self.firmware = self._module_to_firmware_definition(
+                        __import__(
+                            __name__ + "_" + hex(version) + "_iphone", fromlist=[""]
+                        )
+                    )
                     log.info("Using fw_" + hex(version) + "_iphone.py")
                 else:
-                    self.firmware = self._module_to_firmware_definition(__import__(__name__ + '_' + hex(version), fromlist=['']))
+                    self.firmware = self._module_to_firmware_definition(
+                        __import__(__name__ + "_" + hex(version), fromlist=[""])
+                    )
                     log.info("Using fw_" + hex(version) + ".py")
             except ImportError:
                 self.firmware = None
                 pass
 
         if not version or not self.firmware:
-            self.firmware = self._module_to_firmware_definition(__import__(__name__ + '_default', fromlist=['']))
+            self.firmware = self._module_to_firmware_definition(
+                __import__(__name__ + "_default", fromlist=[""])
+            )
 
         log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
 
@@ -130,10 +144,13 @@ class Firmware(object):
         :param fw:
         :return:
         """
-        _types = {name: cls for name, cls in fw.__dict__.items() if isinstance(cls, type)
-         and issubclass(cls, FirmwareDefinition)
-         and not cls is FirmwareDefinition}
+        _types = {
+            name: cls
+            for name, cls in fw.__dict__.items()
+            if isinstance(cls, type)
+            and issubclass(cls, FirmwareDefinition)
+            and not cls is FirmwareDefinition
+        }
 
         if len(_types) == 1:
             return list(_types.values())[0]
-

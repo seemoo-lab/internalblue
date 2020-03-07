@@ -34,15 +34,16 @@ FW_NAME = "BCM20703A2 (MacBook Pro 2016)"
 
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0xc7fff,  True, False), #0x000c0a97
-             MemorySection(0xd0000,  0xe0000,  False, False), #0x000dd78c
-             MemorySection(0x200000, 0x240000, False, True ), #0x00217a38
-             MemorySection(0x260000, 0x268fff, True, False), #0x0026841d
-             MemorySection(0x318000, 0x320000, False, False),
-             MemorySection(0x324000, 0x338000, False, False),
-             MemorySection(0x362000, 0x362100, False, False),
-             MemorySection(0x363000, 0x363100, False, False),
-             MemorySection(0x600000, 0x600800, False, False),
-             MemorySection(0x640000, 0x640800, False, False),
-             MemorySection(0x650000, 0x650800, False, False)
-            ]
+SECTIONS = [
+    MemorySection(0x0, 0xC7FFF, True, False),  # 0x000c0a97
+    MemorySection(0xD0000, 0xE0000, False, False),  # 0x000dd78c
+    MemorySection(0x200000, 0x240000, False, True),  # 0x00217a38
+    MemorySection(0x260000, 0x268FFF, True, False),  # 0x0026841d
+    MemorySection(0x318000, 0x320000, False, False),
+    MemorySection(0x324000, 0x338000, False, False),
+    MemorySection(0x362000, 0x362100, False, False),
+    MemorySection(0x363000, 0x363100, False, False),
+    MemorySection(0x600000, 0x600800, False, False),
+    MemorySection(0x640000, 0x640800, False, False),
+    MemorySection(0x650000, 0x650800, False, False),
+]

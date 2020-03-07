@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 # fw_0x420e.py
 #
 # Generic firmware file in case we do not know something...
@@ -22,25 +23,24 @@ from __future__ import absolute_import
 #   Software.
 from .fw import MemorySection, FirmwareDefinition
 
+
 class CYW20706(FirmwareDefinition):
     # Firmware Infos
     # Evaluation Kit CYW20706
     FW_NAME = "CYW20706"
 
-
     # Memory Sections
     #                          start,    end,           is_rom? is_ram?
-    SECTIONS = [ MemorySection(0x00000000, 0x000c7fff,  True,  False),  # Internal ROM
-                 MemorySection(0x000d0000, 0x000dffff,  False, True ),
-                 MemorySection(0x00200000, 0x00247fff,  False, True),   # Internal Memory Cortex M3
-                 ]
+    SECTIONS = [
+        MemorySection(0x00000000, 0x000C7FFF, True, False),  # Internal ROM
+        MemorySection(0x000D0000, 0x000DFFFF, False, True),
+        MemorySection(0x00200000, 0x00247FFF, False, True),  # Internal Memory Cortex M3
+    ]
 
     # Patchram
-    #PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
-    #PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-    #PATCHRAM_VALUE_TABLE_ADDRESS    = 0x0d0000
-    #PATCHRAM_NUMBER_OF_SLOTS        = 256
-    PATCHRAM_ALIGNED                = True
+    # PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
+    # PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+    # PATCHRAM_VALUE_TABLE_ADDRESS    = 0x0d0000
+    # PATCHRAM_NUMBER_OF_SLOTS        = 256
+    PATCHRAM_ALIGNED = True
     # only seems to work 4-byte aligned here ...
-
-

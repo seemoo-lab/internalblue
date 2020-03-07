@@ -32,10 +32,20 @@ try:
 except:
     pass
 
+
 class testCore(InternalBlue):
-    def __init__(self, queue_size=1000, btsnooplog_filename='btsnoop.log', log_level='info', fix_binutils='True', data_directory="."):
-        super(testCore, self).__init__(queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory=".")
-        file = open(filepath+'/../dummymemdump.bin', mode='rb')
+    def __init__(
+        self,
+        queue_size=1000,
+        btsnooplog_filename="btsnoop.log",
+        log_level="info",
+        fix_binutils="True",
+        data_directory=".",
+    ):
+        super(testCore, self).__init__(
+            queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory="."
+        )
+        file = open(filepath + "/../dummymemdump.bin", mode="rb")
         self.memory = file.read()
         file.close()
         self.doublecheck = False
@@ -85,14 +95,19 @@ class testCore(InternalBlue):
 
     def _setupSockets(self):
         self.hciport = random.randint(60000, 65535 - 1)
-        log.debug("_setupSockets: Selected random ports snoop=%d and inject=%d" % (self.hciport, self.hciport + 1))
-        log.info("Wireshark configuration (on Loopback interface): udp.port == %d || udp.port == %d" % (
-        self.hciport, self.hciport + 1))
+        log.debug(
+            "_setupSockets: Selected random ports snoop=%d and inject=%d"
+            % (self.hciport, self.hciport + 1)
+        )
+        log.info(
+            "Wireshark configuration (on Loopback interface): udp.port == %d || udp.port == %d"
+            % (self.hciport, self.hciport + 1)
+        )
 
         # Create s_snoop socket
         self.s_snoop = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s_snoop.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s_snoop.bind(('127.0.0.1', self.hciport))
+        self.s_snoop.bind(("127.0.0.1", self.hciport))
         self.s_snoop.settimeout(0.5)
         self.s_snoop.setblocking(True)
 
@@ -141,18 +156,29 @@ class testCore(InternalBlue):
 
             if queue is not None and filter_function is not None:
                 # Return responses according to the opcode & operands
-                if opcode == '1001':
-                    record_data = '040E0C0101100006b415060f000e22'.decode('hex')
+                if opcode == "1001":
+                    record_data = "040E0C0101100006b415060f000e22".decode("hex")
                     data = hci.parse_hci_packet(record_data).data
-                elif opcode == 'fc4d':
+                elif opcode == "fc4d":
                     length = int(binascii.hexlify(data[7]), 16)
-                    address = int(binascii.hexlify(data[6]+data[5]+data[4]+data[3]), 16)
-                    data = '014dfc00'.decode('hex') + self.memory[address:address+length]
-                elif opcode == 'fc4c':
-                    log.info(data.encode('hex'))
+                    address = int(
+                        binascii.hexlify(data[6] + data[5] + data[4] + data[3]), 16
+                    )
+                    data = (
+                        "014dfc00".decode("hex")
+                        + self.memory[address : address + length]
+                    )
+                elif opcode == "fc4c":
+                    log.info(data.encode("hex"))
                     length = int(binascii.hexlify(data[2]), 16)
-                    address = int(binascii.hexlify(data[6]+data[5]+data[4]+data[3]), 16)
-                    self.memory = self.memory[:address] +  data[7:len(data)] + self.memory[address+length:]
+                    address = int(
+                        binascii.hexlify(data[6] + data[5] + data[4] + data[3]), 16
+                    )
+                    self.memory = (
+                        self.memory[:address]
+                        + data[7 : len(data)]
+                        + self.memory[address + length :]
+                    )
                 else:
                     print(opcode)
 

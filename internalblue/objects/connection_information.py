@@ -3,7 +3,6 @@ from internalblue.utils.pwnlib_wrapper import u32, u16, u8
 from typing import Any
 
 
-
 class ConnectionInformation(object):
     connection_handle = 0
     connection_number = 0
@@ -18,8 +17,21 @@ class ConnectionInformation(object):
     effective_key_len = 0
     host_supported_feat = None
 
-    def __init__(self, connection_number, remote_address, remote_name_address, master_of_connection, connection_handle,
-                 public_rand, effective_key_len, link_key, tx_pwr_lvl_dBm, extended_lmp_feat, host_supported_feat, id):
+    def __init__(
+        self,
+        connection_number,
+        remote_address,
+        remote_name_address,
+        master_of_connection,
+        connection_handle,
+        public_rand,
+        effective_key_len,
+        link_key,
+        tx_pwr_lvl_dBm,
+        extended_lmp_feat,
+        host_supported_feat,
+        id,
+    ):
         self.connection_number = connection_number
         self.remote_address = remote_address
         self.remote_name_address = remote_name_address
@@ -37,16 +49,20 @@ class ConnectionInformation(object):
     def from_connection_buffer(connection):
 
         # Possible TODO: Convert this to a Katai Struct parser with a proper .ksy grammar.
-        return ConnectionInformation(u32(connection[:4]), connection[0x28:0x2E][::-1],
-                              u32(connection[0x4C:0x50]),
-                              u32(connection[0x1C:0x20]) & 1 << 15 == 0,
-                              u16(connection[0x64:0x66]),
-                              connection[0x78:0x88],
-                              u8(connection[0xa7:0xa8]),
-                              connection[0x68:0x68 + u8(connection[0xa7:0xa8])],
-                              u8(connection[0x9c:0x9d]) - 127,
-                              connection[0x30:0x38], connection[0x38:0x40],
-                              connection[0x0c:0x0d])
+        return ConnectionInformation(
+            u32(connection[:4]),
+            connection[0x28:0x2E][::-1],
+            u32(connection[0x4C:0x50]),
+            u32(connection[0x1C:0x20]) & 1 << 15 == 0,
+            u16(connection[0x64:0x66]),
+            connection[0x78:0x88],
+            u8(connection[0xA7:0xA8]),
+            connection[0x68 : 0x68 + u8(connection[0xA7:0xA8])],
+            u8(connection[0x9C:0x9D]) - 127,
+            connection[0x30:0x38],
+            connection[0x38:0x40],
+            connection[0x0C:0x0D],
+        )
         # For some reason the following doesn't work because some attributes like link_key end up as one element tuples
         # connection_number = u32(connection[:4])
         # remote_address = connection[0x28:0x2E][::-1],

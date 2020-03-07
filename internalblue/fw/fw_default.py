@@ -23,13 +23,15 @@
 #   Software.
 from .fw import MemorySection, FirmwareDefinition
 
+
 class DefaultFirmware(FirmwareDefinition):
     # Firmware Infos
     FW_NAME = "default (unknown firmware)"
 
     # Memory Sections
     #                          start,    end,      is_rom? is_ram?
-    SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-                 MemorySection(0xd0000,  0xd8000,  False, True ),
-                 MemorySection(0x200000, 0x228000, False, True )
-            ]
+    SECTIONS = [
+        MemorySection(0x0, 0x90000, True, False),
+        MemorySection(0xD0000, 0xD8000, False, True),
+        MemorySection(0x200000, 0x228000, False, True),
+    ]

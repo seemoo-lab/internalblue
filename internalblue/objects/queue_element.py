@@ -7,7 +7,7 @@ class QueueElement(object):
     next_item = 0
     prev = 0
     capacity = 0
-    name = ''
+    name = ""
     queue_buf_start = 0
     available_items = 0
     item_size = 0
@@ -19,8 +19,24 @@ class QueueElement(object):
     queue_buf_end = 0
     thread_waitlist = 0
 
-    def __init__(self, index, address, item_size, capacity, available_items, free_slots, queue_buf_start, queue_buf_end,
-                 next_item, next_free_slot, thread_waitlist, waitlist_length, next, prev, name):
+    def __init__(
+        self,
+        index,
+        address,
+        item_size,
+        capacity,
+        available_items,
+        free_slots,
+        queue_buf_start,
+        queue_buf_end,
+        next_item,
+        next_free_slot,
+        thread_waitlist,
+        waitlist_length,
+        next,
+        prev,
+        name,
+    ):
         self.index = index
         self.next_item = next_item
         self.prev = prev

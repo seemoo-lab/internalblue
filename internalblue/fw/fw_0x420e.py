@@ -31,29 +31,33 @@ class CYW20739B1(FirmwareDefinition):
     # TODO this is not the iPhone firmware, we need to add a switch in fw.py
 
     # Device Infos
-    DEVICE_NAME = 0x280CD0                  # rm_deviceLocalName, FIXME has no longer a length byte prepended
-    BD_ADDR = 0x280CA4                      # rm_deviceBDAddr
+    DEVICE_NAME = (
+        0x280CD0  # rm_deviceLocalName, FIXME has no longer a length byte prepended
+    )
+    BD_ADDR = 0x280CA4  # rm_deviceBDAddr
 
-    #Heap
-    BLOC_HEAD = Address(0x0200c7c)  # g_dynamic_memory_GeneralUsePools
-    BLOC_NG = True                          # Next Generation Bloc Buffer
+    # Heap
+    BLOC_HEAD = Address(0x0200C7C)  # g_dynamic_memory_GeneralUsePools
+    BLOC_NG = True  # Next Generation Bloc Buffer
 
     # Memory Sections
     #                          start,    end,           is_rom? is_ram?
-    SECTIONS = [ MemorySection(0x00000000, 0x001fffff,  True,  False),  # Internal ROM
-                 MemorySection(0x00200000, 0x0024ffff,  False, True),   # Internal Memory Cortex M3
-                 MemorySection(0x00270000, 0x0027ffff,  False, True),   # Internal Memory Patchram Contents
-                 MemorySection(0x00280000, 0x00283fff,  False, True),   # ToRam
-                ]
+    SECTIONS = [
+        MemorySection(0x00000000, 0x001FFFFF, True, False),  # Internal ROM
+        MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
+        MemorySection(
+            0x00270000, 0x0027FFFF, False, True
+        ),  # Internal Memory Patchram Contents
+        MemorySection(0x00280000, 0x00283FFF, False, True),  # ToRam
+    ]
 
     # Patchram
-    PATCHRAM_TARGET_TABLE_ADDRESS   = Address(0x310000)
+    PATCHRAM_TARGET_TABLE_ADDRESS = Address(0x310000)
     PATCHRAM_ENABLED_BITMAP_ADDRESS = Address(0x310404)
-    PATCHRAM_VALUE_TABLE_ADDRESS    = Address(0x270000)
-    PATCHRAM_NUMBER_OF_SLOTS        = 256
-    PATCHRAM_ALIGNED                = False
+    PATCHRAM_VALUE_TABLE_ADDRESS = Address(0x270000)
+    PATCHRAM_NUMBER_OF_SLOTS = 256
+    PATCHRAM_ALIGNED = False
     # only seems to work 4-byte aligned here ...
-
 
     # Assembler snippet for tracepoints
     # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
@@ -127,5 +131,3 @@ class CYW20739B1(FirmwareDefinition):
             bx   lr          // return
     
     """
-
-

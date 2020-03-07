@@ -28,6 +28,7 @@
 # Firmware Infos
 # This runs on Rasperry Pi 3+
 from builtins import object
+
 FW_NAME = "BCM4345C0"
 
 # Device Infos
@@ -44,42 +45,44 @@ class MemorySection(object):
     def size(self):
         return self.end_addr - self.start_addr
 
+
 # Memory Sections
 #                          start,    end,      is_rom? is_ram?
-SECTIONS = [ MemorySection(0x0,      0x90000,  True , False),
-             MemorySection(0xd0000,  0xd8000,  False, True ),
-            #MemorySection(0xe0000,  0x1f0000, True , False),
-             MemorySection(0x200000, 0x228000, False, True ),
-             MemorySection(0x260000, 0x268000, True , False),
-            #MemorySection(0x280000, 0x2a0000, True , False),
-             MemorySection(0x318000, 0x320000, False, False),
-             MemorySection(0x324000, 0x360000, False, False),
-             MemorySection(0x362000, 0x362100, False, False),
-             MemorySection(0x363000, 0x363100, False, False),
-             MemorySection(0x600000, 0x600800, False, False),
-             MemorySection(0x640000, 0x640800, False, False),
-             MemorySection(0x650000, 0x650800, False, False),
-            #MemorySection(0x680000, 0x800000, False, False)
-            ]
+SECTIONS = [
+    MemorySection(0x0, 0x90000, True, False),
+    MemorySection(0xD0000, 0xD8000, False, True),
+    # MemorySection(0xe0000,  0x1f0000, True , False),
+    MemorySection(0x200000, 0x228000, False, True),
+    MemorySection(0x260000, 0x268000, True, False),
+    # MemorySection(0x280000, 0x2a0000, True , False),
+    MemorySection(0x318000, 0x320000, False, False),
+    MemorySection(0x324000, 0x360000, False, False),
+    MemorySection(0x362000, 0x362100, False, False),
+    MemorySection(0x363000, 0x363100, False, False),
+    MemorySection(0x600000, 0x600800, False, False),
+    MemorySection(0x640000, 0x640800, False, False),
+    MemorySection(0x650000, 0x650800, False, False),
+    # MemorySection(0x680000, 0x800000, False, False)
+]
 
 # Connection Structure and Table
-CONNECTION_ARRAY_ADDRESS = 0x204ba8
-CONNECTION_MAX           = 11
+CONNECTION_ARRAY_ADDRESS = 0x204BA8
+CONNECTION_MAX = 11
 CONNECTION_STRUCT_LENGTH = 0x150
 
 # Patchram
 PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000
-PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
-PATCHRAM_NUMBER_OF_SLOTS        = 128
-PATCHRAM_ALIGNED                = False
+PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
+PATCHRAM_NUMBER_OF_SLOTS = 128
+PATCHRAM_ALIGNED = False
 
 # Heap
-BLOC_HEAD = 0x200490                    # g_dynamic_memory_GeneralUsePools
-BLOC_NG = True                          # Next Generation Bloc Buffer
+BLOC_HEAD = 0x200490  # g_dynamic_memory_GeneralUsePools
+BLOC_NG = True  # Next Generation Bloc Buffer
 
 # Snippet for sendLcpPacket()
-SENDLCP_CODE_BASE_ADDRESS = 0x21f000
+SENDLCP_CODE_BASE_ADDRESS = 0x21F000
 SENDLCP_ASM_CODE = """
         push {r4,lr}
 
