@@ -50,6 +50,10 @@ class MemorySection(object):
 
 class FirmwareDefinition:
 
+    DEVICE_NAME: Address
+
+    BD_ADDR: Address
+
     SECTIONS: List[MemorySection]
     TRACEPOINT_BODY_ASM_SNIPPET: str
     TRACEPOINT_HOOKS_LOCATION: int

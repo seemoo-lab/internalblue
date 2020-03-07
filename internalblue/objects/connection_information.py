@@ -9,7 +9,7 @@ class ConnectionInformation(object):
     master_of_connection = False
     remote_name_address = 0
     remote_address = None
-    id = None
+    id: bytearray
     public_rand = None
     extended_lmp_feat = None
     link_key = None
