@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 import struct
 from time import sleep
+from typing import Optional
 
 from future import standard_library
 
@@ -40,7 +41,7 @@ class ADBCore(InternalBlue):
             data_directory,
             replay,
         )
-        self.hciport = None  # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
+        self.hciport: Optional[int] = None  # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.serial = serial  # use serial su busybox scripting and do not try bluetooth.default.so
         self.doublecheck = False
 
@@ -256,7 +257,7 @@ class ADBCore(InternalBlue):
                 if filter_function == None or filter_function(record):
                     try:
                         queue.put(record, block=False)
-                    except queue.Full:
+                    except queue2k.Full:
                         log.warn(
                             "recvThreadFunc: A recv queue is full. dropping packets.."
                         )
@@ -347,14 +348,16 @@ class ADBCore(InternalBlue):
 
         saved_loglevel = context.log_level
         context.log_level = "warn"
-        try:
-            adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport)])
-            adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport + 1)])
-        except PwnlibException as e:
-            log.warn("Removing adb port forwarding failed: " + str(e))
-            return False
-        finally:
-            context.log_level = saved_loglevel
+        if self.hciport is not None:
+            hciport = self.hciport
+            try:
+                adb.adb(["forward", "--remove", f"tcp:{hciport}"])
+                adb.adb(["forward", "--remove", f"tcp:{hciport + 1}"])
+            except PwnlibException as e:
+                log.warn("Removing adb port forwarding failed: " + str(e))
+                return False
+            finally:
+                context.log_level = saved_loglevel
 
     def _setupSerialSu(self):
         """
