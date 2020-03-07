@@ -139,12 +139,6 @@ def _parse_argv(argv):
         help="On ADB, directly try su/serial/busybox scripting, if you do not have a special bluetooth.default.so file.",
         action="store_true",
     )
-    parser.add_argument(
-        "--testdevice",
-        "-t",
-        help="Use a dummy test device to execute testcases",
-        action="store_true",
-    )
     parser.add_argument("--trace", help="Trace hci connection")
     parser.add_argument("--device", help="Specify device/core to be used")
     parser.add_argument(
@@ -244,12 +238,6 @@ def internalblue_cli(argv, args=None):
 
         connection_methods = [
             iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)
-        ]
-    elif args.testdevice:
-        from .testcore import testCore
-
-        connection_methods = [
-            testCore(log_level=log_level, data_directory=data_directory)
         ]
     elif platform == "darwin":
         from .macoscore import macOSCore
