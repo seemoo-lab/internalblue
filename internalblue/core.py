@@ -56,7 +56,7 @@ from .objects.queue_element import QueueElement
 from .objects.connection_information import ConnectionInformation
 from future.utils import with_metaclass
 from internalblue.utils import bytes_to_hex
-
+from internalblue.hci import HCI, HCI_COMND
 
 try:
     from typing import (
@@ -83,7 +83,6 @@ try:
         QueueInformation,
         Opcode,
     )
-    from internalblue.hci import HCI
     from . import DeviceTuple
 
     if TYPE_CHECKING:
@@ -698,7 +697,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         """
 
         # send Read_Local_Version_Information
-        version = self.sendHciCommand(0x1001, "".encode("utf-8"))
+        version = self.sendHciCommand(
+            HCI_COMND.Read_Local_Version_Information, "".encode("utf-8")
+        )
 
         if not version or len(version) < 11:
             log.warn(
@@ -829,8 +830,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 return
         log.warn("registerHciRecvQueue: no such queue is registered!")
 
-    def sendHciCommand(self, opcode, data, timeout=3):
-        # type: (Opcode, bytes, int) -> Optional[bytearray]
+    def sendHciCommand(
+        self, hci_opcode: HCI_COMND, data: bytes, timeout: int = 3
+    ) -> Optional[bytearray]:
         """
         Send an arbitrary HCI command packet by pushing a send-task into the
         sendQueue. This function blocks until the response is received
@@ -838,6 +840,22 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         HCI Command Complete Event which was received in response to
         the command or None if no response was received within the timeout.
         """
+
+        # Support legacy code that passes an integer instead of a HCI_COMND for now
+        # This would be more elegant with a
+        # flag that can be set to allow arbitrary bytes for the HCI command but that would require literal types
+        # (PEP586) which are only supported with python 3.8+
+        # For static type analysis this is good enough, because if someone hardcodes some hci command they might as well document it
+
+        if isinstance(hci_opcode, HCI_COMND):
+            opcode = hci_opcode.value
+        elif isinstance(hci_opcode, int):
+            opcode = hci_opcode
+        else:
+            raise ValueError(
+                "opcode parameter to sendHciCommand must be either integer or HCI_COMND enum member"
+            )
+
         # TODO: If the response is a HCI Command Status Event, we will actually
         #      return this instead of the Command Complete Event (which will
         #      follow later and will be ignored). This should be fixed..
@@ -962,7 +980,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 blocksize = 251
 
             # Send Read_RAM (0xfc4d) command
-            response = self.sendHciCommand(0xFC4D, p32(read_addr) + p8(blocksize))
+            response = self.sendHciCommand(
+                HCI_COMND.VSC_Read_RAM, p32(read_addr) + p8(blocksize)
+            )
 
             if response is None or not response:
                 log.warn(
@@ -1005,7 +1025,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             # do double checking, but prevent loop
             if self.doublecheck and retry > 0:
                 response_check = self.sendHciCommand(
-                    0xFC4D, p32(read_addr) + p8(blocksize)
+                    HCI_COMND.VSC_Read_RAM, p32(read_addr) + p8(blocksize)
                 )
                 if response != response_check:
                     log.debug(
@@ -1169,7 +1189,8 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 blocksize = 251
 
             response = self.sendHciCommand(
-                0xFC4C, p32(write_addr) + data[byte_counter : byte_counter + blocksize]
+                HCI_COMND.VSC_Write_RAM,
+                p32(write_addr) + data[byte_counter : byte_counter + blocksize],
             )
             if response == None:
                 log.warn(
@@ -1201,7 +1222,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         crash (or be resetted by Android) if the function takes too long.
         """
 
-        response = self.sendHciCommand(0xFC4E, p32(address))
+        response = self.sendHciCommand(HCI_COMND.VSC_Launch_RAM, p32(address))
         if response is None:
             log.warn(
                 "Empty HCI response during launchRam, driver crashed due to invalid code or destination"
@@ -1579,7 +1600,8 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
         result = self.sendHciCommand(
-            0xFC58, p16(conn_handle) + p8(len(payload + opcode_data)) + data
+            HCI_COMND.VSC_SendLmpPdu,
+            p16(conn_handle) + p8(len(payload + opcode_data)) + data,
         )
 
         if result is None:
@@ -1767,7 +1789,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # TODO: expose more of the connection create parameters (instead of
         #       passing 0's.
-        self.sendHciCommand(0x0405, bt_addr[::-1] + "\x00\x00\x00\x00\x00\x00\x01")
+        self.sendHciCommand(
+            HCI_COMND.Create_Connection, bt_addr[::-1] + "\x00\x00\x00\x00\x00\x00\x01"
+        )
 
     def connectToRemoteLEDevice(self, bt_addr, addr_type=0x00):
         # type: (BluetoothAddress, int) -> None
@@ -1785,7 +1809,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # TODO: expose more of the connection create parameters (instead of
         #       passing 0's.
         self.sendHciCommand(
-            0x200D,
+            HCI_COMND.LE_Create_Connection,
             "\x60\x00\x30\x00\x00"
             + p8(addr_type)
             + bt_addr[::-1]
