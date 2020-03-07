@@ -157,7 +157,7 @@ class macOSCore(InternalBlue):
                     except queue.Full:
                         log.warn(
                             "recvThreadFunc: A recv queue is full. dropping packets..>"
-                            + record_data
+                            + str(record_data)
                         )
 
                 # Call all callback functions inside registeredHciCallbacks and pass the
