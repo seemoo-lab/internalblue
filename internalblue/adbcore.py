@@ -400,6 +400,7 @@ class ADBCore(InternalBlue):
                 )
                 .recvall()
                 .strip()
+                .decode("utf-8")
             )
             log.info("Android btsnoop logfile %s...", logfile)
             interface = (
@@ -408,6 +409,7 @@ class ADBCore(InternalBlue):
                 )
                 .recvall()
                 .strip()
+                .decode("utf-8")
             )
             log.info("Android Bluetooth interface %s...", interface)
 

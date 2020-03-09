@@ -11,7 +11,7 @@ setup(name='internalblue',
       license='MIT',
       packages=['internalblue', 'internalblue/fw'],
       install_requires=[
-          'pwntools>=4.2.0.dev0',
+          'pwntools>=4.0.1',
           'pyelftools',
       ],
       extras_require={
