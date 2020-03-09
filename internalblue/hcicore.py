@@ -19,8 +19,9 @@ from . import hci
 import queue as queue2k
 import threading
 
-from typing import List, cast
-from internalblue import Device
+from typing import List, cast, TYPE_CHECKING
+if TYPE_CHECKING:
+    from internalblue import Device
 
 
 # from /usr/include/bluetooth/hci.h:
