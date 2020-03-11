@@ -18,7 +18,7 @@ setup(
     ],
     install_requires=["pwntools>=4.0.1", "pyelftools", "future"],
     extras_require={"macoscore": ["pyobjc"], "ipython": ["IPython"]},
-    tests_require=["nose", "pytest"],
+    tests_require=["nose", "pytest", "pwntools>=4.2.0.dev0"],
     entry_points={
         "console_scripts": ["internalblue=internalblue.cli:internalblue_entry_point"]
     },
