@@ -57,14 +57,14 @@ HISTFILE = "_internalblue.hist"
 
 
 def print_banner():
-    banner = """\
+    banner = r"""
    ____     __                    _____  __
   /  _/__  / /____ _______  ___ _/ / _ )/ /_ _____
  _/ // _ \/ __/ -_) __/ _ \/ _ `/ / _  / / // / -_)
 /___/_//_/\__/\__/_/ /_//_/\_,_/_/____/_/\_,_/\__/
 
-
-type <help> for usage information!\n\n"""
+type <help> for usage information!
+"""
     for line in banner:
         pwnlib.term.output(pwnlib.text.blue(line))
 
@@ -159,6 +159,7 @@ def _parse_argv(argv):
 
 # Entry point for the `internalblue` command entry point defined in setup.py
 def internalblue_entry_point():
+    print_banner()
     return internalblue_cli(sys.argv[1:])
 
 # Main Program Start
