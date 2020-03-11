@@ -194,7 +194,8 @@ class ReplaySocket(SocketDuplexHook):
     ):
         SocketDuplexHook.__init__(self, snoop_socket, inject_socket, core)
         self.replace = True
-        self.log = open(filename).readlines()
+        with open(filename) as f:
+            self.log = f.readlines()
         self.index = 0
         self.debug = debug
         if self.log[0].startswith("#"):
