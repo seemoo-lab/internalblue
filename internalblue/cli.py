@@ -156,6 +156,11 @@ def _parse_argv(argv):
     return parser.parse_args(argv)
 
 
+
+# Entry point for the `internalblue` command entry point defined in setup.py
+def internalblue_entry_point():
+    return internalblue_cli(sys.argv[1:])
+
 # Main Program Start
 def internalblue_cli(argv, args=None):
     # print_banner()
