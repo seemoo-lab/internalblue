@@ -1660,7 +1660,7 @@ class CmdInfo(Cmd):
         progress_log = log.progress("Traversing Queues")
         queuelist = self.internalblue.readQueueInformation()  # List of QUEU structs
 
-        if queuelist == False:
+        if queuelist is None:
             log.debug("No queues returned!")
             progress_log.failure("empty")
             return False
@@ -1669,7 +1669,7 @@ class CmdInfo(Cmd):
             "[ Idx  ] @Queue-Addr  Queue-Name          Items/Free/Capacity  Item-Size  Buffer"
         )
         log.info(
-            "------------------------------------------------------------______--------------"
+            "--------------------------------------------------------------------------------"
         )
         for queue in [vars(element) for element in queuelist]:
             # TODO: waitlist
