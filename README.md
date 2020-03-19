@@ -1,3 +1,12 @@
+
+----
+
+**WE UPGRADED FROM PYTHON 2 TO PYTHON 3. IF YOUR SCRIPTS ARE NO LONGER RUNNING, PLEASE CHECK OUT COMMIT
+ID `e89a84812e4e1606f25400ebb70939e1ecfe2402`.**
+
+----
+
+
 InternalBlue
 ============
 
@@ -6,6 +15,8 @@ update mechanism have been reverse engineered. Based on that we developed a
 Bluetooth experimentation framework which is able to patch the firmware and
 therefore implement monitoring and injection tools for the lower layers of
 the Bluetooth protocol stack.
+
+
 
 
 Publications and Background
@@ -64,6 +75,9 @@ was also recorded and gives a more high level overview.
 
   We did some work on improving blacklisting performance of BLE data connections. Currently in a separate *blacklisting* branch.
 
+* **CiderSecCon Talk** (03/2020)
+
+  TROOPERS was canceled, but we did a stream of a talk that was recorded on [YouTube](https://www.youtube.com/watch?v=Nx2ZDLaJ1-0&t=4920).
   
 
 
@@ -98,6 +112,7 @@ On selected Broadcom Bluetooth chips:
   * NiNo example
   * MAC address filter example
 * KNOB attack test for various devices, including Raspberry Pi 3+/4
+* BLE receptoin statistics
 
 A comprehensive list of chips and which devices have them can be found in the [firmware](internalblue/fw/README.md) module documentation.
 
@@ -110,13 +125,13 @@ Requirements
 Android:
 * Ideally recompiled `bluetooth.default.so`, but also works on any rooted smartphone, see [Android instructions](android_bluetooth_stack/README.md)
 * Android device connected via ADB
-* Best support is currently given for Nexus 5 / BCM4339 and Evaluation Boards
+* Best support is currently given for Nexus 5 / BCM4339
 * Optional: Patch for Android driver to support Broadcom H4 forwarding
 * Optional, if H4: Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 Linux:
 * BlueZ, instructions see [here](linux_bluez/README.md)
-* Best support for Raspberry Pi 3/3+/4
+* Best support for Raspberry Pi 3/3+/4 and Cypress evaluation boards
 * For most commands: Privileged access
 
 iOS:
@@ -151,7 +166,7 @@ with all dependencies by using pip:
 
     git clone https://github.com/seemoo-lab/internalblue.git
     cd internalblue
-    pip2 install .
+    pip install .
 
 It will install the following dependencies:
 * pwntools
@@ -171,7 +186,7 @@ All steps on a plain Ubuntu 18.04:
     sudo apt install git python-setuptools binutils-arm-linux-gnueabi adb pip python-dev gcc
     git clone https://github.com/seemoo-lab/internalblue
     cd internalblue
-    sudo pip2 install .
+    sudo pip install .
     cd ..
     
     sudo apt-get install wireshark-dev wireshark cmake
@@ -195,7 +210,7 @@ Usage
 
 The CLI (Command Line Interface) of InternalBlue can be started by running:
 
-    python2 -m internalblue.cli
+    python -m internalblue.cli
 
 The setup.py installation will also place a shortcut to the CLI into the $PATH
 so that it can be started from a command line using:

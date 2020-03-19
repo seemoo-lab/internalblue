@@ -4,11 +4,11 @@ from setuptools import setup
 
 setup(
     name="internalblue",
-    version="0.3",
+    version="0.4",
     description="A Bluetooth Experimentation Framework based on the Broadcom Bluetooth Controller Family.",
     url="http://github.com/seemoo-lab/internalblue",
-    author="Dennis Mantz",
-    author_email="dennis.mantz@googlemail.com",
+    author="The InternalBlue Team",
+    author_email="jiska@bluetooth.lol",
     license="MIT",
     packages=[
         "internalblue",
