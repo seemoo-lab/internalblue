@@ -1848,7 +1848,8 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             )
             conn_handle = u16(hcipkt.data[1:3])
             btaddr = hcipkt.data[3:9][::-1]
-            btaddr_str = ":".join([b.encode("hex") for b in btaddr])
+            #btaddr_str = ":".join([b.encode("hex") for b in btaddr])
+            btaddr_str = bytes_to_hex(btaddr)
             log.info(
                 "[Connect Complete: Handle=0x%x  Address=%s  status=%s]"
                 % (conn_handle, btaddr_str, status_str)

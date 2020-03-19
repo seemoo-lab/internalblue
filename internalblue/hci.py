@@ -956,7 +956,7 @@ class StackDumpReceiver(object):
         """ Data should be a byte string containing all payload bytes
         beginning with the checksum byte.
         """
-        return sum([ord(x) for x in data]) % 0x100 == 0
+        return sum(data) % 0x100 == 0
 
     def handleRamDump(self, data):
         """ Data should be a byte string containing the address (4 byte)
@@ -969,6 +969,7 @@ class StackDumpReceiver(object):
         log.debug("Stack dump handling addr %08x", addr - self.memdump_addr)
 
     def finishStackDump(self):
+        return  # FIXME flat not working on dict in python 3 like this
         dump = flat(self.memdumps)
         log.warn(
             "Stack dump @0x%08x written to %s!"
@@ -983,7 +984,7 @@ class StackDumpReceiver(object):
 
     def handleNexus5StackDump(self, hcipkt):
         checksum_correct = self.verifyChecksum(hcipkt.data[5:])
-        packet_type = u8(hcipkt.data[4])
+        packet_type = hcipkt.data[4]
 
         if packet_type == 0x2C:
             data = hcipkt.data[6:]
@@ -995,10 +996,10 @@ class StackDumpReceiver(object):
                     "\n".join([hex(x) for x in values]),
                 )
             )
-            if data[0] == "\x02":
+            if data[0] == 0x02:
                 # This is the second stack dump event (contains register values)
                 log.warn(
-                    "Received Stack-Dump Event (contains %d registers):" % (u8(data[1]))
+                    "Received Stack-Dump Event (contains %d registers):" % (data[1])
                 )
                 registers = (
                     "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n"
@@ -1038,10 +1039,10 @@ class StackDumpReceiver(object):
                 )
             )
 
-            if packet_type == 0x2C and data[0] == "\x02":
+            if packet_type == 0x2C and data[0] == 0x02:
                 # This is the second stack dump event (contains register values)
                 log.warn(
-                    "Received Stack-Dump Event (contains %d registers):" % (u8(data[1]))
+                    "Received Stack-Dump Event (contains %d registers):" % (data[1])
                 )
                 registers = (
                     "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n"
@@ -1104,11 +1105,11 @@ class StackDumpReceiver(object):
                     "\n".join([hex(x) for x in values]),
                 )
             )
-            if data[0] == "\x02":
+            if data[0] == 0x02:
                 # This is the second stack dump event (contains register values)
                 log.warn(
                     "Received Evaluation Stack-Dump Event (contains %d registers):"
-                    % (u8(data[1]))
+                    % (data[1])
                 )
                 registers = (
                     "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n"
@@ -1174,7 +1175,7 @@ class StackDumpReceiver(object):
             )
             # Values different than in other stack dump formats, experimental output!
             log.warn(
-                "Received S10 Stack-Dump Event (contains %d registers):" % (u8(data[1]))
+                "Received S10 Stack-Dump Event (contains %d registers):" % (data[1])
             )
             registers = (
                 "pc: 0x%08x   lr: 0x%08x   sp: 0x%08x   r0: 0x%08x   r1: 0x%08x\n"
