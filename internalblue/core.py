@@ -1100,7 +1100,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 return False
             if hcipkt.event_code != 0xFF:
                 return False
-            if hcipkt.data[0:4] != "READ":
+            if hcipkt.data[0:4] != bytes("READ", "utf-8"):
                 return False
             return True
 
@@ -1108,7 +1108,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         read_addr = address
         byte_counter = 0
-        outbuffer = ""
+        outbuffer = (
+            bytearray()
+        )
         if bytes_total == 0:
             bytes_total = length
         while read_addr < address + length:
