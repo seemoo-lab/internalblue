@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+            <key>footerText</key>
+			<string>Enable the InternalBlue proxy. For a reliable performance Bluetooth must be disabled in the settings.</string>    
+        </dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.ttdennis.internalblue-prefs</string>
+			<key>key</key>
+			<string>isEnabled</string>
+			<key>label</key>
+            <string>Enable InternalBlue Proxy</string>
+            <key>PostNotification</key>
+            <string>com.ttdennis.internalblue/toggle</string>
+            <key>id</key>
+            <string>enabled</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+            <key>footerText</key>
+			<string>This sets the port the proxy is listening on. InternalBlue assumes 1234. Changing this port requires adapting InternalBlue and restarting the proxy.</string>    
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSEditTextCell</string>
+            <key>default</key>
+            <string>1234</string>
+            <key>defaults</key>
+            <string>com.ttdennis.internalblue-prefs</string>
+            <key>key</key>
+            <string>port</string>
+            <key>label</key>
+            <string>Proxy Port</string>
+            <key>isNumeric</key>
+            <true/>
+            <key>id</key>
+            <string>port</string>
+        </dict>
+	</array>
+	<key>title</key>
+	<string>InternalBlue Proxy Settings</string>
+</dict>
+</plist>

@@ -135,9 +135,10 @@ Linux:
 * For most commands: Privileged access
 
 iOS:
-* A jailbroken iOS device (tested on iOS 12.1.2/12.4 with iPhone 6, SE, 7, 8, X)
-* The included `ios-proxy` (instructions in [here](ios-proxy/README.md))
-* Optional: a Mac with `xcode` to compile the proxy yourself
+* A jailbroken iOS device (tested on iOS 12 and 13 with iPhone 6, SE, 7, 8, X , does not work on iPhones newer than XR, these devices have a Bluetooth chip connected via PCIe)
+* `usbmuxd`, which is pre installed on macOS but is available on most Linux distributions as well. Alternatively it can be obtained from [here](https://github.com/libimobiledevice/usbmuxd).
+* The [``internalblued`` daemon](ios-internalblued/README.md) installed on the iOS device
+
 * Optional, no jailbreak required: install [iOS Bluetooth Debug Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/) to obtain
   HCI and diagnostic messages, either via diagnostic report feature (all iOS versions) or live with PacketLogger (since iOS 13)
 

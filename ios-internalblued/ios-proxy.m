@@ -1,12 +1,11 @@
 //
-//  internalblue-ios-proxy.c
-//  internalblue-ios-proxy
+//  ios-proxy.m
+//  ios-proxy
 //
-//  Created by ttdennis on 03.05.19.
 //  Copyright © 2019 ttdennis. All rights reserved.
 //
 
-#include "internalblue-ios-proxy.h"
+#include "ios-proxy.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -24,23 +23,6 @@
 #include <unistd.h>
 #include <termios.h>
 
-#define IOAOSSKYSETCHANNELSPEC 0x800C5414
-#define IOAOSSKYGETCHANNELUUID 0x40105412
-
-#define CTLIOCGINFO 0xC0644E03
-
-typedef struct ctl_info {
-    uint32_t ctl_id;
-    char ctl_name[96];
-} ctl_info_t;
-
-int btwake_fd, bt_fd;
-
-/*
- This code has been put together by reverse-engineering BlueTool and bluetoothd on
- iOS. Some of the things that happen here are not completely understood but the goal
- was to just get it to work.
- */
 int connect_bt_device() {
 	int socket_fd = socket(32, 1, 2);
 	int error = 0;
@@ -50,7 +32,7 @@ int connect_bt_device() {
 	struct termios term;
 	
 	if (socket_fd == 0) {
-		printf("[!] Unable to get Bluetooth socket\n");
+		NSLog(@"[!] Unable to get Bluetooth socket\n");
 		return -1;
 	}
 	
@@ -58,8 +40,8 @@ int connect_bt_device() {
     ctl_inf->ctl_id = 0;
 	strcpy(ctl_inf->ctl_name, "com.apple.uart.bluetooth");
 	if ((error = ioctl(socket_fd, CTLIOCGINFO, ctl_inf))) {
-		printf("[!] ioctl(CTLIOCGINFO) = %d - errno: %d\n", error, errno);
-		printf("[!] error: %s\n", strerror(errno));
+		NSLog(@"[!] ioctl(CTLIOCGINFO) = %d - errno: %d\n", error, errno);
+		NSLog(@"[!] error: %s\n", strerror(errno));
 		return -1;
 	}
 	
@@ -67,27 +49,27 @@ int connect_bt_device() {
 	*(int *)&sock_addr.sa_data[2] = ctl_inf->ctl_id;
 	ret = connect(socket_fd, &sock_addr, 0x20);
 	if (ret != 0) {
-		printf("[!] connect() = %d - errno: %d\n", ret, errno);
-		printf("[!] error: %s\n", strerror(errno));
+		NSLog(@"[!] connect() = %d - errno: %d\n", ret, errno);
+		NSLog(@"[!] error: %s\n", strerror(errno));
 		return -1;
 	}
 	
-	printf("[*] Connected to Bluetooth chip H4 socket\n");
+	NSLog(@"[*] Connected to Bluetooth chip H4 socket\n");
 	
 	socklen_t len = 72;
 	
 	ret = getsockopt(socket_fd, 2, TIOCGETA, &term, &len);
 	if (ret != 0) {
-		printf("[!] getsockopt(TIOCGETA) = %d - errno: %d\n", ret, errno);
-		printf("[!] error: %s\n", strerror(errno));
+		NSLog(@"[!] getsockopt(TIOCGETA) = %d - errno: %d\n", ret, errno);
+		NSLog(@"[!] error: %s\n", strerror(errno));
 		return -1;
 	}
 	
 	cfmakeraw(&term);
 	ret = cfsetspeed(&term, 3000000);
 	if (ret != 0) {
-		printf("[!] cfsetspeed() = %d - errno: %d\n", ret, errno);
-		printf("[!] error: %s\n", strerror(errno));
+		NSLog(@"[!] cfsetspeed() = %d - errno: %d\n", ret, errno);
+		NSLog(@"[!] error: %s\n", strerror(errno));
 		return -1;
 	}
 	
@@ -95,8 +77,8 @@ int connect_bt_device() {
 	term.c_cflag = 232192;
 	ret = setsockopt(socket_fd, 2, TIOCSETA, &term, 0x48);
 	if (ret != 0) {
-		printf("[!] setsockopt() = %d - errno: %d\n", ret, errno);
-		printf("[!] error: %s\n", strerror(errno));
+		NSLog(@"[!] setsockopt() = %d - errno: %d\n", ret, errno);
+		NSLog(@"[!] error: %s\n", strerror(errno));
 		return -1;
 	}
 	
@@ -114,28 +96,28 @@ int create_server(int port) {
 	
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd < 0) {
-		printf("[!] Unable to create server socket\n");
+		NSLog(@"[!] Unable to create server socket\n");
 		return -1;
 	}
 	
 	addrlen = sizeof(server);
 	memset(&server, '\0', addrlen);
 	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = INADDR_ANY;
+	server.sin_addr.s_addr = inet_addr("127.0.0.1");
 	server.sin_port = htons(port);
 	
 	setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &on, 4);
 	if (bind(server_fd, (struct sockaddr *)&server, sizeof(server)) < 0) {
-		printf("[!] Error binding socket\n");
+		NSLog(@"[!] Error binding socket\n");
 		return -1;
 	}
 	
 	if (listen(server_fd, 5) < 0) {
-		printf("[!] Failed listening on port %d,  Error: %s\n", port, strerror(errno));
+		NSLog(@"[!] Failed listening on port %d,  Error: %s\n", port, strerror(errno));
 		return -1;
 	}
 	
-	printf("[*] Listening on port %d\n", port);
+	NSLog(@"[*] Listening on port %d\n", port);
 	
 	return server_fd;
 }
@@ -149,7 +131,7 @@ int wait_for_connection(int server_fd) {
 	client_fd = accept(server_fd, (struct sockaddr *)&client, (socklen_t *)&len);
 	
 	if (client_fd < 0) {
-		printf("[!] Accepting connection failed\n");
+		NSLog(@"[!] Accepting connection failed\n");
 		return -1;
 	}
 	
@@ -184,7 +166,7 @@ void proxy_bt_socket(int client, int bt) {
                     write(bt, client_buf, n);
                 } else {
                     close(client);
-                    printf("[!] Client read failed\n");
+                    NSLog(@"[!] Client read failed\n");
                     return;
                 }
 			}
@@ -195,12 +177,12 @@ void proxy_bt_socket(int client, int bt) {
                     write(client, bt_buf, n);
                 } else {
                     close(client);
-                    printf("[!] H4 socket read failed\n");
+                    NSLog(@"[!] H4 socket read failed\n");
                     return;
                 }
 			}
 		} else if (x < 0 && errno != EINTR){
-			printf("[!] Select failed with %s\n", strerror(errno));
+			NSLog(@"[!] Select failed with %s\n", strerror(errno));
 			close(client);
 			return;
 		}
@@ -208,54 +190,4 @@ void proxy_bt_socket(int client, int bt) {
 	}
 }
 
-void __exit(int sig) {
-	close(bt_fd);
-	close(btwake_fd);
-	exit(0);
-}
 
-int main(int argc, char **argv) {
-	int server_fd, client_fd;
-	int port;
-	
-	if (argc != 2) {
-		printf("Usage: %s <port_number>\n", argv[0]);
-		return 1;
-	}
-	
-	port = atoi(argv[1]);
-	
-    while (1) {
-        // wake BT device
-        btwake_fd = open("/dev/btwake", 0);
-        
-        bt_fd = connect_bt_device();
-        if (bt_fd < 0) {
-            printf("[!] Error connecting to bluetooth device\n");
-            return -1;
-        }
-        
-        server_fd = create_server(port);
-        if (server_fd < 0) {
-            printf("[!] Unable to create proxy server\n");
-            return -1;
-        }
-        printf("[*] Created proxy server\n");
-        
-        signal(SIGINT, __exit);
-	
-		printf("[*] Waiting for remote connection\n");
-		client_fd = wait_for_connection(server_fd);
-		if (client_fd < 0)
-			printf("[!] Unable to connect remote device to proxy\n");
-		
-        // currently only one connection is supported
-		proxy_bt_socket(client_fd, bt_fd);
-		close(client_fd);
-        close(server_fd);
-        close(bt_fd);
-        close(btwake_fd);
-	}
-	
-	return 0;
-}
