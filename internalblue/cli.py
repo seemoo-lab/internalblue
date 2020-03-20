@@ -238,35 +238,30 @@ def internalblue_cli(argv, args=None):
                     replay_devices
                 )
             )
-
-    elif args.ios_device:
-        from .ioscore import iOSCore
-
-        connection_methods = [
-            iOSCore(args.ios_device, log_level=log_level, data_directory=data_directory)
-        ]
-    elif platform == "darwin":
-        from .macoscore import macOSCore
-
-        connection_methods = [
-            macOSCore(
-                log_level=log_level,
-                data_directory=data_directory,
-                replay=(args.replay and args.device == "mac"),
-            ),
-            ADBCore(log_level=log_level, data_directory=data_directory),
-        ]
-        if args.trace:
-            hook(macOSCore, HookClass)
-        elif args.save:
-            hook(macOSCore, TraceToFileHook, filename=args.save)
     else:
-        connection_methods = [
+        # if /var/run/usbmuxd exists, we can check for iOS devices
+        if os.path.exists("/var/run/usbmuxd"):
+            from .ioscore import iOSCore
+            connection_methods.append(iOSCore(log_level=log_level, data_directory=data_directory))
+
+        if platform == "darwin":
+            try:
+                from .macoscore import macOSCore
+                connection_methods.append(macOSCore(log_level=log_level, data_directory=data_directory, replay=(args.replay and args.device == "mac")))
+            except ImportError:
+                pwnlib.log.warn("Couldn't import macOSCore. Is IOBluetoothExtended.framework installed?")
+            if args.trace:
+                hook(macOSCore, HookClass)
+            elif args.save:
+                hook(macOSCore, TraceToFileHook, filename=args.save)
+        else:
+            connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
+    
+        # ADB core can always be used
+        connection_methods.append(
             ADBCore(
                 log_level=log_level, data_directory=data_directory, serial=args.serialsu
-            ),
-            HCICore(log_level=log_level, data_directory=data_directory),
-        ]
+            ))
 
     devices = []  # type: List[DeviceTuple]
     for connection_method in connection_methods:
