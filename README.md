@@ -1,12 +1,3 @@
-
-----
-
-**WE UPGRADED FROM PYTHON 2 TO PYTHON 3. IF YOUR SCRIPTS ARE NO LONGER RUNNING, PLEASE CHECK OUT COMMIT
-ID `e89a84812e4e1606f25400ebb70939e1ecfe2402`.**
-
-----
-
-
 InternalBlue
 ============
 
@@ -17,6 +8,12 @@ therefore implement monitoring and injection tools for the lower layers of
 the Bluetooth protocol stack.
 
 
+Recent Changes
+--------------
+* We upgraded from Python 2 to Python 3. If you wrote your own scripts, this might break them. In this case, use
+  the [python2](https://github.com/seemoo-lab/internalblue/releases/tag/python2) release.
+
+* We reworked the *iOS* implementation.
 
 
 Publications and Background
