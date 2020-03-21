@@ -216,9 +216,8 @@ class iOSCore(InternalBlue):
                     self.registeredHciRecvQueues
                 ):  # TODO filter_function not working with bluez modifications
                     try:
-                        log.info(record)
                         queue.put(record, block=False)
-                    except queue.Full:
+                    except queue2k.Full:
                         log.warn(
                             "recvThreadFunc: A recv queue is full. dropping packets.."
                         )
