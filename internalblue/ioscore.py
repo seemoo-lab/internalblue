@@ -142,15 +142,16 @@ class iOSCore(InternalBlue):
             else:
                 # for ACL data the length field is at offset 3
                 if self.buffer[0] == 0x2:
-                    acl_len = struct.unpack_from("h", self.buffer[3:])[0]
+                    acl_len = self.buffer[3]
                     required_len = acl_len + 5
                 # for HCI cmd data the length is at offset 3 (but just one byte)
                 elif self.buffer[0] == 0x1:
-                    hci_len = struct.unpack_from("b", self.buffer[3:])[0]
+                    hci_len = self.buffer[3]
                     required_len = hci_len + 4
                 # for HCI event data the length is at offset 2 (one byte)
                 elif self.buffer[0] == 0x4:
-                    hci_len = struct.unpack_from("b", self.buffer[2:])[0]
+                    hci_len = self.buffer[2]
+                    log.info(hci_len)
                     required_len = hci_len + 3
                 # for BCM data the length should always be 64
                 elif self.buffer[0] == 0x07:
