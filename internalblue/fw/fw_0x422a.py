@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # MacBook 15" early 2011 tested with Ubuntu
 #
@@ -22,17 +22,19 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection
+from .fw import MemorySection, FirmwareDefinition
 
-# Firmware Infos
-FW_NAME = "BCM2070B0 (MacBook Pro 2011)"
-# Build date: Jul 9 2008
 
-# Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x0, 0x58000, True, False),
-    MemorySection(0x80000, 0x9B000, False, True),
-]
+class BCM2070B0(FirmwareDefinition):
+    # Firmware Infos
+    FW_NAME = "BCM2070B0 (MacBook Pro 2011)"
+    # Build date: Jul 9 2008
 
-BLOC_HEAD = 0x88518
+    # Memory Sections
+    #                          start,    end,      is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x0, 0x58000, True, False),
+        MemorySection(0x80000, 0x9B000, False, True),
+    ]
+
+    BLOC_HEAD = 0x88518

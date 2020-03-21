@@ -19,9 +19,9 @@
 #   liability, whether in an action of contract, tort or otherwise, arising from,
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
-from .fw import MemorySection, FirmwareDefinition
 
-from .. import Address
+from .fw import MemorySection, FirmwareDefinition
+from __future__ import absolute_import
 
 
 class CYW20739B1(FirmwareDefinition):
@@ -37,7 +37,7 @@ class CYW20739B1(FirmwareDefinition):
     BD_ADDR = 0x280CA4  # rm_deviceBDAddr
 
     # Heap
-    BLOC_HEAD = Address(0x0200C7C)  # g_dynamic_memory_GeneralUsePools
+    BLOC_HEAD = 0x0200C7C  # g_dynamic_memory_GeneralUsePools
     BLOC_NG = True  # Next Generation Bloc Buffer
 
     # Memory Sections

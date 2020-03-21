@@ -20,27 +20,30 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection
-
-# Firmware Infos
-# iPhone 6
-FW_NAME = "BCM4345B0"
+from .fw import MemorySection, FirmwareDefinition
+from __future__ import absolute_import
 
 
-# Memory Sections
-#                          start,    end,           is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x00000000, 0x000C07FF, True, False),  # Internal ROM
-    MemorySection(
-        0x000D0000, 0x000DFFFF, False, True
-    ),  # Internal Memory Patchram Contents
-    MemorySection(0x00200400, 0x00201CFF, False, True),  # Internal Memory Cortex M3
-]
+class BCM4345B0(FirmwareDefinition):
+    # Firmware Infos
+    # iPhone 6
+    FW_NAME = "BCM4345B0"
 
-# Patchram
-# PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000 #TODO needs to be aligned read
-# PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-# PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
-# PATCHRAM_NUMBER_OF_SLOTS        = 128
-# PATCHRAM_ALIGNED                = True
-# only seems to work 4-byte aligned here ...
+
+    # Memory Sections
+    #                          start,    end,           is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x00000000, 0x000C07FF, True, False),  # Internal ROM
+        MemorySection(
+            0x000D0000, 0x000DFFFF, False, True
+        ),  # Internal Memory Patchram Contents
+        MemorySection(0x00200400, 0x00201CFF, False, True),  # Internal Memory Cortex M3
+    ]
+
+    # Patchram
+    # PATCHRAM_TARGET_TABLE_ADDRESS   = 0x310000 #TODO needs to be aligned read
+    # PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
+    # PATCHRAM_VALUE_TABLE_ADDRESS    = 0xd0000
+    # PATCHRAM_NUMBER_OF_SLOTS        = 128
+    # PATCHRAM_ALIGNED                = True
+    # only seems to work 4-byte aligned here ...

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # fw_0x6103.py
 #
@@ -20,36 +20,39 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection
+from __future__ import absolute_import
+from .fw import MemorySection, FirmwareDefinition
 
-# Firmware Infos
-# This runs on an iPhone 7
-FW_NAME = "BCM4355C0"
 
-# Device Infos
-DEVICE_NAME = 0x204C60
+class BCM4355C0(FirmwareDefinition):
+    # Firmware Infos
+    # This runs on an iPhone 7
+    FW_NAME = "BCM4355C0"
 
-# Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x0, 0x90000, True, False),
-    MemorySection(0xD0000, 0xD8000, False, True),
-    # MemorySection(0xe0000,  0x1f0000, True , False),
-    MemorySection(0x200000, 0x228000, False, True),
-    MemorySection(0x260000, 0x268000, True, False),
-    # MemorySection(0x280000, 0x2a0000, True , False),
-    MemorySection(0x318000, 0x320000, False, False),
-    MemorySection(0x324000, 0x360000, False, False),
-    MemorySection(0x362000, 0x362100, False, False),
-    MemorySection(0x363000, 0x363100, False, False),
-    MemorySection(0x600000, 0x600800, False, False),
-    MemorySection(0x640000, 0x640800, False, False),
-    MemorySection(0x650000, 0x650800, False, False),
-    # MemorySection(0x680000, 0x800000, False, False)
-]
+    # Device Infos
+    DEVICE_NAME = 0x204C60
 
-PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
-PATCHRAM_NUMBER_OF_SLOTS = 192
-PATCHRAM_ALIGNED = False
+    # Memory Sections
+    #                          start,    end,      is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x0, 0x90000, True, False),
+        MemorySection(0xD0000, 0xD8000, False, True),
+        # MemorySection(0xe0000,  0x1f0000, True , False),
+        MemorySection(0x200000, 0x228000, False, True),
+        MemorySection(0x260000, 0x268000, True, False),
+        # MemorySection(0x280000, 0x2a0000, True , False),
+        MemorySection(0x318000, 0x320000, False, False),
+        MemorySection(0x324000, 0x360000, False, False),
+        MemorySection(0x362000, 0x362100, False, False),
+        MemorySection(0x363000, 0x363100, False, False),
+        MemorySection(0x600000, 0x600800, False, False),
+        MemorySection(0x640000, 0x640800, False, False),
+        MemorySection(0x650000, 0x650800, False, False),
+        # MemorySection(0x680000, 0x800000, False, False)
+    ]
+
+    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+    PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
+    PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
+    PATCHRAM_NUMBER_OF_SLOTS = 192
+    PATCHRAM_ALIGNED = False

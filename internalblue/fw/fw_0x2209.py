@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # fw_0x6119.py
 #
@@ -25,77 +25,80 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-# Firmware Infos
-# This runs on Rasperry Pi 3
-from builtins import object
-
-FW_NAME = "BCM43430A1"
-
-# Device Infos
-DEVICE_NAME = 0x20401C
-BD_ADDR = 0x201C64
-
-# Memory Sections
-class MemorySection(object):
-    def __init__(self, start_addr, end_addr, is_rom, is_ram):
-        self.start_addr = start_addr
-        self.end_addr = end_addr
-        self.is_rom = is_rom
-        self.is_ram = is_ram
-
-    def size(self):
-        return self.end_addr - self.start_addr
+from __future__ import absolute_import
+from .fw import MemorySection, FirmwareDefinition
 
 
-# Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x0, 0x90000, True, False),
-    MemorySection(0xD0000, 0xD8000, False, True),
-    # MemorySection(0xe0000,  0x1f0000, True , False),
-    MemorySection(0x200000, 0x21FFFF, False, True),
-    # MemorySection(0x260000, 0x268000, True , False),  # might crash? issue 14
-    # MemorySection(0x280000, 0x2a0000, True , False),
-    MemorySection(0x318000, 0x320000, False, False),
-    MemorySection(0x324000, 0x360000, False, False),
-    MemorySection(0x362000, 0x362100, False, False),
-    MemorySection(0x363000, 0x363100, False, False),
-    MemorySection(0x600000, 0x600800, False, False),
-    MemorySection(0x640000, 0x640800, False, False),
-    MemorySection(0x650000, 0x650800, False, False),
-    # MemorySection(0x680000, 0x800000, False, False)
-]
+class BCM43430A1(FirmwareDefinition):
+    # Firmware Infos
+    # This runs on Rasperry Pi 3
+    FW_NAME = "BCM43430A1"
 
-# Connection Structure and Table
-# CONNECTION_LIST_ADDRESS = 0x204ba8
-CONNECTION_MAX = 11
-CONNECTION_STRUCT_LENGTH = 0x150  # TODO
+    # Device Infos
+    DEVICE_NAME = 0x20401C
+    BD_ADDR = 0x201C64
 
-# Patchram
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
-PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
-PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
-PATCHRAM_NUMBER_OF_SLOTS = 128
-PATCHRAM_ALIGNED = False
+    # Memory Sections
+    class MemorySection(object):
+        def __init__(self, start_addr, end_addr, is_rom, is_ram):
+            self.start_addr = start_addr
+            self.end_addr = end_addr
+            self.is_rom = is_rom
+            self.is_ram = is_ram
 
-# Heap
-BLOC_HEAD = 0x200588  # g_dynamic_memory_GeneralUsePools
-BLOC_NG = True  # Next Generation Bloc Buffer
+        def size(self):
+            return self.end_addr - self.start_addr
 
-# Snippet for sendLcpPacket()
-SENDLCP_CODE_BASE_ADDRESS = 0x21A000
-SENDLCP_ASM_CODE = """
-        push {r4,lr}
 
-        // we want to call lmulp_sendLcp(conn_index, input, length)
+    # Memory Sections
+    #                          start,    end,      is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x0, 0x90000, True, False),
+        MemorySection(0xD0000, 0xD8000, False, True),
+        # MemorySection(0xe0000,  0x1f0000, True , False),
+        MemorySection(0x200000, 0x21FFFF, False, True),
+        # MemorySection(0x260000, 0x268000, True , False),  # might crash? issue 14
+        # MemorySection(0x280000, 0x2a0000, True , False),
+        MemorySection(0x318000, 0x320000, False, False),
+        MemorySection(0x324000, 0x360000, False, False),
+        MemorySection(0x362000, 0x362100, False, False),
+        MemorySection(0x363000, 0x363100, False, False),
+        MemorySection(0x600000, 0x600800, False, False),
+        MemorySection(0x640000, 0x640800, False, False),
+        MemorySection(0x650000, 0x650800, False, False),
+        # MemorySection(0x680000, 0x800000, False, False)
+    ]
 
-        mov r0,  %d     // connection index, starts at 0
-        ldr r1, =payload
-        mov r2, %d      // length
-        bl  0x8389A     // lmulp_sendLcp
+    # Connection Structure and Table
+    # CONNECTION_LIST_ADDRESS = 0x204ba8
+    CONNECTION_MAX = 11
+    CONNECTION_STRUCT_LENGTH = 0x150  # TODO
 
-        pop {r4,pc}     // go back
+    # Patchram
+    PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310204
+    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+    PATCHRAM_VALUE_TABLE_ADDRESS = 0xD0000
+    PATCHRAM_NUMBER_OF_SLOTS = 128
+    PATCHRAM_ALIGNED = False
 
-        .align          // The payload (LMP packet) must be 4-byte aligend (memcpy needs aligned addresses)
-        payload:        // Note: the payload will be appended here by the sendLmpPacket() function
-        """
+    # Heap
+    BLOC_HEAD = 0x200588  # g_dynamic_memory_GeneralUsePools
+    BLOC_NG = True  # Next Generation Bloc Buffer
+
+    # Snippet for sendLcpPacket()
+    SENDLCP_CODE_BASE_ADDRESS = 0x21A000
+    SENDLCP_ASM_CODE = """
+            push {r4,lr}
+    
+            // we want to call lmulp_sendLcp(conn_index, input, length)
+    
+            mov r0,  %d     // connection index, starts at 0
+            ldr r1, =payload
+            mov r2, %d      // length
+            bl  0x8389A     // lmulp_sendLcp
+    
+            pop {r4,pc}     // go back
+    
+            .align          // The payload (LMP packet) must be 4-byte aligend (memcpy needs aligned addresses)
+            payload:        // Note: the payload will be appended here by the sendLmpPacket() function
+            """

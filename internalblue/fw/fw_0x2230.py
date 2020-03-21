@@ -1,9 +1,5 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
-# fw_default.py
-#
-# Generic firmware file in case we do not know something...
-#
 # Copyright (c) 2019 Jiska Classen. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -23,27 +19,29 @@
 #   Software.
 
 from __future__ import absolute_import
-from .fw import MemorySection
+from .fw import MemorySection, FirmwareDefinition
 
-# Firmware Infos
-FW_NAME = "BCM20703A2 (MacBook Pro 2016)"
 
-# Symbols contained in:
-#   ./WICED-Studio-6.2/20706-A2_Bluetooth/Wiced-BT/BLD_ROM/A_20703A2/20703.symdefs
-#   ./WICED-Studio-6.2/20706-A2_Bluetooth/Wiced-BT/tier2/brcm/wiced_uart/bld/A_20703A2/20703_ram_ext.lst
+class BCM20703A2(FirmwareDefinition):
+    # Firmware Infos
+    FW_NAME = "BCM20703A2 (MacBook Pro 2016)"
 
-# Memory Sections
-#                          start,    end,      is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x0, 0xC7FFF, True, False),  # 0x000c0a97
-    MemorySection(0xD0000, 0xE0000, False, False),  # 0x000dd78c
-    MemorySection(0x200000, 0x240000, False, True),  # 0x00217a38
-    MemorySection(0x260000, 0x268FFF, True, False),  # 0x0026841d
-    MemorySection(0x318000, 0x320000, False, False),
-    MemorySection(0x324000, 0x338000, False, False),
-    MemorySection(0x362000, 0x362100, False, False),
-    MemorySection(0x363000, 0x363100, False, False),
-    MemorySection(0x600000, 0x600800, False, False),
-    MemorySection(0x640000, 0x640800, False, False),
-    MemorySection(0x650000, 0x650800, False, False),
-]
+    # Symbols contained in:
+    #   ./WICED-Studio-6.2/20706-A2_Bluetooth/Wiced-BT/BLD_ROM/A_20703A2/20703.symdefs
+    #   ./WICED-Studio-6.2/20706-A2_Bluetooth/Wiced-BT/tier2/brcm/wiced_uart/bld/A_20703A2/20703_ram_ext.lst
+
+    # Memory Sections
+    #                          start,    end,      is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x0, 0xC7FFF, True, False),  # 0x000c0a97
+        MemorySection(0xD0000, 0xE0000, False, False),  # 0x000dd78c
+        MemorySection(0x200000, 0x240000, False, True),  # 0x00217a38
+        MemorySection(0x260000, 0x268FFF, True, False),  # 0x0026841d
+        MemorySection(0x318000, 0x320000, False, False),
+        MemorySection(0x324000, 0x338000, False, False),
+        MemorySection(0x362000, 0x362100, False, False),
+        MemorySection(0x363000, 0x363100, False, False),
+        MemorySection(0x600000, 0x600800, False, False),
+        MemorySection(0x640000, 0x640800, False, False),
+        MemorySection(0x650000, 0x650800, False, False),
+    ]

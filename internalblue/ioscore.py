@@ -151,7 +151,6 @@ class iOSCore(InternalBlue):
                 # for HCI event data the length is at offset 2 (one byte)
                 elif self.buffer[0] == 0x4:
                     hci_len = self.buffer[2]
-                    log.info(hci_len)
                     required_len = hci_len + 3
                 # for BCM data the length should always be 64
                 elif self.buffer[0] == 0x07:
@@ -217,6 +216,7 @@ class iOSCore(InternalBlue):
                     self.registeredHciRecvQueues
                 ):  # TODO filter_function not working with bluez modifications
                     try:
+                        log.info(record)
                         queue.put(record, block=False)
                     except queue.Full:
                         log.warn(

@@ -20,25 +20,28 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection
+from .fw import MemorySection, FirmwareDefinition
+from __future__ import absolute_import
 
-# Firmware Infos
-# iPhone 8/X/XR
-FW_NAME = "BCM4347B1"
 
-# Memory Sections
-#                          start,    end,           is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x00000000, 0x00103FFF, True, False),  # Internal ROM
-    MemorySection(
-        0x00130000, 0x0014FFFF, False, True
-    ),  # Internal Memory Patchram Contents
-    MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
-]
+class BCM4347B1(FirmwareDefinition):
+    # Firmware Infos
+    # iPhone 8/X/XR
+    FW_NAME = "BCM4347B1"
 
-# Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS = 0x130000
-PATCHRAM_NUMBER_OF_SLOTS = 256
-PATCHRAM_ALIGNED = False
+    # Memory Sections
+    #                          start,    end,           is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x00000000, 0x00103FFF, True, False),  # Internal ROM
+        MemorySection(
+            0x00130000, 0x0014FFFF, False, True
+        ),  # Internal Memory Patchram Contents
+        MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
+    ]
+
+    # Patchram
+    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+    PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+    PATCHRAM_VALUE_TABLE_ADDRESS = 0x130000
+    PATCHRAM_NUMBER_OF_SLOTS = 256
+    PATCHRAM_ALIGNED = False

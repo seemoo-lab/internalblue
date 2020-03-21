@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 # fw_0x420e.py
 #
 # Generic firmware file in case we do not know something...
@@ -22,28 +20,30 @@ from __future__ import absolute_import
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection
+from __future__ import absolute_import
+from .fw import MemorySection, FirmwareDefinition
 
-# Firmware Infos
-# Evaluation Kit CYW920819
-FW_NAME = "CYW20819A1"
+class CYW20819A1(FirmwareDefinition):
+    # Firmware Infos
+    # Evaluation Kit CYW920819
+    FW_NAME = "CYW20819A1"
 
 
-# Memory Sections
-#                          start,    end,           is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x00000000, 0x001FFFFF, True, False),  # Internal ROM
-    MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
-    MemorySection(
-        0x00270000, 0x0027FFFF, False, True
-    ),  # Internal Memory Patchram Contents
-    MemorySection(0x00310000, 0x00321FFF, False, True),  # HW Regs Cortex M3 (readable)
-]
+    # Memory Sections
+    #                          start,    end,           is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x00000000, 0x001FFFFF, True, False),  # Internal ROM
+        MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
+        MemorySection(
+            0x00270000, 0x0027FFFF, False, True
+        ),  # Internal Memory Patchram Contents
+        MemorySection(0x00310000, 0x00321FFF, False, True),  # HW Regs Cortex M3 (readable)
+    ]
 
-# Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS = 0x270000
-PATCHRAM_NUMBER_OF_SLOTS = 256
-PATCHRAM_ALIGNED = False
-# only seems to work 4-byte aligned here ...
+    # Patchram
+    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+    PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+    PATCHRAM_VALUE_TABLE_ADDRESS = 0x270000
+    PATCHRAM_NUMBER_OF_SLOTS = 256
+    PATCHRAM_ALIGNED = False
+    # only seems to work 4-byte aligned here ...

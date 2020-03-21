@@ -20,31 +20,34 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection
-
-# Firmware Infos
-# Samsung Galaxy S8
-FW_NAME = "BCM4347B0"
+from __future__ import absolute_import
+from .fw import MemorySection, FirmwareDefinition
 
 
-# Memory Sections
-#                          start,    end,           is_rom? is_ram?
-SECTIONS = [
-    MemorySection(0x00000000, 0x00100000, True, False),  # Internal ROM
-    MemorySection(
-        0x00130000, 0x00150000, False, True
-    ),  # Internal Memory Patchram Contents
-    MemorySection(0x00200000, 0x0023FFFF, False, True),  # Internal Memory Cortex M3
-]
-
-# Patchram
-PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
-PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-PATCHRAM_VALUE_TABLE_ADDRESS = 0x130000
-PATCHRAM_NUMBER_OF_SLOTS = 256
-PATCHRAM_ALIGNED = False
+class BCM4347B0(FirmwareDefinition):
+    # Firmware Infos
+    # Samsung Galaxy S8
+    FW_NAME = "BCM4347B0"
 
 
-# Heap
-BLOC_HEAD = 0x20067C  # g_dynamic_memory_GeneralUsePools
-BLOC_NG = True  # Next Generation Bloc Buffer
+    # Memory Sections
+    #                          start,    end,           is_rom? is_ram?
+    SECTIONS = [
+        MemorySection(0x00000000, 0x00100000, True, False),  # Internal ROM
+        MemorySection(
+            0x00130000, 0x00150000, False, True
+        ),  # Internal Memory Patchram Contents
+        MemorySection(0x00200000, 0x0023FFFF, False, True),  # Internal Memory Cortex M3
+    ]
+
+    # Patchram
+    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
+    PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
+    PATCHRAM_VALUE_TABLE_ADDRESS = 0x130000
+    PATCHRAM_NUMBER_OF_SLOTS = 256
+    PATCHRAM_ALIGNED = False
+
+
+    # Heap
+    BLOC_HEAD = 0x20067C  # g_dynamic_memory_GeneralUsePools
+    BLOC_NG = True  # Next Generation Bloc Buffer

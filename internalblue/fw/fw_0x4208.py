@@ -19,15 +19,14 @@
 #   liability, whether in an action of contract, tort or otherwise, arising from,
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
+
+from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
 
 
-# Firmware Infos
-# Evaluation Kit CYW920735
-from .. import Address
-
-
 class CYW20735B1(FirmwareDefinition):
+    # Firmware Infos
+    # Evaluation Kit CYW920735
     FW_NAME = "CYW20735B1"
 
     # Device Infos
@@ -37,7 +36,7 @@ class CYW20735B1(FirmwareDefinition):
     BD_ADDR = 0x280CA4  # rm_deviceBDAddr
 
     # Heap
-    BLOC_HEAD = Address(0x200474)  # g_dynamic_memory_GeneralUsePools
+    BLOC_HEAD = 0x200474  # g_dynamic_memory_GeneralUsePools
     BLOC_NG = True  # Next Generation Bloc Buffer
 
     # Memory Sections

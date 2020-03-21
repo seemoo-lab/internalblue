@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 # fw.py
 #
@@ -25,6 +25,7 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
+from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
 
 

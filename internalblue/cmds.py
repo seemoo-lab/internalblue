@@ -1196,7 +1196,7 @@ class CmdSendHciCmd(Cmd):
             if data_part[0:2] == "0x":
                 data += p32(auto_int(data_part))
             else:
-                data += data_part.decode("hex")
+                data += bytearray.fromhex(data_part)
 
         return self.internalblue.sendHciCommand(args.cmdcode, data)
 
