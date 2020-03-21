@@ -14,7 +14,7 @@ from . import hci
 
 from internalblue.utils.pwnlib_wrapper import log, context
 
-from .usbmux import USBMux
+from .usbmux import USBMux, MuxError
 from .core import InternalBlue
 
 
@@ -62,7 +62,7 @@ class iOSCore(InternalBlue):
         
         device_list = []
         for dev in self.devices:
-            dev_id = "iOS Device (" + dev.serial + ")"
+            dev_id = "iOS Device (" + dev.serial.decode("utf-8") + ")"
             device_list.append((self, dev, dev_id))
 
         return device_list
@@ -113,7 +113,7 @@ class iOSCore(InternalBlue):
 
         try:
             self.s_inject = self.mux.connect(self.interface, 1234)
-        except usbmux.MuxError:
+        except MuxError:
             log.warn("Could not connect to iOS proxy. Is internalblued running on the connected device?")
             return False
         
