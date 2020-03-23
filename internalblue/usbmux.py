@@ -167,6 +167,15 @@ class MuxConnection(object):
     def _processpacket(self):
         resp, tag, data = self.proto.getpacket()
         if resp == self.proto.TYPE_DEVICE_ADD:
+            # BinaryProtocol returns bytearrays, PlistProtocol returns strings
+            # we convert this here and leave the protocols untouched
+            if self.proto.VERSION == 1:
+                # yeah, no recursion here, we know our dictionary
+                for k in data['Properties']:
+                    v = data['Properties'][k]
+                    if isinstance(v, str):
+                        data['Properties'][k] = v.encode("utf-8")
+
             self.devices.append(MuxDevice(data['DeviceID'], data['Properties']['ProductID'], data['Properties']['SerialNumber'], data['Properties']['LocationID']))
         elif resp == self.proto.TYPE_DEVICE_REMOVE:
             for dev in self.devices:
@@ -231,4 +240,3 @@ class USBMux(object):
     def connect(self, device, port):
         connector = MuxConnection(self.socketpath, self.protoclass)
         return connector.connect(device, port)
-
