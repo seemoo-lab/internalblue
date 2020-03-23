@@ -1024,8 +1024,8 @@ class StackDumpReceiver(object):
 
     def handleNexus6pStackDump(self, hcipkt):
         checksum_correct = self.verifyChecksum(hcipkt.data[8:])
-        packet_nr = u8(hcipkt.data[2])
-        packet_type = u8(hcipkt.data[7])
+        packet_nr = hcipkt.data[2]
+        packet_type = hcipkt.data[7]
 
         if packet_type in [0x2C, 0x4C]:
             data = hcipkt.data[9:]
@@ -1088,7 +1088,7 @@ class StackDumpReceiver(object):
         :return: returns True if dump could be decoded.
         """
         checksum_correct = self.verifyChecksum(hcipkt.data[3:])
-        packet_type = u8(hcipkt.data[2])
+        packet_type = hcipkt.data[2]
 
         log.debug("packet type %x", packet_type)
 
@@ -1161,7 +1161,7 @@ class StackDumpReceiver(object):
         """
 
         checksum_correct = self.verifyChecksum(hcipkt.data[3:])
-        packet_type = u8(hcipkt.data[2])
+        packet_type = hcipkt.data[2]
 
         if packet_type == 0x90:
             data = hcipkt.data[4:]

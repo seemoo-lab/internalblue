@@ -40,18 +40,6 @@ class BCM4345C0(FirmwareDefinition):
     DEVICE_NAME = 0x204954
 
     # Memory Sections
-    class MemorySection(object):
-        def __init__(self, start_addr, end_addr, is_rom, is_ram):
-            self.start_addr = start_addr
-            self.end_addr = end_addr
-            self.is_rom = is_rom
-            self.is_ram = is_ram
-
-        def size(self):
-            return self.end_addr - self.start_addr
-
-
-    # Memory Sections
     #                          start,    end,      is_rom? is_ram?
     SECTIONS = [
         MemorySection(0x0, 0x90000, True, False),
