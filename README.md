@@ -196,10 +196,10 @@ All steps on a plain Ubuntu 18.04:
     make
     make install
 
-Packets required on a current (July 2019) Raspian:
+Packets required on a current (March 2020) Raspbian:
      
      sudo apt-get --allow-releaseinfo-change update
-     sudo apt-get install git python-setuptools binutils-arm-none-eabi adb python-pip python-dev gcc libffi-dev
+     sudo apt-get install git python3-setuptools binutils-arm-none-eabi adb python3-pip python3-dev gcc libffi-dev
 
 
 
