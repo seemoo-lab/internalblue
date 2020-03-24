@@ -16,6 +16,7 @@ setup(
         "internalblue/objects",
         "internalblue/utils",
     ],
+    python_requires='>=3.6',
     install_requires=["pwntools>=4.0.1", "pyelftools", "future"],
     extras_require={"macoscore": ["pyobjc"], "ipython": ["IPython"]},
     tests_require=["nose", "pytest", "pwntools>=4.2.0.dev0"],
