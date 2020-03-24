@@ -20,8 +20,8 @@
 #   out of or in connection with the Software or the use or other dealings in the
 #   Software.
 
-from .fw import MemorySection, FirmwareDefinition
 from __future__ import absolute_import
+from .fw import MemorySection, FirmwareDefinition
 
 
 class BCM4347B1(FirmwareDefinition):

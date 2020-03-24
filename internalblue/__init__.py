@@ -17,8 +17,7 @@ from typing import (
     Dict,
 )
 
-# Address = NewType("Address", int)
-Address = int
+Address = NewType("Address", int)
 ConnectionNumber = NewType("ConnectionNumber", int)
 ConnectionIndex = NewType("ConnectionIndex", int)
 

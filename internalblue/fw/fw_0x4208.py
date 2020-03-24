@@ -22,6 +22,7 @@
 
 from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
+from .. import Address
 
 
 class CYW20735B1(FirmwareDefinition):
