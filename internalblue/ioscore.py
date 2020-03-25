@@ -35,12 +35,21 @@ class iOSCore(InternalBlue):
         self.serial = False
         self.doublecheck = True
         self.buffer = b""
-        self.mux = USBMux()
+
+        try:
+            self.mux = USBMux()
+        # on Linux, this can result in ConnectionRefusedError if no iOS device is present
+        except ConnectionRefusedError:
+            self.muxconnecterror = True
 
     def device_list(self):
         """
         Get a list of connected devices
         """
+
+        # prevent access on non-available socket if usbmuxd failed
+        if self.muxconnecterror:
+            return []
 
         if self.exit_requested:
             self.shutdown()

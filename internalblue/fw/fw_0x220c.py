@@ -23,7 +23,24 @@
 from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
 
+
 class CYW20819A1(FirmwareDefinition):
+    """
+    CYW20819 is a Cypress evaluation board, the newest one that is currently available.
+
+    Known issues:
+
+    * `Launch_RAM` does not terminate and crashes the board.
+
+      To get this working anyway:
+      The `Launch_RAM` handler HCI callback is at `0xF2884` and it can be overwritten with the
+      address of the memory snippet you want to launch. For example, at `0x219000` there is some
+      free memory. Put the function there. Then:
+
+      `internalblue.patchRom(0xF2884, b'\x01\x90\x21\x00'):  # 0x219001 when you write code to 0x219000`
+
+    """
+
     # Firmware Infos
     # Evaluation Kit CYW920819
     FW_NAME = "CYW20819A1"
@@ -47,3 +64,4 @@ class CYW20819A1(FirmwareDefinition):
     PATCHRAM_NUMBER_OF_SLOTS = 256
     PATCHRAM_ALIGNED = False
     # only seems to work 4-byte aligned here ...
+
