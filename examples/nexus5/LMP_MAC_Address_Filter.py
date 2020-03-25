@@ -1,10 +1,10 @@
-#!/usr/bin/python2
+#!/usr/bin/env python3
 
 # Jiska Classen, Secure Mobile Networking Lab
-
-from pwn import *
+from internalblue import Address
 from internalblue.adbcore import ADBCore
-
+from internalblue.utils.pwnlib_wrapper import log, asm
+from binascii import unhexlify
 """
 Filter connections by MAC address before entering LMP dispatcher.
 Enter MAC addresses you trust into whitelist.
@@ -12,8 +12,8 @@ Enter MAC addresses you trust into whitelist.
 """
 WHITELIST = ["aabbccddeeff", "133713371337", "affedeadbeef"]
 
-WHITELIST_BYTES = ''.join(WHITELIST).decode("hex")[::-1]  # change mac addr byte order
-HOOK_LMP_FILTER = 0x3f3f4               # This function is in ROM
+WHITELIST_BYTES = unhexlify(''.join(WHITELIST))[::-1]  # change mac addr byte order
+HOOK_LMP_FILTER = Address(0x3f3f4)               # This function is in ROM
 ASM_LOCATION_LMP_FILTER = 0x00211900    # 0xD5900
 ASM_SNIPPET_LMP_FILTER = """
 b lmp_dispatcher_filter
