@@ -30,6 +30,7 @@ from builtins import hex
 from builtins import range
 from builtins import object
 from enum import Enum
+from datetime import datetime
 
 from internalblue.utils.pwnlib_wrapper import (
     p8,
@@ -931,7 +932,7 @@ class StackDumpReceiver(object):
 
     def __init__(self, data_directory="."):
         self.data_directory = data_directory
-        self.stack_dump_filename = data_directory + "/internalblue_stackdump.bin"
+        self.stack_dump_filename = data_directory + ("/internalblue_stackdump_%s.bin" % datetime.now())
 
     def recvPacket(self, record):
         hcipkt = record[0]
@@ -963,14 +964,16 @@ class StackDumpReceiver(object):
         followed by the actual ram dump (at this address)
         """
         addr = u32(data[:4])
-        if self.memdump_addr == None:
+        if self.memdump_addr is None:
             self.memdump_addr = addr
-        self.memdumps[addr - self.memdump_addr] = data[4:]
+        self.memdumps[addr - self.memdump_addr] = bytes(data[4:])  # convert from bytearray to bytes
         log.debug("Stack dump handling addr %08x", addr - self.memdump_addr)
 
     def finishStackDump(self):
-        return  # FIXME flat not working on dict in python 3 like this
-        dump = flat(self.memdumps)
+        """
+        Write the stack dump to a file once it is finished.
+        """
+        dump = flat(self.memdumps)  # flatten, as we have one entry per address chunk
         log.warn(
             "Stack dump @0x%08x written to %s!"
             % (self.memdump_addr, self.stack_dump_filename)

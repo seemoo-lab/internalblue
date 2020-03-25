@@ -1784,7 +1784,7 @@ class CmdBreakpoint(Cmd):
             return True
 
         log.info("Inserting breakpoint at 0x%x..." % args.address)
-        self.internalblue.patchRom(args.address, "\x00\xbe\x00\x00")
+        self.internalblue.patchRom(args.address, b'\x00\xbe\x00\x00')  # on ARM, hex code for a break point is 0xBE00
 
         return True
 
