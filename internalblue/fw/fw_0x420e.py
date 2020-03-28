@@ -26,8 +26,24 @@ from .. import Address
 
 
 class CYW20739B1(FirmwareDefinition):
+    """
+    CYW20719 is a Cypress evaluation board, the newest one that is currently available.
+
+    Known issues:
+
+    * `Launch_RAM` does not terminate and crashes the board.
+
+      To get this working anyway:
+      The `Launch_RAM` handler HCI callback is at `0x1AB218` and it can be overwritten with the
+      address of the memory snippet you want to launch. For example, at `0x0x222500` there is some
+      free memory. Put the function there. Then:
+
+      internalblue.patchRom(0x1AB218, p32(ASM_LOCATION_RNG+1)):  # function table entries are sub+1
+
+    """
+
     # Firmware Infos
-    # Evaluation Kit CYW920719
+    # Evaluation Kit CYW920719, which is also named CYW20739 internally, because they like fuzzy name definitions
     FW_NAME = "CYW20739B1 (NOT iPhone X/XR!)"
     # TODO this is not the iPhone firmware, we need to add a switch in fw.py
 

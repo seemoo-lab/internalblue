@@ -37,7 +37,7 @@ class CYW20819A1(FirmwareDefinition):
       address of the memory snippet you want to launch. For example, at `0x219000` there is some
       free memory. Put the function there. Then:
 
-      `internalblue.patchRom(0xF2884, b'\x01\x90\x21\x00'):  # 0x219001 when you write code to 0x219000`
+      `internalblue.patchRom(0xF2884, p32(ASM_LOCATION_RNG+1)):  # function table entries are sub+1
 
     """
 

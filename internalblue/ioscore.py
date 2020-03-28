@@ -26,7 +26,7 @@ class iOSCore(InternalBlue):
         queue_size=1000,
         btsnooplog_filename="btsnoop.log",
         log_level="info",
-        fix_binutils="True",
+        fix_binutils=True,
         data_directory=".",
     ):
         super(iOSCore, self).__init__(
@@ -35,6 +35,7 @@ class iOSCore(InternalBlue):
         self.serial = False
         self.doublecheck = True
         self.buffer = b""
+        self.muxconnecterror = False
 
         try:
             self.mux = USBMux()
