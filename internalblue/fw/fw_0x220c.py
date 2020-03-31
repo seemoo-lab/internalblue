@@ -65,3 +65,7 @@ class CYW20819A1(FirmwareDefinition):
     PATCHRAM_ALIGNED = False
     # only seems to work 4-byte aligned here ...
 
+    # Launch_RAM is faulty so we need to overwrite it. This is the position of the handler.
+    LAUNCH_RAM = 0xF2884
+    HCI_EVENT_COMPLETE = 0x1179E
+

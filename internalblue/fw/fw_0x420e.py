@@ -76,6 +76,10 @@ class CYW20739B1(FirmwareDefinition):
     PATCHRAM_ALIGNED = False
     # only seems to work 4-byte aligned here ...
 
+    # Launch_RAM is faulty so we need to overwrite it. This is the position of the handler.
+    LAUNCH_RAM = 0x1AB218
+    HCI_EVENT_COMPLETE = 0x1A9D6
+
     # Assembler snippet for tracepoints
     # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions
     TRACEPOINT_BODY_ASM_LOCATION = 0x00223100

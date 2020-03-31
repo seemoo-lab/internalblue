@@ -93,6 +93,10 @@ class CYW20735B1(FirmwareDefinition):
     PATCHRAM_ALIGNED = False
     # only seems to work 4-byte aligned here ...
 
+    # Launch_RAM is faulty so we need to overwrite it. This is the position of the handler.
+    LAUNCH_RAM = 0x1425BC
+    HCI_EVENT_COMPLETE = 0x24E66
+
     # Connection Struct and Table
     CONNECTION_LIST_ADDRESS = 0x216F98  # pRm_whole_conn = 0x280C9C points to this
     CONNECTION_MAX = 11  # g_bt_max_connections = 0 in firmware

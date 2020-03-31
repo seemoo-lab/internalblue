@@ -88,6 +88,8 @@ class FirmwareDefinition:
     PATCHRAM_NUMBER_OF_SLOTS: int
 
     LAUNCH_RAM_PAUSE = None
+    LAUNCH_RAM = Address
+    HCI_EVENT_COMPLETE = Address
 
     READ_MEM_ALIGNED_ASM_LOCATION: Address
     READ_MEM_ALIGNED_ASM_SNIPPET: str

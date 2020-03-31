@@ -83,6 +83,10 @@ class BCM4358A3(FirmwareDefinition):
     # crashes even when executing 0x5E860 twice, which is just a nullsub
     # also crashes during the pause if there are other hci events
 
+    # Launch_RAM is faulty so we need to overwrite it. This is the position of the handler.
+    LAUNCH_RAM = 0x260B84  # TODO this one needs to be handed with a "branch" (without link) instead of sub+1
+    HCI_EVENT_COMPLETE = 0x229C
+
     # Snippet for sendLmpPacket()
     SENDLMP_CODE_BASE_ADDRESS = 0xD5130
     # TODO already works except for correct mac address - so still a problem with the connection #
