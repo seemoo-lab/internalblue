@@ -10,6 +10,18 @@ Available for the [Raspberry Pi 3](rpi3/KNOB_PoC.py), [Raspberry Pi 3+/4](rpi3p_
 [Nexus 5](nexus5/KNOB_PoC.py), [Nexus 6P](nexus6p/KNOB_PoC.py), [CYW20735 evaluation board](eval_cyw20735/KNOB_PoC.py),
 and [Samsung Galaxy S8](s8/KNOB_PoC.py).
 
+LMP to HCI Handler Escalation Attack Test (CVE-2018-19860)
+----------------------------------------------------------
+This is an easy-to-use PoC for CVE-2018-19860. It sends multiple LMP messages with opcode 0 (Broadcom vendor-specific).
+If the following byte, the vendor-specific opcode, is out of range of BPCS (larger than 6), vulnerable devices
+interpret the memory located after the LMP BPCS handler table as further handlers. On many devices, HCI handlers
+are located here, which lets an attacker call HCI via LMP, thus, resulting in limited code execution capabilities.
+Invalid "handler" addresses in that memory range or invalid parameters passed to HCI handlers will cause Bluetooth
+on the device under attack to crash. This PoC installs an Assembly snippet that sends multiple invalid LMP BPCS packets
+before establishing connections. If an attacker connects to the device under test using the normal Android/Linux user
+interface and the connection succeeds, the device is likely not vulnerable (you need to adapt the BPCS range in
+some cases). If Bluetooth crashes, it is vulnerable. Currently only available for the
+[Nexus 5](nexus5/CVE_2018_19860_Crash_on_Connect.py) and the [CYW20735 evaluation board](eval_cyw20735/CVE_2018_19860_Crash_on_Connect.py).
 
 Invalid Curve Attack Test (CVE-2018-5383)
 -----------------------------------------
