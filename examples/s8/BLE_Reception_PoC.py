@@ -130,9 +130,9 @@ def lereceiveStatusCallback(record):
         #    packet_curr_nesn_sn = u8(data[0xa4])
 
         packet_channel_map = data[0x54:0x7b]
-        packet_channel = u8(data[0x83])
+        packet_channel = data[0x83]
         packet_event_ctr = u16(data[0x8e:0x90])
-        packet_rssi = u8(data[0])
+        packet_rssi = data[0]
 
         if internalblue.last_nesn_sn and ((internalblue.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) != 0b1100:
             log.info("             ^----------------------------- ERROR --------------------------------")
@@ -155,11 +155,11 @@ def lereceiveStatusCallback(record):
         elif packet_rssi < 0xc0:
             color = '\033[91m'  # red
 
-        channels_total = u8(packet_channel_map[37])
+        channels_total = packet_channel_map[37]
         channel_map = 0x0000000000
         if channels_total <= 37:  # raspi 3 messes up with this during blacklisting
             for channel in range(0, channels_total):
-                channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
+                channel_map |= (0b1 << 39) >> packet_channel_map[channel]
 
         log.info("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
                                                                       (packet_rssi & 0x7f) - (128 * (packet_rssi >> 7)),

@@ -89,7 +89,7 @@ lmp_dispatcher_filter:
         //mac address list        
         %s   
     
-""" % (len(WHITELIST), ''.join([".byte 0x%02x\n" % ord(x) for x in WHITELIST_BYTES]))
+""" % (len(WHITELIST), ''.join([".byte 0x%02x\n" % x for x in WHITELIST_BYTES]))
 
 internalblue = ADBCore()
 internalblue.interface = internalblue.device_list()[0][1] # just use the first device

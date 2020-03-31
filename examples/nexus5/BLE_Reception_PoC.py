@@ -118,7 +118,7 @@ def lereceiveStatusCallback(record):
     if not issubclass(hcipkt.__class__, hci.HCI_Event):
         return
 
-    if hcipkt.data[0:4] == "RXDN":
+    if hcipkt.data[0:4] == b'RXDN':
         data = hcipkt.data[4:]
 
         # Raspi 3 gets errors
@@ -126,11 +126,11 @@ def lereceiveStatusCallback(record):
             return
 
         # !!! Nexus 5 has really outdated struct...
-        packet_curr_nesn_sn = u8(data[0xa0])
+        packet_curr_nesn_sn = data[0xa0]
         packet_channel_map = data[0x4c:0x4c+38]
-        packet_channel = u8(data[0x7b])
+        packet_channel = data[0x7b]
         packet_event_ctr = u16(data[0x86:0x88])
-        packet_rssi = u8(data[0])
+        packet_rssi = data[0]
 
         if internalblue.last_nesn_sn and ((internalblue.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) != 0b1100:
             log.info("             ^----------------------------- ERROR --------------------------------")
@@ -153,11 +153,11 @@ def lereceiveStatusCallback(record):
         elif packet_rssi < 0xc0:
             color = '\033[91m'  # red
 
-        channels_total = u8(packet_channel_map[37])
+        channels_total = packet_channel_map[37]
         channel_map = 0x0000000000
         if channels_total <= 37:  # raspi 3 messes up with this during blacklisting
             for channel in range(0, channels_total):
-                channel_map |= (0b1 << 39) >> u8(packet_channel_map[channel])
+                channel_map |= (0b1 << 39) >> packet_channel_map[channel]
 
         log.info("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
                                                                       (packet_rssi & 0x7f) - (128 * (packet_rssi >> 7)),

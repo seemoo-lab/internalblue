@@ -79,12 +79,12 @@ def hciKnobCallback(record):
 
     if hcipkt.event_code == 0x0e:
         if u16(hcipkt.data[1:3]) == 0x1408:  # Read Encryption Key Size
-            if u8(hcipkt.data[3]) == 0x12:       # Error
+            if hcipkt.data[3] == 0x12:       # Error
                 log.info("No key size available.\n"
                          " - Did you already negotiate an encrypted connection?\n"
                          " - Did you choose the correct connection handle?\n")
             else:
-                log.info("HCI_Read_Encryption_Key_Size result for handle 0x%x: %x" % (u16(hcipkt.data[4:6]), u8(hcipkt.data[6])))
+                log.info("HCI_Read_Encryption_Key_Size result for handle 0x%x: %x" % (u16(hcipkt.data[4:6]), hcipkt.data[6]))
 
     return
 

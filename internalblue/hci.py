@@ -622,6 +622,7 @@ class HCI_Cmd(HCI):
 class HCI_Acl(HCI):
     @staticmethod
     def from_data(data):
+        data = bytes(data)  # bytearray to bytes
         handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16, "0")))
         bp = u8(unbits(bits_str(data[1:2])[4:6].rjust(8, "0")))
         bc = u8(unbits(bits_str(data[1:2])[6:8].rjust(8, "0")))
@@ -646,6 +647,7 @@ class HCI_Acl(HCI):
 class HCI_Sco(HCI):
     @staticmethod
     def from_data(data):
+        data = bytes(data)  # bytearray to bytes
         handle = u16(unbits(bits_str(data[0:2])[0:12].rjust(16, "0")))
         ps = u8(unbits(bits_str(data[1:2])[4:6].rjust(8, "0")))
         return HCI_Sco(handle, ps, u8(data[2]), data[3:])

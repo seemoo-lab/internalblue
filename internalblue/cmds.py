@@ -114,7 +114,7 @@ def parse_bt_addr(bt_addr):
 
     # Convert to byte string (little endian)
     try:
-        addr = addr.decode("hex")
+        addr = bytearray.fromhex(addr)
     except TypeError:
         log.info("BT Address must consist of only hex digests!")
         return None

