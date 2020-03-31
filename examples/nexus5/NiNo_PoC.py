@@ -1,12 +1,12 @@
-#!/usr/bin/python2
+#!/usr/bin/env python3
 
 # Jiska Classen, Secure Mobile Networking Lab
 
 import sys
 
-from pwn import *
+from internalblue import Address
 from internalblue.adbcore import ADBCore
-
+from internalblue.utils.pwnlib_wrapper import log, asm
 
 
 """
@@ -40,7 +40,7 @@ TODO
 """
 
 
-HOOK_IO_CAP_RESP = 0x303D4 # we just change the complete simple pairing state machine
+HOOK_IO_CAP_RESP = Address(0x303D4) # we just change the complete simple pairing state machine
 ASM_LOCATION_IO_CAP_RESP = 0x00211800 #0xd7800
 ASM_SNIPPET_IO_CAP_RESP = """
         //restore original 8 bytes of instructions which we overwrite by patching a branch into it

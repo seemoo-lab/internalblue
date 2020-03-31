@@ -1,10 +1,9 @@
 #!/usr/bin/env python2
 
 # Dennis Mantz
-
-from pwn import *
+from internalblue import Address
 from internalblue.adbcore import ADBCore
-
+from internalblue.utils.pwnlib_wrapper import log, asm
 #internalblue = core.InternalBlue()
 
 internalblue = ADBCore()
@@ -15,9 +14,9 @@ if len(device_list) == 0:
 internalblue.interface = device_list[0][1] # just use the first device
 
 
-PK_RECV_HOOK_ADDRESS = 0x2FED8
-PK_SEND_HOOK_ADDRESS = 0x030098
-GEN_PRIV_KEY_ADDRESS = 0x48eba
+PK_RECV_HOOK_ADDRESS = Address(0x2FED8)
+PK_SEND_HOOK_ADDRESS = Address(0x030098)
+GEN_PRIV_KEY_ADDRESS = Address(0x48eba)
 HOOKS_LOCATION = 0xd7800
 ASM_HOOKS = """
 b pk_recv_hook

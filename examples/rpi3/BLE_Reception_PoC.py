@@ -1,12 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Jiska Classen
 
 # Get receive statistics on a Raspberry Pi 3 for BLE connection events
-
-from pwn import *
+from internalblue import Address
 from internalblue.hcicore import HCICore
-
+from internalblue.utils.pwnlib_wrapper import log, asm
 
 internalblue = HCICore()
 device_list = internalblue.device_list()
@@ -16,7 +15,7 @@ if len(device_list) == 0:
 internalblue.interface = device_list[0][1] # just use the first device
 
 
-RX_DONE_HOOK_ADDRESS = 0x35fbc  # _connTaskRxDone
+RX_DONE_HOOK_ADDRESS = Address(0x35fbc)  # _connTaskRxDone
 HOOKS_LOCATION = 0x210500
 ASM_HOOKS = """
 
