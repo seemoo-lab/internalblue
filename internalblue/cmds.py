@@ -215,13 +215,13 @@ class Cmd(object):
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
             for section in self.internalblue.fw.SECTIONS:
-                dumped_sections[section.start_addr] = self.readMem(
+                dumped_sections[section.start_addr] = bytes(self.readMem(
                     section.start_addr,
                     section.size(),
                     self.progress_log,
                     bytes_done,
                     bytes_total,
-                )
+                ))
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
             Cmd.memory_image = flat(dumped_sections, filler="\x00")
