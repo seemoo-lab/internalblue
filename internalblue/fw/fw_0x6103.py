@@ -37,18 +37,13 @@ class BCM4355C0(FirmwareDefinition):
     SECTIONS = [
         MemorySection(0x0, 0x90000, True, False),
         MemorySection(0xD0000, 0xD8000, False, True),
-        # MemorySection(0xe0000,  0x1f0000, True , False),
         MemorySection(0x200000, 0x228000, False, True),
-        MemorySection(0x260000, 0x268000, True, False),
-        # MemorySection(0x280000, 0x2a0000, True , False),
         MemorySection(0x318000, 0x320000, False, False),
         MemorySection(0x324000, 0x360000, False, False),
         MemorySection(0x362000, 0x362100, False, False),
         MemorySection(0x363000, 0x363100, False, False),
-        MemorySection(0x600000, 0x600800, False, False),
-        MemorySection(0x640000, 0x640800, False, False),
-        MemorySection(0x650000, 0x650800, False, False),
-        # MemorySection(0x680000, 0x800000, False, False)
+        #MemorySection(0x600000, 0x600800, False, False),
+        #MemorySection(0x640000, 0x640800, False, False),
     ]
 
     PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000

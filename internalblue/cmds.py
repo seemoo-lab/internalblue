@@ -90,6 +90,7 @@ def findCmd(keyword):
 def auto_int(x):
     """ Convert a string (either decimal number or hex number) into an integer.
     """
+    x = x.lstrip('0')  # remove leading zeros as this doesn't work with int(), issue 20
     return int(x, 0)
 
 
@@ -224,7 +225,7 @@ class Cmd(object):
                 ))
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
-            Cmd.memory_image = flat(dumped_sections, filler="\x00")
+            Cmd.memory_image = flat(dumped_sections, filler=b'\x00')
             f = open(self.memory_image_template_filename, "wb")
             f.write(Cmd.memory_image)
             f.close()
@@ -1380,7 +1381,7 @@ class CmdSendLmp(Cmd):
 
         log.info(
             "Sending op=%d data=%s to connection handle=0x%04x"
-            % (args.opcode, data.encode("hex"), args.conn_handle)
+            % (args.opcode, data.decode("utf-8"), args.conn_handle)
         )
         return self.internalblue.sendLmpPacket(
             args.opcode, data, is_master, args.conn_handle, extended_op=args.extended
