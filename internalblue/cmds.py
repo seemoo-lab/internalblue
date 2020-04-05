@@ -90,7 +90,11 @@ def findCmd(keyword):
 def auto_int(x):
     """ Convert a string (either decimal number or hex number) into an integer.
     """
-    x = x.lstrip('0')  # remove leading zeros as this doesn't work with int(), issue 20
+
+    # remove leading zeros as this doesn't work with int(), issue 20
+    # but only for integers (023), not for hex (0x23)
+    if not ('x' in x):
+        x = x.lstrip('0')
     return int(x, 0)
 
 
