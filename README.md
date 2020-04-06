@@ -159,12 +159,48 @@ to the Bluetooth device and forwards HCI commands and events.
 On [Linux](linux_bluez) with *BlueZ*, everything should work out of the box, but
 you need to execute *InternalBlue* as root for most features.
 
-The InternalBlue framework is written in Python 2. You can install it together
-with all dependencies by using pip:
+The InternalBlue framework supports and requires Python 3.6 and above.
+### Install from PyPI
 
-    git clone https://github.com/seemoo-lab/internalblue.git
-    cd internalblue
-    pip install .
+Currently there is no package published on PyPI for Python 3, this will happen in the near future.
+
+
+### Install as package from GitHub `master` or any other branch
+
+```sh
+pip install https://github.com/seemoo-lab/internalblue/archive/master.zip
+```
+
+This will download the contents of current master as a zip archive and install them via pip.
+No local checkout of the git will exist.
+
+If you want to update you need to run:
+
+```sh
+pip install --upgrade https://github.com/seemoo-lab/internalblue/archive/master.zip
+```
+
+### Development Install
+
+If you except that you might want to read the code locally, debug it
+or possibly change it you should setup an editable install.
+
+```sh
+git clone https://github.com/seemoo-lab/internalblue
+cd internalblue
+pip install --editable ./
+```
+Any changes to the python code in your git checkout will now be immediately reflected when importing `internalblue` or starting it from your shell.
+
+You can now git pull, change branches or fork to submit your own branches:
+```sh
+git pull # Update current branch
+git checkout origin/$featurebranch # Test some feature or bugfix branch
+hub fork # requires https://github.com/cli/cli to be set up before
+git checkout -b $your_new_feature_branch
+```
+
+### Dependencies
 
 It will install the following dependencies:
 * pwntools
@@ -182,10 +218,7 @@ of your Linux distribution:
 All steps on a plain Ubuntu 18.04:
 
     sudo apt install git python-setuptools binutils-arm-linux-gnueabi adb pip python-dev gcc
-    git clone https://github.com/seemoo-lab/internalblue
-    cd internalblue
-    sudo pip install .
-    cd ..
+    pip install --upgrade https://github.com/seemoo-lab/internalblue/archive/master.zip
     
     sudo apt-get install wireshark-dev wireshark cmake
     git clone https://github.com/seemoo-lab/h4bcm_wireshark_dissector
