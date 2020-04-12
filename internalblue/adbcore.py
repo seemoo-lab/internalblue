@@ -396,7 +396,7 @@ class ADBCore(InternalBlue):
             # automatically detect the proper serial device with lsof
             logfile = (
                 adb.process(
-                    ["su", "-c", "lsof | grep btsnoop_hci.log | awk '{print $NF}'"]
+                    ["su", "-c", "lsof | grep btsnoop_hci.log | tail -1 | awk '{print $NF}'"]
                 )
                 .recvall()
                 .strip()
@@ -424,8 +424,8 @@ class ADBCore(InternalBlue):
                 return False
 
             # spawn processes
-            adb.process(["su", "-c", "tail -f -n +0 %s | nc -l -p 8872" % logfile])
-            adb.process(["su", "-c", "nc -l -p 8873 >/sdcard/internalblue_input.bin"])
+            adb.process(["su", "-c", "tail -f -n +0 %s | netcat -l -p 8872" % logfile])
+            adb.process(["su", "-c", "netcat -l -p 8873 >/sdcard/internalblue_input.bin"])
             adb.process(
                 ["su", "-c", "tail -f /sdcard/internalblue_input.bin >>%s" % interface]
             )

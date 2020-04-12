@@ -271,6 +271,9 @@ class HCICore(InternalBlue):
             btsnoop_drops = 0
             btsnoop_time = datetime.datetime.now()
 
+            if btsnoop_orig_len == 0:
+                continue
+
             # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
             record = (
                 hci.parse_hci_packet(record_data),
