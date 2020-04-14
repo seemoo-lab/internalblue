@@ -18,15 +18,17 @@ Requirements
 * Optional, if H4: Wireshark [Broadcom H4 Dissector Plugin](https://github.com/seemoo-lab/h4bcm_wireshark_dissector)
 
 #### Linux
-* BlueZ, instructions see [here](linux_bluez/README.md)
+* BlueZ, instructions see [here](linux_bluez.md)
 * Best support for Raspberry Pi 3/3+/4 and Cypress evaluation boards
 * For most commands: Privileged access
 
 #### iOS
-* A jailbroken iOS device (tested on iOS 12 and 13 with iPhone 6, SE, 7, 8, X , does not work on iPhones newer than XR, these devices have a Bluetooth chip connected via PCIe)
+* A jailbroken iOS device (tested on iOS 12 and 13 with iPhone 6, SE, 7, 8, X,
+  does not work on iPhones newer than XR, these devices have a Bluetooth chip connected via PCIe)
 * iOS 12 and 13 have been tested as of now
-* `usbmuxd`, which is pre installed on macOS but is available on most Linux distributions as well. Alternatively it can be obtained from [here](https://github.com/libimobiledevice/usbmuxd).
-* The [``internalblued`` daemon](ios/README.md) installed on the iOS device
+* `usbmuxd`, which is pre installed on macOS but is available on most Linux distributions as well. Alternatively it can
+be obtained from [here](https://github.com/libimobiledevice/usbmuxd).
+* The [``internalblued`` daemon](ios.md) installed on the iOS device
 
 * Optional, no jailbreak required: install [iOS Bluetooth Debug Profile](https://developer.apple.com/bug-reporting/profiles-and-logs/) to obtain
   HCI and diagnostic messages, either via diagnostic report feature (all iOS versions) or live with PacketLogger (since iOS 13)
@@ -42,7 +44,7 @@ Setup and Installation
 The framework uses __ADB__ (Android Debug Bridge) to connect to an Android
 smartphone, __BlueZ__ sockets on Linux, the undocumented __IOBluetooth__ API on macOS, or the included __iOS Proxy__ on iOS.
 
-For [Android](android_bluetooth_stack) with ADB, either connect the phone via USB or setup ADB over TCP and make sure you
+For [Android](android.md) with ADB, either connect the phone via USB or setup ADB over TCP and make sure you
 enable USB debugging in the developer settings of Android.
 
 If you have a jailbroken [iOS](ios.md) device, you need to install a proxy that locally connects

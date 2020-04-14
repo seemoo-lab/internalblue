@@ -3,7 +3,7 @@ This project is a proxy that redirects the *iOS* Bluetooth socket and exposes it
 TCP socket which can be used to send HCI commands to the Bluetooth controller of the device.
 A jailbroken device is required.
 
-A compiled version of `internalblued` can be found in [`packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb`](packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb).
+A compiled version of `internalblued` can be found in [`packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb`](../ios/packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb).
 
 ## Installing
 1. Transfer the `.deb` file to your iOS device
