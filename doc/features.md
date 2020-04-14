@@ -23,7 +23,7 @@ On selected Broadcom Bluetooth chips:
 * Interpret core dumps (Nexus 5/6P, Samsung Galaxy S6, Evaluation Boards, Samsung Galaxy S10/S10e/S10+)
 * Debug firmware with tracepoints (Nexus 5 and Evaluation Board CYW20735)
 * Fuzz invalid LMP messages (Nexus 5 and Evaluation Board CYW20735)
-* Inject LCP messages, including invalid messages (Nexus 5, Raspberry Pi 3/3+/4) 
+* Inject LCP messages, including invalid messages (Nexus 5, Raspberry Pi Zero W/3/3+/4) 
 * Full object and function symbol table (Cypress Evaluation Boards only)
 * Demos for Nexus 5 only:
   * ECDH CVE-2018-5383 example

@@ -11,7 +11,7 @@ Requirements
 ------------
 
 #### Android
-* Ideally recompiled `bluetooth.default.so`, but also works on any rooted smartphone, see [Android instructions](android_bluetooth_stack/README.md)
+* Ideally recompiled `bluetooth.default.so`, but also works on any rooted smartphone, see [Android instructions](android.md)
 * Android device connected via ADB
 * Best support is currently given for Nexus 5 / BCM4339
 * Optional: Patch for Android driver to support Broadcom H4 forwarding

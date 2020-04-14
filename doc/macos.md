@@ -9,7 +9,7 @@ pip install pwntools
 pip install pyobjc
 ```
 
-On macOS High Sierra or older, you need to use a precompiled [IOBluetoothExtended.framework](IOBluetoothExtended.framework.zip) file.
+On macOS High Sierra or older, you need to use a precompiled [IOBluetoothExtended.framework](../macos/IOBluetoothExtended.framework.zip) file.
 It only runs after installing the *Swift 5 Runtime Support Command Line Tools*, otherwise, the error
 message `Library not loaded: @rpath/libswiftCore.dylib` is shown.
 

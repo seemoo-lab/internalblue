@@ -16,8 +16,9 @@ monitoring packets on the link layer.
 
 *InternalBlue* has not only been used for our own research at the Secure Mobile
 Networking Lab ([SEEMOO](https://seemoo.de)). Also, the [KNOB](https://knobattack.com/) attack prototype 
-and the [SweynTooth](https://asset-group.github.io/disclosures/sweyntooth/) attacks
-were implemented using *InternalBlue*. Note that in contrast to tools like
+was implemented using *InternalBlue* LMP messages
+and the [SweynTooth](https://asset-group.github.io/disclosures/sweyntooth/) attacks also
+experimented with *InternalBlue* for crafting LCP messages. Note that in contrast to tools like
 [btlejack](https://github.com/virtualabs/btlejack) or
 [Ubertooth](https://github.com/greatscottgadgets/ubertooth), *InternalBlue* does not
 aim at performing Machine-in-the-Middle attacks. However, the device running *InternalBlue*

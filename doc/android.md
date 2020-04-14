@@ -54,7 +54,7 @@ However, this can easily be fixed by applying an older patch state.
 Since the Bluetooth firmware is in ROM, the patches are only temporary breakpoints
 (up to 256 on the S10e) that are applied via the `/vendor/firmware/*.hcd` files.
 These files are not signed. So, to get *InternalBlue* working again, simply use some older `.hcd` files.
-One set of files that still works is available in `samsung_s10e_2019-06-04_vendor_firmware.zip`.
+One set of files that still works is available in [`samsung_s10e_2019-06-04_vendor_firmware.zip`](../android/samsung_s10e_2019-06-04_vendor_firmware.zip).
 You need to remount the according partition to replace the files with `mount -o remount,rw /vendor`.
 As the Samsung Galaxy S10e, S10+, S10, Note 10, and S20 all have the same firmware, this should
 work on all of them.
@@ -66,14 +66,14 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
-none   | Android 8+9+10 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
-android5_1_1 | android-5.1.1_r3     | rx only | no      | Tested on Nexus 5 - HCI sniffing only!
-android6_0_1 | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
-android7_1_2 | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
-android8_1_0 | android-8.1.0_r1     | yes | no          | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 5X.
-lineageos14_1_hammerhead | cm-14.1  | yes | __yes__     | Recommended for __Nexus 5__ 
-lineageos14_1_zerofltexx | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6__. Works on official Lineage OS build from January 2019, also verified on lineage-14.1-20170103-UNOFFICIAL-zerofltexx.zip
-lineageos14_1_zeroltexx  | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6 edge__
+-   | Android 8+9+10 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
+[android5_1_1](../android/android5_1_1) | android-5.1.1_r3     | rx only | no      | Tested on Nexus 5 - HCI sniffing only!
+[android6_0_1](../android/6_0_1) | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
+[android7_1_2](../android/android/7_1_2) | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
+[android8_1_0](../android/android8_1_0) | android-8.1.0_r1     | yes | no          | Tested on Nexus 6P, but it might run on Pixel 2 XL, Pixel 2, Pixel XL, Pixel, Pixel C, Nexus 5X.
+[lineageos14_1_hammerhead](../android/lineageos14_1_hammerhead) | cm-14.1  | yes | __yes__     | Recommended for __Nexus 5__ 
+[lineageos14_1_zerofltexx](../android/lineageos14_1_zerofltexx) | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6__. Works on official Lineage OS build from January 2019, also verified on lineage-14.1-20170103-UNOFFICIAL-zerofltexx.zip
+[lineageos14_1_zeroltexx](../android/lineageos14_1_zeroltexx)  | cm-14.1  | yes | __yes__     | Recommended for __Samsung Galaxy S6 edge__
 
 If Broadcom H4 diagnostic support is included, the according diff is located 
 inside the folder. You can apply it inside the /bt folder with:
@@ -84,8 +84,8 @@ inside the folder. You can apply it inside the /bt folder with:
 Installation
 ------------
 
-After the build process is done, the *bluetooth.default.so* shared library can be
-found in _/home/ubuntu/mnt/android/out/target/product/hammerhead/system/lib/hw/bluetooth.default.so_
+After the build process is done, the `bluetooth.default.so` shared library can be
+found in `/home/ubuntu/mnt/android/out/target/product/hammerhead/system/lib/hw/bluetooth.default.so`
 and pushed onto the smartphone via ADB. To overwrite the existing library on
 the Android system partition it must first be remounted in order to make it
 writable. It is also important to verify that the new library is actually set
@@ -180,9 +180,9 @@ Flex error that can be solved as follows:
 
     export LC_ALL=C
 
-Due to various reasons it might happen that you successfully build a new _bluetooth.default.so_
+Due to various reasons it might happen that you successfully build a new `bluetooth.default.so`
 module which still does not contain Bluetooth network debugging features.
-You can check if the Bluetooth network debugging features were acutally enabled as follows:
+You can check if the Bluetooth network debugging features were actually enabled as follows:
 
     grep bt_snoop_net bluetooth.default.so
     grep hci_inject bluetooth.default.so
