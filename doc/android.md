@@ -26,7 +26,7 @@ were removed from the source code. Reintroducing these features would be ABI-bre
 We introduced an experimental serial forwarding. If the connection to a
 patched Bluetooth stack fails on Android, *InternalBlue* tries to setup sockets
 with shell scripting. The only requirement is a rooted smartphone. This hack
-even works on a recent __Samsung Galaxy S10e__ with __Android Pie (9)__ (Patchlevel June 2019).
+even works on a recent __Samsung Galaxy S10e/S20__ with __Android Pie (10)__ (Patchlevel March 2020).
 
 In `adbcore.py`, we have a fallback that executes `_setupSerialSu`. This starts the
 following processes:
@@ -35,13 +35,29 @@ following processes:
     nc -l -p 8873 >/sdcard/internalblue_input.bin
     tail -f /sdcard/internalblue_input.bin >>/dev/ttySAC1
 
-To run netcat, you need to install the `busybox` app. Depending on your Android version,
+To run `netcat`, you need to install the `busybox` app. Depending on your Android version,
 the paths for `*btsnoop_hci.log` and `/dev/tty*` might differ. Execute `lsof | grep bluetooth`
 to get hints on the serial device used for Bluetooth.
 
 Note that this solution is much slower than patching *bluetooth.default.so*.
 The delay per command is quite long, but overall throughput is okay, i.e., stackdumps can
-be received.
+be received. However, it runs out of the box, also if your *Android 6/7* setup does not
+work.
+
+
+Bypass: Broadcom Read_RAM Fix
+-----------------------------
+On the *Samsung Galaxy S10/S20*, the newest `.hcd` patches remove the commands
+that allow reading, writing, and launching RAM after applying these patches.
+However, this can easily be fixed by applying an older patch state.
+
+Since the Bluetooth firmware is in ROM, the patches are only temporary breakpoints
+(up to 256 on the S10e) that are applied via the `/vendor/firmware/*.hcd` files.
+These files are not signed. So, to get *InternalBlue* working again, simply use some older `.hcd` files.
+One set of files that still works is available in `samsung_s10e_2019-06-04_vendor_firmware.zip`.
+You need to remount the according partition to replace the files with `mount -o remount,rw /vendor`.
+As the Samsung Galaxy S10e, S10+, S10, Note 10, and S20 all have the same firmware, this should
+work on all of them.
 
 
 
@@ -50,7 +66,7 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
-none   | Android 8+9 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
+none   | Android 8+9+10 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
 android5_1_1 | android-5.1.1_r3     | rx only | no      | Tested on Nexus 5 - HCI sniffing only!
 android6_0_1 | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
 android7_1_2 | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.

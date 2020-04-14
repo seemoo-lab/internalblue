@@ -23,3 +23,21 @@ There is a Settings App pane for `internalblued` to turn off the daemon and adap
 2. Run `make`
 3. A `.deb` file should be in the `packages` folder now
 
+
+# BlueTool
+
+More inconvenient to use, but still an option on the PCIe *iPhone XS* and *iPhone 11*, is `BlueTool`.
+It can even be scripted, but the scripts must be located in `/etc/bluetool`.
+
+For example, during our Random Number Generator (RNG) tests, we used the following commands
+to access the RNG area and execute the `LE_Rand` HCI command. Note that the input must be
+decimal but the output is hexadecimal. Similar to `internalblued`, `BlueTool` can only
+run while Bluetooth is turned off.
+
+```
+device -D
+hci cmd 0xfc4d 0 38 96 0 32
+  HCI Command Response: 01 4D FC 00 03 00 00 00 01 00 00 02 DC 70 02 76 77 77 77 77 77 77 77 77 00 00 00 00 00 00 00 00 00 00 00 00 
+hci cmd 0x2018
+  HCI Command Response: 01 18 20 00 2A FC 1F 73 67 11 06 F9
+```

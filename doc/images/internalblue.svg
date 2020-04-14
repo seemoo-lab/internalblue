@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   id="internalblue_Image"
+   data-name="internalblue Image"
+   viewBox="0 0 584.64 583.68"
+   version="1.1"
+   sodipodi:docname="internalblue.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+   inkscape:export-filename="/tmp/internalblue.png"
+   inkscape:export-xdpi="82.339996"
+   inkscape:export-ydpi="82.339996">
+  <metadata
+     id="metadata983">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1276"
+     inkscape:window-height="1400"
+     id="namedview981"
+     showgrid="false"
+     inkscape:zoom="1.3307334"
+     inkscape:cx="292.32001"
+     inkscape:cy="291.84"
+     inkscape:window-x="1280"
+     inkscape:window-y="18"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="internalblue_Image" />
+  <defs
+     id="defs962">
+    <style
+       id="style960">
+      .cls-1 {
+        fill: #fefeff;
+      }
+
+      .cls-2 {
+        fill: #0069b4;
+      }
+    </style>
+  </defs>
+  <title
+     id="title964">internalblue</title>
+  <g
+     id="g978">
+    <path
+       class="cls-2"
+       d="M507.93,583.69a.55.55,0,0,1-.25.33H77.6a.51.51,0,0,1-.26-.33c1-.05,2.07-.14,3.11-.14H504.82C505.85,583.55,506.89,583.64,507.93,583.69Z"
+       transform="translate(-0.32 -0.34)"
+       id="path968" />
+    <path
+       class="cls-2"
+       d="M507.93,583.69c-1-.05-2.08-.14-3.11-.14H80.45c-1,0-2.08.09-3.11.14a65.68,65.68,0,0,1-22.94-4.38c-28.4-10.84-45.73-31.23-52-60.95a67.65,67.65,0,0,1-1.25-14.07q0-211.91,0-423.82A79.85,79.85,0,0,1,66.66,2.18,83.26,83.26,0,0,1,81.44.83H503.82A80,80,0,0,1,582.4,64.07a77.7,77.7,0,0,1,1.7,16.67q0,130.08,0,260.15v98.64c0,.64-.05,1.28,0,1.92.1,1.09-.23,1.69-1.44,1.54a13.83,13.83,0,0,0-1.44,0H516.65c-3.3,0-2.86.43-2.86-3q0-165.24,0-330.47c0-9.89-2.77-18.77-9.52-26.16a35.76,35.76,0,0,0-26.05-12c-.64,0-1.28,0-1.92,0q-183.72,0-367.43,0a36.21,36.21,0,0,0-22,6.83,35.5,35.5,0,0,0-15.12,27.4c-.12,1.83-.15,3.67-.15,5.51q0,181.79,0,363.59c0,5.64.52,11.2,2.88,16.4,5.67,12.55,15.27,20,29,22a47.89,47.89,0,0,0,7.18.33H579.74c3.9,0,4,0,3.27,3.94q-7.75,40.61-44.83,58.93a75.67,75.67,0,0,1-29.55,7.48A4.22,4.22,0,0,1,507.93,583.69Z"
+       transform="translate(-0.32 -0.34)"
+       id="path970" />
+    <path
+       class="cls-2"
+       d="M414.84,293.5c2.7,2.41,5.21,4.62,7.53,7,12.55,13.11,20.33,28.64,22.76,46.61a84.15,84.15,0,0,1-63.95,93.9,85.13,85.13,0,0,1-19.47,2.27H143.09c-4.13,0-4.13,0-4.13-4.11q0-133.54-.07-267.1c0-15,12.65-28.38,28.39-28.36q97.42.13,194.86,0a84.26,84.26,0,0,1,54.34,148.3ZM282.08,261.67H345.4c1.28,0,2.56,0,3.83-.1,16.27-.89,28-17,23.79-32.81-3.19-12.06-13.63-20-26.38-20H215.2c-3,0-2.71-.29-2.71,2.69q0,23.63,0,47.25c0,3.24-.46,3,2.91,3Zm0,118h63.12a44.32,44.32,0,0,0,6-.22A26.41,26.41,0,0,0,361.62,331a28.65,28.65,0,0,0-16-4.22q-63.6.06-127.19,0c-1.36,0-2.72,0-4.08,0-1.85,0-1.85,0-1.89,1.83,0,.32,0,.64,0,1q0,23.64,0,47.28c0,3.07-.41,2.78,2.84,2.79Z"
+       transform="translate(-0.32 -0.34)"
+       id="path972" />
+  </g>
+</svg>

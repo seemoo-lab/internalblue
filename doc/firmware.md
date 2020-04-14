@@ -1,22 +1,23 @@
 Firmware Versions
 =================
 
-This package adds support for different Broadcom and Cypress firmware versions.
-A list of known versions can be found below, however we only have firmware information on a subset of these.
-Results are based on real world testing, this list is very incomplete. If you know more versions, input is appreciated.
+A list of known firmware versions can be found below.
+However, we only have firmware information on a subset of these.
+Results are based on real-world testing, this list is very incomplete.
+If you know more versions, input is appreciated :)
 
 
 
 Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 -------| ------- | ---------- | ----------- | ------- | ----------
 0x000f |    0x04 |     0x4217 | BCM4329B1   | iPhone 4, Nexus One, iPod touch (A1367)
-0x000f |    0x04 |     0x21d0 | BCM2046     | iMac 27" late 2009 
+0x000f |    0x04 |     0x21d0 | BCM2046A2   | iMac 27" late 2009 | 2007
 0x000f |    0x04 |     0x422a | BCM4331     | MacBook Pro early 2011
 0x000f |    0x04 |     0x4203 |             | HP ProBook 6550b and 6450b
 0x000f |    0x05 |     0x4203 | BCM2034B    | Thinkpad T420
 0x000f |    0x05 |     0x610d |             | iPad A1395
 0x000f |    0x05 |     0x240c | BCM20733    | Magic Keyboard
-0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle, HP Elitebook 820 G2
+0x000f |    0x06 |     0x220e | BCM20702A1  | Asus USB Bluetooth dongle, HP Elitebook 820 G2 | ~Feb 2010
 0x000f |    0x06 |     0x229b | BCM20702A3  | MacBook Pro 13" mid 2012 (A1278)
 0x000f |    0x06 |     0x4103 | BCM4330B1   | iPhone 4s
 0x000f |    0x06 |     0x410d |             | BlackBerry Q5
@@ -24,7 +25,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x06 |     0x6109 |             | Samsung Galaxy Note 10.1 2014 WiFi (SM-P600) 
 0x000f |    0x07 |     0x220f | BCM20736S   | Equiva Radiator Thermostat CC-RT-BLE-EQ
 0x000f |    0x07 |     0x2203 | BCM43342    | iPhone 5s
-0x000f |    0x07 |     0x2209 | BCM43430A1  | Raspberry Pi 3 | Jun 2 2014
+0x000f |    0x07 |     0x2209 | BCM43430A1  | Raspberry Pi 3 and Zero W | Jun 2 2014
 0x000f |    0x07 |     0x230f | BCM4356A2   | Xperia Z5
 0x000f |    0x07 |     0x410d | BCM4334     | iPhone 5 (A1429)
 0x000f |    0x07 |     0x4606 | BCM4324     | iPad Air (A1474)
@@ -60,14 +61,14 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x0131 |    0x09 |     0x220c | CYW20819A1  | ULP BLE/BR/EDR Bluetooth 5 Wireless MCU Evaluation Kit CYW920819EVB-02 | May 22 2018
 0x000f |    0x09 |     0x411a | BCM4347B0 (BCM4361B0) | Samsung Galaxy S8 | Jun 3 2016
 0x0131 |    0x09 |     0x4208 | CYW20735B1  | BLE/BR Bluetooth 5.0 Evaluation Kit CYW920735Q60EVB-01 | Jan 18 2018
-0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+, Samsung Galaxy Note 10/10+  (local version is 0x1111) | April 13 2018
+0x000f |    0x09 |     0x4208 | BCM4375B1   | Samsung Galaxy S10e, Samsung Galaxy S10, Samsung Galaxy S10+, Samsung Galaxy Note 10/10+, Samsung Galaxy S20  (local version is 0x1111) | April 13 2018
 0x000f |    0x09 |     0x420e | BCM4347B1   | iPhone 8, XR, X | Oct 11 2016
 0x0131 |    0x09 |     0x420e | CYW20739B1  | Bluetooth 5.0 BLE Evaluation Kit CYW920719Q40EVB-01 | Jan 17 2017
 0x000f |    0x09 |     0x4307 | BCM4377B2   | iPhone XS (Aladdin), iPhone Xs Max (Genie), iPad Pro 11" 3E149FD/A, iPad Pro 11" 3E148FD/A, iPad Pro 12.9" 3rd gen 3D941FD/A, iPad mini 5th gen 3F559FD/A, iPad Air 3rd gen 3F561FD/A
 0x000f |    0x09 |     0x4309 |             | Samsung Galaxy Note 9, Samsung Galaxy S9, S9+
 0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 3+/4 --- *with Bluetooth 5 patches, same ROM as 3+* | Aug 19 2014
 0x000f |    0x09 |     0x6214 | BCM4355C1   | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A, iPad 6th gen MR7J2FD/A A1893 (FigaroA)
-0x000f |    0x0a |     0x4228 | BCM4378B1   | iPhone 11 (Hei), iPhone 11 Pro (Moana), iPhone 11 Pro Max (Tala) --- *announce BT 5.1 over the air despite being specified as BT 5 online*
+0x000f |    0x0a |     0x4228 | BCM4378B1   | iPhone 11 (Hei), iPhone 11 Pro (Moana), iPhone 11 Pro Max (Tala) --- *announce BT 5.1 over the air but are BT 5* | Oct 25 2018
 
 
 
@@ -84,12 +85,13 @@ There is a couple of issues causing trouble running *InternalBlue*, which are re
 
 * BCM4335C0
   * Diagnostic messages lack behind by one. If you send `diag c1` you will not get a response. Followed by `diag c2` you will get a response for `c1`, and so on. This issue is independent from the Android driver patch, i.e. a Nexus 6P works perfectly with the same LineageOS 14.1 patch that causes this issue on a Nexus 5. 
-* BCM4358A3
+* BCM4358A3 (Nexus 6P + Samsung Galaxy S6), and iPhone 7 firmware:
   * `Launch_RAM` crashes the firmware if it received another HCI command within the next ~6 seconds. When patching and launching scripts, close the Bluetooth overview from the operating system to prevent scanning and hope that nothing else interacts with this. 
 * CYW20735B1
   * `Launch_RAM` works in principle, but threading seems to be broken if the executed code generates other HCI events.
   A hook at `0xB0316` is a nice spot to implement a function that generates HCI events and can be called via the HCI command `0xfc19`.
   The general solution seems to be `self.internalblue.patchRom(0x3d32e, "\x70\x47\x70\x47")` respectively `patch -a 0x3d32e --asm bx lr`, which fixes that the baud rate is set to a wrong value during `Launch_RAM`.
+  * Same issue exists for CYW20719, CYW20819
   
 Firmware Version and Build Date
 -------------------------------
@@ -101,29 +103,3 @@ On newer chips, the build information is located in the beginning of the stack. 
 
     hd 0x200400
    
-    
-    
-    
-
-License
--------
-
-Copyright 2019 Jiska Classen
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.

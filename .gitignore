@@ -17,7 +17,7 @@ btsnoop.log
 # xcode
 xcuserdata
 *.xcworkspace
-macos-framework/IOBluetoothExtended.framework/
+macos/IOBluetoothExtended.framework/
 
 # venv
 venv
