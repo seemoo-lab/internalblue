@@ -7,7 +7,7 @@
 # It also implements methods to setup the TCP connection to the
 # Android Bluetooth stack via ADB port forwarding
 #
-# Copyright (c) 2018 Dennis Mantz. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -2096,8 +2096,54 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         else:
             log.warn("Diagnostic protocol requires modified Android driver!")
 
+    def enableEnhancedAdvReport(self):
+        # type: () -> bool
+        """
+        Broadcom and Cypress chips can extend the "Event Type" field in LE Advertising
+        Reports with information on the channel, antenna, and scan mode.
+
+        Parsing this enhanced advertisement report is "documented" in the PacketDecoder
+        binary of Apple's PacketLogger, which is part of the Additional Tools for XCode.
+        The function parsing these is called `leAdvertisingEventTypeString` (XCode 11.4).
+
+        Usually, the Event Type field is set to 0x00-0x04, meaning ADV_IND..SCAN_RSP.
+
+        Additional fields:
+           channel   = (event_type >> 4) & 7
+           antenna   = event_type & 0x80
+           scan_mode = (event_type >> 3) & 3
+
+        The channel is a value 0--2, which corresponds to 37--39.
+        The antenna is 0 for BT and 1 for WLAN.
+        No idea about the scan mode ;)
+
+        The Broadcom and Cypress firmware sets these additional fields when the firmware
+        flag `bEnhancedAdvReport` is set. We do not know how to set it via VSC HCI and if that
+        is possible, so we set it by directly writing to RAM.
+
+        TODO: Also implement for the MacBook 2016, it's at 0x2037D0, but we don't know
+              the current LMP version, as it changes with each macOS patch level.
+
+        Won't Fix:
+        * The Nexus 5 BLE implementation is too old, `lculp_HandleScanReport` (0x184D0) and
+          `_scanTaskRxHeaderDone` (0x16E74) do not reference this flag yet.
+        * Also seems to be missing in the Nexus 6P/Samsung Galaxy S6 but didn't check as careful.
+
+        Returns true if the feature is supported and could be enabled.
+        """
+
+        # Check if constants are defined in fw.py
+        if "ENHANCED_ADV_REPORT_ADDRESS" not in dir(self.fw):
+            log.warn(
+                "enableEnhancedAdvReport: 'ENHANCED_ADV_REPORT_ADDRESS' not in fw.py. FEATURE NOT SUPPORTED!"
+            )
+            return False
+
+        self.writeMem(self.fw.ENHANCED_ADV_REPORT_ADDRESS, b'\x01\x00\x00\x00')
+
     def _setupSockets(self):
         raise NotImplementedError()
 
     def _teardownSockets(self):
         raise NotImplementedError()
+

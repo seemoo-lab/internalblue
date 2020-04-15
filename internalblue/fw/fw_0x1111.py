@@ -1,8 +1,10 @@
-# fw_0x420e.py
+#!/usr/bin/env python
+
+# fw_0x1111.py
 #
 # Generic firmware file in case we do not know something...
 #
-# Copyright (c) 2019 Jiska Classen. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -22,11 +24,12 @@
 
 from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
+from .. import Address
 
 
 class BCM4375B1(FirmwareDefinition):
     # Firmware Infos
-    # Samsung S10/S10e/S10+
+    # Samsung S10/S10e/S10+/S20
     FW_NAME = "BCM4375B1"
 
 
@@ -53,6 +56,10 @@ class BCM4375B1(FirmwareDefinition):
 
     BLOC_HEAD = 0x20075C
     BLOC_NG = True
+
+    # Enable enhanced advertisement reports (bEnhancedAdvReport)
+    # tested but by default the S10 only uses the LE Extended format, which is different...
+    ENHANCED_ADV_REPORT_ADDRESS = Address(0x20D176)
 
     # Assembler snippet for tracepoints
     # In contrast to the Nexus 5 patch, we uninstall ourselves automatically and use internal debug functions

@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
-# fw_0x6119.py
+# fw_0x2209.py
 #
 # All firmware specific data such as address offsets are collected
 # in the fw.py file. Later versions of the framework will provide
 # multiple copies of this file in order to target different firmware
 # and chip versions.
 #
-# Copyright (c) 2019 Jiska Classen. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -27,6 +27,7 @@
 
 from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
+from .. import Address
 
 
 class BCM43430A1(FirmwareDefinition):
@@ -72,6 +73,9 @@ class BCM43430A1(FirmwareDefinition):
     # Heap
     BLOC_HEAD = 0x200588  # g_dynamic_memory_GeneralUsePools
     BLOC_NG = True  # Next Generation Bloc Buffer
+
+    # Enable enhanced advertisement reports (bEnhancedAdvReport) - TODO untested
+    ENHANCED_ADV_REPORT_ADDRESS = Address(0x202980)
 
     # Snippet for sendLcpPacket()
     SENDLCP_CODE_BASE_ADDRESS = 0x21A000

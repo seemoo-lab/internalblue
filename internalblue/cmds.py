@@ -5,7 +5,7 @@
 # All available CLI commands are defined in this file by
 # creating subclasses of the Cmd class.
 #
-# Copyright (c) 2018 Dennis Mantz. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -2099,4 +2099,22 @@ class CmdLaunch(Cmd):
             return False
 
         self.internalblue.launchRam(args.address)
+        return True
+
+
+class CmdEhancedAdv(Cmd):
+    keywords = ["adv"]
+    description = "Enables enhanced advertisement reports in the first half of the `Event Type` field."
+    parser = argparse.ArgumentParser(
+        prog=keywords[0],
+        description=description,
+        epilog="Aliases: " + ", ".join(keywords),
+    )
+
+    def work(self):
+        args = self.getArgs()
+        if not args:
+            return False
+
+        self.internalblue.enableEnhancedAdvReport()
         return True

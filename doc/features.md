@@ -30,4 +30,5 @@ On selected Broadcom Bluetooth chips:
   * NiNo example
   * MAC address filter example
 * KNOB attack test for various devices, including Raspberry Pi 3+/4
-* BLE reception statistics
+* BLE reception statistics for active connections
+* Enhanced BLE advertisement reports (channel, scan mode, antenna)

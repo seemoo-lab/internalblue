@@ -98,6 +98,8 @@ class FirmwareDefinition:
     TRACEPOINT_BODY_ASM_LOCATION: Address
     TRACEPOINT_HOOK_ASM = None
 
+    ENHANCED_ADV_REPORT_ADDRESS: Address
+
 
 class Firmware(object):
     firmware: FirmwareDefinition

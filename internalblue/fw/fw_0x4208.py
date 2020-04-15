@@ -2,7 +2,7 @@
 #
 # Generic firmware file in case we do not know something...
 #
-# Copyright (c) 2019 Jiska Classen. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -101,6 +101,9 @@ class CYW20735B1(FirmwareDefinition):
     CONNECTION_LIST_ADDRESS = 0x216F98  # pRm_whole_conn = 0x280C9C points to this
     CONNECTION_MAX = 11  # g_bt_max_connections = 0 in firmware
     CONNECTION_STRUCT_LENGTH = 0x168  # ??
+
+    # Enable enhanced advertisement reports (bEnhancedAdvReport)
+    ENHANCED_ADV_REPORT_ADDRESS = Address(0x2829AC)
 
     # Snippet for fuzzLmp()
     FUZZLMP_HOOK_ADDRESS = 0xB08D8  # execute standard SendLmpPdu HCI to fill parameters

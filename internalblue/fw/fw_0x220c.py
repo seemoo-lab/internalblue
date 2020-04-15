@@ -2,7 +2,7 @@
 #
 # Generic firmware file in case we do not know something...
 #
-# Copyright (c) 2019 Jiska Classen. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -22,6 +22,7 @@
 
 from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
+from .. import Address
 
 
 class CYW20819A1(FirmwareDefinition):
@@ -68,4 +69,8 @@ class CYW20819A1(FirmwareDefinition):
     # Launch_RAM is faulty so we need to overwrite it. This is the position of the handler.
     LAUNCH_RAM = 0xF2884
     HCI_EVENT_COMPLETE = 0x1179E
+
+    # Enable enhanced advertisement reports (bEnhancedAdvReport)
+    ENHANCED_ADV_REPORT_ADDRESS = Address(0x20294C)
+
 
