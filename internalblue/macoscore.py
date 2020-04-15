@@ -53,7 +53,7 @@ class macOSCore(InternalBlue):
                 "IOBluetoothExtended",
                 frameworkIdentifier="de.tu-darmstadt.seemoo.IOBluetoothExtended",
                 frameworkPath=objc.pathForFramework(
-                    filepath + "/../macos-framework/IOBluetoothExtended.framework"
+                    filepath + "/../macos/IOBluetoothExtended.framework"
                 ),
                 globals=globals(),
             )
