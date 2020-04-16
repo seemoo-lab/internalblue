@@ -2,8 +2,6 @@
 
 # fw_0x1111.py
 #
-# Generic firmware file in case we do not know something...
-#
 # Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of

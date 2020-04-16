@@ -50,7 +50,7 @@ Table of Contents
     * [Android](doc/android.md) *6—10 (rooted)*
     * [iOS](doc/ios.md) *12—13 (jailbroken)*
     * [macOS](doc/macos.md) *High Sierra—Catalina*
-    * [Linux](doc/linux_bluez.md)
+    * [Linux](doc/linux_bluez.md) with *BlueZ* (default) but __not__ WSL
 * [Firmware overview](doc/firmware.md)
 * [SEEMOO talks and publications](doc/publications.md)
 * [Examples](doc/examples.md)
