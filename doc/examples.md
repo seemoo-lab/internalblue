@@ -1,14 +1,46 @@
 InternalBlue PoCs and Examples
 ==============================
 
+HRNG and PRNG Measurements (CVE-2020-6616)
+------------------------------------------
+The *Dieharder* test suite requires at least 1GB of data to decide if a RNG returned random numbers.
+We provide all scripts we used to evaluate the HRNG and PRNG on various *Broadcom* and *Cypress*
+chips. These can be adapted for tests on further platforms if needed.
+Extracting so much from a Bluetooth chip requires a number of optimizations, which are also
+interesting for other scripts. All measurements scripts contain custom HCI event callbacks, and
+five of them contain a `Launch_RAM` fix (*Nexus 6P*, *iPhone 7*, *CYW20719*, *CYW20735*, *CYW20819*).
+Also, these scripts document where we found some free memory chunks, which might also be helpful for
+other implementations.
+For some devices, we only checked if the firmware is indeed accessing a HRNG, thus, we provide less
+than 20 scripts in total.
+
+* Nexus 5: [PRNG](../examples/nexus5/randp.py), [HRNG](../examples/nexus5/rand.py)
+* Nexus 6P/Samsung Galaxy S6: [PRNG](../examples/nexus6p/randp.py), [HRNG](../examples/nexus6p/rand.py)
+* CYW20719 evaluation board: [PRNG](../examples/eval_cyw20719/randp.py), [HRNG](../examples/eval_cyw20719/rand.py)
+* CYW20735 evaluation board: [HRNG](../examples/eval_cyw20735/rand.py) (didn't measure PRNG as HRNG was used)
+* CYW20819 evaluation board: [PRNG](../examples/eval_cyw20819/randp.py), [HRNG](../examples/eval_cyw20819/rand.py)
+* Raspberry Pi 3/Zero W: [PRNG](../examples/rpi3/randp.py), [HRNG](../examples/rpi3/rand.py)
+* Raspberry Pi 3+/4: [PRNG](../examples/rpi3p_rpi4/randp.py), [HRNG](../examples/rpi3p_rpi4/rand.py)
+* iPhone 6: [PRNG](../examples/iphone6/randp.py), [HRNG](../examples/iphone6/rand.py)
+* iPhone 7: [HRNG](../examples/iphone7/rand.py) (didn't measure PRNG as HRNG was used)
+
+
+Note that this list does not (yet) contain the device where the HRNG was found to be missing.
+
+
 
 KNOB Attack Test (CVE-2019-9506)
 --------------------------------
 We provide a modified version of the KNOB attack test, originally provided [here](https://github.com/francozappa/knob).
 This script tests if the other device will accept a reduced key entropy of 1 byte instead of the optimal 16 byte.
-Available for the [Raspberry Pi 3](../examples/rpi3/KNOB_PoC.py), [Raspberry Pi 3+/4](../examples/rpi3p_rpi4/KNOB_PoC.py),
-[Nexus 5](../examples/nexus5/KNOB_PoC.py), [Nexus 6P](../examples/nexus6p/KNOB_PoC.py), [CYW20735 evaluation board](../examples/eval_cyw20735/KNOB_PoC.py),
-and [Samsung Galaxy S8](../examples/s8/KNOB_PoC.py).
+Available for:
+
+ * [Raspberry Pi 3](../examples/rpi3/KNOB_PoC.py)
+ * [Raspberry Pi 3+/4](../examples/rpi3p_rpi4/KNOB_PoC.py)
+ * [Nexus 5](../examples/nexus5/KNOB_PoC.py)
+ * [Nexus 6P](../examples/nexus6p/KNOB_PoC.py)
+ * [CYW20735 evaluation board](../examples/eval_cyw20735/KNOB_PoC.py)
+ * [Samsung Galaxy S8](../examples/s8/KNOB_PoC.py)
 
 LMP to HCI Handler Escalation Attack Test (CVE-2018-19860)
 ----------------------------------------------------------
@@ -20,21 +52,23 @@ Invalid "handler" addresses in that memory range or invalid parameters passed to
 on the device under attack to crash. This PoC installs an Assembly snippet that sends multiple invalid LMP BPCS packets
 before establishing connections. If an attacker connects to the device under test using the normal Android/Linux user
 interface and the connection succeeds, the device is likely not vulnerable (you need to adapt the BPCS range in
-some cases). If Bluetooth crashes, it is vulnerable. Currently only available for the
-[Nexus 5](../examples/nexus5/CVE_2018_19860_Crash_on_Connect.py) and the [CYW20735 evaluation board](../examples/eval_cyw20735/CVE_2018_19860_Crash_on_Connect.py).
+some cases). If Bluetooth crashes, it is vulnerable. Currently only available for:
+
+* [Nexus 5](../examples/nexus5/CVE_2018_19860_Crash_on_Connect.py)
+* [CYW20735 evaluation board](../examples/eval_cyw20735/CVE_2018_19860_Crash_on_Connect.py)
 
 Invalid Curve Attack Test (CVE-2018-5383)
 -----------------------------------------
 This is a test which tires to set the y-coordinate during ECDH key exchange to zero. If the devie under test accepts the pairing
 (50% probability), it is vulnerable. This is not an MITM implementation, it only tests, if the other device would be vulnerable in practice.
 
-Available for the [Nexus 5](../examples/nexus5/CVE_2018_5383_Invalid_Curve_Attack_PoC.py).
+* [Nexus 5](../examples/nexus5/CVE_2018_5383_Invalid_Curve_Attack_PoC.py)
 
 LMP MAC Address Filter
 ----------------------
 Only accept traffic from whitelisted MAC addresses and send `LMP_not_accepted` otherwise.
 
-Available for the [Nexus 5](../examples/nexus5/LMP_MAC_Address_Filter.py).
+* [Nexus 5](../examples/nexus5/LMP_MAC_Address_Filter.py)
 
 NiNo Attack Test
 ----------------
@@ -43,7 +77,7 @@ If the operating system displays a yes/no question during pairing, a warning, or
 This script tests how the other device will behave in a pairing that does not use numeric comparison, but is no
 active MITM attack.
 
-Available for the [Nexus 5](../examples/nexus5/NiNo_PoC.py).
+* [Nexus 5](../examples/nexus5/NiNo_PoC.py)
 
 
 Measurement of BLE Receive Statistics

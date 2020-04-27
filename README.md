@@ -15,8 +15,8 @@ a full-stack software-defined radio implementation, such as injecting and
 monitoring packets on the link layer.
 
 *InternalBlue* has not only been used for our own research at the Secure Mobile
-Networking Lab ([SEEMOO](https://seemoo.de)). Also, the [KNOB](https://knobattack.com/) attack prototype 
-was implemented using *InternalBlue* LMP messages
+Networking Lab ([SEEMOO](https://seemoo.de)). Also, the [KNOB](https://knobattack.com/) and [BIAS](https://francozappa.github.io/about-bias/) attack prototype 
+were implemented using *InternalBlue* LMP messages
 and the [SweynTooth](https://asset-group.github.io/disclosures/sweyntooth/) attacks also
 experimented with *InternalBlue* for crafting LCP messages. Note that in contrast to tools like
 [btlejack](https://github.com/virtualabs/btlejack) or
@@ -33,12 +33,17 @@ further analysis such as Bluetooth Low Energy performance statistics and improve
 Anything that can be improved within a Bluetooth stack can be directly tested on
 off-the-shelf devices.
 
-Our newest research features [Frankenstein](https://github.com/seemoo-lab/frankenstein),
+Our recent research features [Frankenstein](https://github.com/seemoo-lab/frankenstein),
 which emulates the firmware including thread switches and virtual modem input. The
 emulated firmware can be attached to a *Linux* host. Thus, the approach is full-stack.
 We mainly used it for fuzzing and found vulnerabilities that include host responses
 to be triggered. *Frankenstein* is in a separate repository, but depends on *InternalBlue*
 to take state snapshots etc. on a physical device.
+
+Moreover, we just published [Polypyus](https://github.com/seemoo-lab/polypyus).
+It enables binary-only binary diffing, independent from *IDA* and *Ghidra*. However,
+it integrates into that workflow by identifying good starting points for further
+analysis. We already tried it across various *Broadcom* Wi-Fi and Bluetooth firmware. 
 
 
 
