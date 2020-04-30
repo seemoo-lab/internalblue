@@ -23,9 +23,10 @@ than 20 scripts in total.
 * Raspberry Pi 3+/4: [PRNG](../examples/rpi3p_rpi4/randp.py), [HRNG](../examples/rpi3p_rpi4/rand.py)
 * iPhone 6: [PRNG](../examples/iphone6/randp.py), [HRNG](../examples/iphone6/rand.py)
 * iPhone 7: [HRNG](../examples/iphone7/rand.py) (didn't measure PRNG as HRNG was used)
+* Samsung Galaxy S8: [PRNG](../examples/s8/randp.py) __(no HRNG present)__
 
 
-Note that this list does not (yet) contain the device where the HRNG was found to be missing.
+We also have a [full list of firmware and hardware analysis results](rng.md) of the HRNG and PRNG.
 
 
 
