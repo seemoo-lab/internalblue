@@ -27,7 +27,7 @@ pip install --editable ./
 pip install pyobjc
 ```
 
-#### b) Install Without Git
+#### b) Without Git
 Download *InternalBlue* and install it. Preferrably in a new virtual environment.
 ```
 curl -LJO https://github.com/seemoo-lab/internalblue/archive/master.zip
