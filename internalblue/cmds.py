@@ -151,7 +151,7 @@ class Cmd(object):
             self.memory_image_template_filename = (
                 internalblue.data_directory
                 + "/memdump_"
-                + self.internalblue.fw.__name__[6:12]
+                + self.internalblue.fw.__name__
                 + "_template.bin"
             )
 
@@ -208,6 +208,8 @@ class Cmd(object):
         Initially read out a chip's memory, all sections (RAM+ROM).
         :return:
         """
+
+        # initialize the ROM
         bytes_done = 0
         if not os.path.exists(self.memory_image_template_filename):
             log.info("No template found. Need to read ROM sections as well!")
@@ -220,6 +222,9 @@ class Cmd(object):
             self.progress_log = log.progress("Initialize internal memory image")
             dumped_sections = {}
             for section in self.internalblue.fw.SECTIONS:
+                # pwntools workaround: dump only rom, extend image
+                # dd if=/dev/zero bs=10M count=1 >>memdump_xxx_template.bin
+                # if section.is_rom:
                 dumped_sections[section.start_addr] = bytes(self.readMem(
                     section.start_addr,
                     section.size(),
@@ -229,14 +234,16 @@ class Cmd(object):
                 ))
                 bytes_done += section.size()
             self.progress_log.success("Received Data: complete")
-            Cmd.memory_image = flat(dumped_sections, filler=b'\x00')
+            Cmd.memory_image = flat(dumped_sections, filler=b'\x00')  # this is really slow in current pwntools
             f = open(self.memory_image_template_filename, "wb")
             f.write(Cmd.memory_image)
             f.close()
+
+        # otherwise read the RAM
         else:
             log.info(
                 self.memory_image_template_filename
-                + " already exists. Only read and updating non-ROM sections!"
+                + " exists. Updating non-ROM sections!"
             )
             Cmd.memory_image = read(self.memory_image_template_filename)
             self.refreshMemoryImage()
@@ -263,9 +270,9 @@ class Cmd(object):
                 )
                 if sectiondump and Cmd.memory_image:
                     Cmd.memory_image = (
-                        Cmd.memory_image[0 : section.start_addr]
+                        Cmd.memory_image[0:section.start_addr]
                         + sectiondump
-                        + Cmd.memory_image[section.end_addr :]
+                        + Cmd.memory_image[section.end_addr:]
                     )
                     bytes_done += section.size()
         self.progress_log.success("Received Data: complete")
@@ -2076,7 +2083,12 @@ class CmdSendDiagCmd(Cmd):
             if data_part[0:2] == "0x":
                 data += p32(auto_int(data_part))
             else:
-                data += binascii.unhexlify(data_part)
+                try:
+                    data += binascii.unhexlify(data_part)
+                # might return odd length string etc.
+                except binascii.Error:
+                    log.warn("Invalid hex string!")
+                    return False
 
         self.internalblue.sendH4(args.type, data)
 

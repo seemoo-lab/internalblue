@@ -32,6 +32,7 @@ Chip       | Device            | HRNG present
 -----------| ----------------- | ----------- 
 BCM2046A2 | iMac Late 2009 | Yes 
 BCM4375B1 | Samsung Galaxy S10/S20 | Yes 
+BCM4347B1 | iPhone 8/X/XR | Yes
 BCM4378B1 | iPhone 11 | Yes 
 
 

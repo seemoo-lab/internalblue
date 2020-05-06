@@ -1,8 +1,8 @@
-# fw_0x420e.py
+# fw_default.py
 #
 # Generic firmware file in case we do not know something...
 #
-# Copyright (c) 2019 Jiska Classen. (MIT License)
+# Copyright (c) 2020 The InternalBlue Team. (MIT License)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -22,36 +22,23 @@
 
 from __future__ import absolute_import
 from .fw import MemorySection, FirmwareDefinition
+from .. import Address
 
 
-class BCM4347B1(FirmwareDefinition):
+class BCM20703A1(FirmwareDefinition):
     # Firmware Infos
-    # iPhone 8/X/XR
-    FW_NAME = "BCM4347B1"
+    # MacBook Pro early 2015 15" Retina
+    # macOS changes the LMP version with security fixes
+    # 10.15.4 has 0x21a9 but older patches go down to 0x21a1
+    FW_NAME = "BCM20703A1"
 
     # Memory Sections
     #                          start,    end,           is_rom? is_ram?
     SECTIONS = [
-        MemorySection(0x00000000, 0x00103FFF, True, False),  # Internal ROM
-        MemorySection(
-            0x00130000, 0x0014FFFF, False, True
-        ),  # Internal Memory Patchram Contents
-        MemorySection(0x00200000, 0x0024FFFF, False, True),  # Internal Memory Cortex M3
-        MemorySection(
-            0x00300000, 0x00307FFF, False, True
-        ),  # HW Regs Cortex M3 (readable)
-        MemorySection(
-            0x00310000, 0x00321FFF, False, True
-        ),  # HW Regs Cortex M3 (readable)
-        MemorySection(
-            0x00326000, 0x0032FFFF, False, True
-        ),  # HW Regs Cortex M3 (readable)
+        MemorySection(0x00000000, 0x000C7FFF, True, False),  # Internal ROM
+        MemorySection(0x000D0000, 0x000EFFFF, False, True),  # Patchram
+        MemorySection(0x00200000, 0x00247FFF, False, True),  # Internal Memory Cortex M3
     ]
 
-
     # Patchram
-    PATCHRAM_TARGET_TABLE_ADDRESS = 0x310000
-    PATCHRAM_ENABLED_BITMAP_ADDRESS = 0x310404
-    PATCHRAM_VALUE_TABLE_ADDRESS = 0x130000
-    PATCHRAM_NUMBER_OF_SLOTS = 256  # 239 used on iOS 13.4.1
-    PATCHRAM_ALIGNED = False
+    # needs aligned access on this firmware, so it doesn't work

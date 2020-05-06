@@ -35,6 +35,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x000f |    0x08 |     0x21a6 | BCM20703A1  | MacBook Pro early 2015
 0x000f |    0x08 |     0x21a7 | BCM20703A1  | MacBook Pro early 2015 (with security fix)
 0x000f |    0x08 |     0x21a8 | BCM20703A1  | MacBook Pro early 2015 (with security fix, 10.14.6)
+0x000f |    0x08 |     0x21a8 | BCM20703A1  | MacBook Pro early 2015 (with security fix, 10.15.4)
 0x000f |    0x08 |     0x220b | CYW20706    | CYW920706 Evaluation Kit, same ROM as MacBook Pro 2016 | Oct 22 2015 
 0x000f |    0x08 |     0x220b | BCM20707    | Fitbit Ionic 
 0x000f |    0x08 |     0x2230 | BCM20703A2  | MacBook Pro 2016 (A1707) | Oct 22 2015
@@ -76,6 +77,15 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 Matching of vendor and version number see list of [Bluetooth versions](https://www.bluetooth.com/specifications/assigned-numbers/link-manager) and [company identifiers](https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers).
 
 There are more popular devices with Broadcom chips, i.e. many Lenovos, Acers, Sonys, Toshibas, HPs, Azurewares, ... see [this list](https://github.com/winterheart/broadcom-bt-firmware/blob/master/DEVICES.md), but we did not see these in the wild yet and do not know their LMP subversion.  
+
+
+Intentional Security Fix
+------------------------
+
+Broadcom started breaking *InternalBlue* support on purpose on recent chips to increase security.
+On a Samsung Galaxy S10 with March 2020 patch level as well as on an iPhone 7 and 8 with iOS 13.4.1,
+the `Write_RAM` HCI command is no longer available. It results in error code 12 if not used in 
+download minidriver mode during driver initialization by the operating system. 
 
 
 Known Issues
