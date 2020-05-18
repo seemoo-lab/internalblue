@@ -63,3 +63,8 @@ was also recorded and gives a more high level overview.
   Easterhegg was canceled, but we streamed via DiVOC. The recordings for the talks about
   [Random Number Generators](https://media.ccc.de/v/DiVOC-6-finding_eastereggs_in_broadcom_s_bluetooth_random_number_generator)
   and [Frankenstein](https://media.ccc.de/v/DiVOC-7-no_poc_no_fix_a_sad_story_about_bluetooth_security) are online.
+
+* **WiSec Paper** (07/2020)
+
+  We looked into Apple's Bluetooth ecosystem, especially MagicPairing, which secures AirPods.
+  For more details, read our paper [MagicPairing: Apple's Take on Securing Bluetooth Peripherals](https://arxiv.org/abs/2005.07255).

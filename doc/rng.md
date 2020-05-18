@@ -30,10 +30,11 @@ we were able to perform measurements had good results.
 
 Chip       | Device            | HRNG present
 -----------| ----------------- | ----------- 
-BCM2046A2 | iMac Late 2009 | Yes 
-BCM4375B1 | Samsung Galaxy S10/S20 | Yes 
-BCM4347B1 | iPhone 8/X/XR | Yes
-BCM4378B1 | iPhone 11 | Yes 
+BCM2046A2  | iMac Late 2009 | Yes 
+BCM20703A1 | MacBook Pro early 2015 | Yes
+BCM4375B1  | Samsung Galaxy S10/S20 | Yes 
+BCM4347B1  | iPhone 8/X/XR | Yes
+BCM4378B1  | iPhone 11 | Yes 
 
 
 We found that the firmware of the *Samsung Galaxy S8* does not even reference the HRNG.
@@ -54,6 +55,7 @@ BCM2070B0 | MacBook 2011 | Jul 9 2008 | 1 | 0xE9A00, 3 regs | Minimal (inline) |
 BCM20702A1 | Asus USB Dongle | Feb (?) 2010 | 1 |  0xEA204, 3 regs | Minimal (inline) | No 
 BCM4335C0 | Google Nexus 5 | Dec 11 2012 | 2 |  0x314004, 3 regs | Yes (inline) | No 
 BCM4345B0 | iPhone 6 | Jul 15 2013 | 2 | 0x314004, 3 regs | Yes (inline) | No 
+BCM20703A1 | MacBook Pro early 2015 | Dec 23 2013 | 2 (?) | 0x314004, 3 regs | (?) | No
 BCM43430A1 | Raspberry Pi 3/Zero W | Jun 2 2014 | 2 | 0x352600, 3 regs | Yes (inline) | No 
 BCM4345C0 | Raspberry Pi 3+/4 | Aug 19 2014 | 2 | 0x314004, 3 regs | Yes (inline) | No 
 BCM4358A3 | Samsung Galaxy S6, Nexus 6P | Oct 23 2014 | 2 | 0x314004, 3 regs | Yes (inline) | No 

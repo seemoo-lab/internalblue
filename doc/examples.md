@@ -1,6 +1,30 @@
 InternalBlue PoCs and Examples
 ==============================
 
+MagicPairing PoCs
+-----------------
+
+The [magicpairing](../examples/magicpairing/README.md) folder contains the proof-of-concepts belonging
+to our WiSec paper 
+[MagicPairing: Apple's Take on Securing Bluetooth Peripherals](https://arxiv.org/abs/2005.07255).
+For more information on the individual bugs, please refer to our paper.
+This is what the PoC looks like:
+
+```
+    =>  1) [MP1]: iOS RatchetAESSIV Crash (0xa8)
+        2) [MP2]: iOS Hint Crash (0x1)
+        3) [MP3]: macOS RatchetAESSIV Crash (0x0)
+        4) [MP4]: macOS Hint Crash (0x0)
+        5) [MP5]: iOS RatchetAESSIV Crash (0x10d)
+        6) [MP6]: iOS RatchetAESSIV Assertion Failure Crash
+        7) [MP7]: macOS Ratcheting Loop DoS
+        8) [MP8]: MagicPairing Lockout - NOT IMPLEMENTED HERE
+        9) [L2CAP1]: AirPods L2CAP Crash
+       10) [L2CAP2]: Group Reception Handler NULL-Pointer Jump (Classic Version)
+       11) [L2CAP2]: Group Reception Handler NULL-Pointer Jump (BLE Version)
+```
+
+
 HRNG and PRNG Measurements (CVE-2020-6616)
 ------------------------------------------
 The *Dieharder* test suite requires at least 1GB of data to decide if a RNG returned random numbers.
