@@ -66,7 +66,7 @@ Prebuilt Library Status
 
 Folder | Tag | HCI forwarding | H4 Broadcom Diagnostics | Notes 
 ------ | --- | -------------- | ----------------------- | -----
--   | Android 8+9+10 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
+   \-   | Android 8+9+10 | yes          | no                | Serial and BT Snoop forwarding with `nc` (in `busybox` app), tested on rooted __Samsung Galaxy S10e__ 
 [android5_1_1](../android/android5_1_1) | android-5.1.1_r3     | rx only | no      | Tested on Nexus 5 - HCI sniffing only!
 [android6_0_1](../android/6_0_1) | android-6.0.1_r81    | yes | __yes__     | Recommended for __Nexus 5__ (android-6.0.1_r77), also works on Nexus 6P, seems like the version tag can differ a bit.
 [android7_1_2](../android/android/7_1_2) | android-7.1.2_r28    | yes | __yes__     | Recommended for __Nexus 6P__, but it might run on Nexus 5X, Nexus Player, Pixel C.
