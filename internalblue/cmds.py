@@ -1801,6 +1801,22 @@ class CmdBreakpoint(Cmd):
         return True
 
 
+class CmdMemoryPool(Cmd):
+    keywords = ["heap", "pool"]
+    description = "Enable memory pool statistics."
+    parser = argparse.ArgumentParser(
+        prog=keywords[0],
+        description=description,
+        epilog="Aliases: " + ", ".join(keywords),
+    )
+
+    def work(self):
+
+        log.info("Memory statistics will now appear every second.")
+        self.internalblue.sendHciCommand(0xfd1c, b'\x50')
+        return True
+
+
 class CmdConnectCmd(Cmd):
     keywords = ["connect", "c"]
     description = "Initiate a connection to a remote Bluetooth device"
@@ -1810,7 +1826,7 @@ class CmdConnectCmd(Cmd):
         epilog="Aliases: " + ", ".join(keywords),
     )
     parser.add_argument(
-        "btaddr", help="Bluetooth address of the remote device (with or without ':'."
+        "btaddr", help="Bluetooth address of the remote device (with or without ':')."
     )
 
     def work(self):

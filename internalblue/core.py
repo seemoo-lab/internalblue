@@ -200,6 +200,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Register callbacks which handle specific HCI Events:
         self.registerHciCallback(self.connectionStatusCallback)
         self.registerHciCallback(self.coexStatusCallback)
+        self.registerHciCallback(self.readMemoryPoolStatisticsCallback)
 
         # If the --replay flag was used and a chip is spoofed.
         self.replay = replay
@@ -1830,7 +1831,6 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if not issubclass(_hcipkt.__class__, hci.HCI_Event):
             return
         hcipkt: hci.HCI_Event = cast(hci.HCI_Event, _hcipkt)  # get HCI Event packet
-        timestamp = record[5]  # get timestamp
 
         # Check if event is Connection Create Status Event
         if hcipkt.event_code == 0x0F:
@@ -1992,6 +1992,86 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 break
 
         return bloclist
+
+    def readMemoryPoolStatisticsCallback(self, record):
+        # type: (Record) -> Optional[Union[List[MemoryPool], bool]]
+        """
+        The chip can be put into a mode that enables displaying
+        memory pool statistics each second with the HCI command
+        0xfd1c (VSC DBFW) 0x50 (Read Memory Pool Statistics).
+
+        Extracted the info about this from a Mojave PacketLogger,
+        saw it once on an iPhone XS (Aladdin) in action and then
+        tested it on a Samsung Galaxy S10e and it works.
+
+        In contrast to the readHeapInformation command, this does
+        not manually traverse and check the heap. This means that
+        this variant is faster but cannot perform checks for
+        heap corruptions.
+
+        TODO: There might be more subcommands, maybe also check out
+        0x51 (Logging over PCIe) and 0x02 (Write Trace Config).
+        """
+
+        _hcipkt = record[0]
+        if not issubclass(_hcipkt.__class__, hci.HCI_Event):
+            return
+        hcipkt: hci.HCI_Event = cast(hci.HCI_Event, _hcipkt)  # get HCI Event packet
+
+        # Check if event is Connection Create Status Event
+        if hcipkt.event_code == 0xFF and hcipkt.data[0:2] == b'\x1b\x08':  # Dump Type 8
+            log.debug("[MemPool Statistics Received]")
+
+            # Pool Meta Information
+            pool_meta = struct.unpack("<HIIII", hcipkt.data[3:21])
+            meta_info = {}
+            meta_info["hci_count"] = pool_meta[0]  # Dumped HCI Packet Count
+            meta_info["free_min"] = pool_meta[1]  # Free Memory Min Address
+            meta_info["free_max"] = pool_meta[2]  # Free Memory Max Address Plus One
+            meta_info["time"] = pool_meta[3]  # Timestamp
+            meta_info["rfu"] = pool_meta[4]  # RFU
+            log.debug(meta_info)
+
+
+            # Individual Pool Information
+            pool_list = []
+            pool_len = hcipkt.data[2]  # Number of Pools
+            for index in range(pool_len):
+                pool_fields = struct.unpack("<IIIHHHHHH", hcipkt.data[21+(index*24):21+((index+1)*24)])
+                current_element = {}
+                current_element["index"] = index
+                current_element["base"] = pool_fields[0]  # Base
+                current_element["first"] = pool_fields[1]  # First Free
+                current_element["name"] = pool_fields[2].to_bytes(4, byteorder='little').decode('utf-8')  # Name
+                current_element["size"] = pool_fields[3]  # Block Size
+                current_element["count"] = pool_fields[4]  # Block Count
+                current_element["low"] = pool_fields[5]  # Low Watermark
+                current_element["allocated"] = pool_fields[6]  # Allocated Blocks
+                current_element["free"] = pool_fields[7]  # Free Blocks
+                current_element["die"] = pool_fields[8]  # Die Reserve Count
+                log.debug(current_element)
+                pool_list.append(current_element)
+
+            # We're called asynchronous so we can return but printing in the
+            # command line does not really make sense.
+            log.info((
+                "\n> Pools at {time}, Min Addr 0x{free_min:06X}, "
+                "Max Addr 0x{free_max:06X}"
+            ).format(**meta_info))
+
+            log.info("  Name @ Base:       Size  Alloc / Cnt   1st Free  Low  Die ")
+            log.info("  ----------------------------------------------------------")
+
+            for pool in pool_list:
+                log.info((
+                    "  {name} @ 0x{base:06X}: {size:6d}"
+                    "    {allocated:3d} / {count:3d}   "
+                    "0x{first:06X}  {low:3d}  {die:3d}"
+                ).format(**pool))
+
+            return pool_list
+
+        return
 
     def readQueueInformation(self):
         # type: () -> Optional[List[QueueElement]]

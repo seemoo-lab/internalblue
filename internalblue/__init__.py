@@ -25,6 +25,7 @@ BluetoothAddress = NewType("BluetoothAddress", bytes)
 ConnectionDict = NewType("ConnectionDict", Dict[str, Any])
 HeapInformation = NewType("HeapInformation", Dict[str, Any])
 QueueInformation = NewType("QueueInformation", Dict[str, Any])
+QueueInformation = NewType("MemoryPool", Dict[str, Any])
 
 try:
 
