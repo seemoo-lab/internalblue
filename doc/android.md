@@ -59,6 +59,12 @@ You need to remount the according partition to replace the files with `mount -o 
 As the Samsung Galaxy S10e, S10+, S10, Note 10, and S20 all have the same firmware, this should
 work on all of them.
 
+We also extracted the file `/vendor/firmware/bcm4361B0_semco.hcd` from a *Samsung Galaxy S8*, which
+should be compatible with the *S8+* and *Note 8* as well. The Samsung patch level is June 2020
+and includes the RNG patch for CVE-2020-6616. We customized it to no longer block the HCI commands
+read RAM and write RAM to be able to debug the RNG during runtime again. This `.hcd` file
+is available in [`samsung_s8_2020-06_vendor_firmware_rng-patched_rw-ram-unpatched.zip`](../android/samsung_s8_2020-06_vendor_firmware_rng-patched_rw-ram-unpatched.zip).
+
 
 
 Prebuilt Library Status
