@@ -97,7 +97,7 @@ def listener(data):
     log.info("Listener received: %s", binascii.hexlify(data))
 
 def bd_addr_to_bytes(addr_string):
-    addr = addr_string.decode('utf-8').replace(":", "")
+    addr = addr_string.replace(":", "")
     return bytes.fromhex(addr)
 
 def main():

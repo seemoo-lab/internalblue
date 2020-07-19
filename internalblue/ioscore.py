@@ -72,7 +72,7 @@ class iOSCore(InternalBlue):
         
         device_list = []
         for dev in self.devices:
-            dev_id = "iOS Device (" + dev.serial.decode("utf-8") + ")"
+            dev_id = "iOS Device (" + dev.serial + ")"
             device_list.append((self, dev, dev_id))
 
         return device_list
