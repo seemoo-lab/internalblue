@@ -63,7 +63,7 @@ On macOS Mojave and newer, *Xcode 10.2.1* and up is supported. On these systems,
 framework yourself.
 
 ```
-open internalblue/macos-framework/IOBluetoothExtended/IOBluetoothExtended.xcodeproj/
+open internalblue/macos/IOBluetoothExtended/IOBluetoothExtended.xcodeproj/
 ```
 
 ⌘ + B
