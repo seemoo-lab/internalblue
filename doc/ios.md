@@ -24,7 +24,7 @@ There is a Settings App pane for `internalblued` to turn off the daemon and adap
 3. A `.deb` file should be in the `packages` folder now
 
 
-# BlueTool
+## BlueTool
 
 More inconvenient to use, but still an option on the PCIe *iPhone XS* and *iPhone 11*, is `BlueTool`.
 It can even be scripted, but the scripts must be located in `/etc/bluetool`.
@@ -41,3 +41,35 @@ hci cmd 0xfc4d 0 38 96 0 32
 hci cmd 0x2018
   HCI Command Response: 01 18 20 00 2A FC 1F 73 67 11 06 F9
 ```
+
+## Bypassing the WriteRAM Restriction 
+
+After iOS 13.3, WriteRAM is blocked. This is part of the Spectra mitigation and should prevent 
+an attacker with control over `bluetoothd` to escalate into the Wi-Fi chip (yes, Wi-Fi, not Bluetooth, this is
+no typo). Re-enabling WriteRAM poses a security risk but is required for experimentation.
+
+The security patch blocks the WriteRAM command to just return the status 0x12 instead of executing it.
+Starting from iOS 13.6, `.hcd` files are no longer in the firmware directory but built-in into `BlueTool`.
+
+The patch we want to undo looks like this:
+```
+ROM:00146176 4C 2D                       CMP     R5, #0x4C ; 'L' ; fc4c: VSC_Write_RAM -> Block this
+ROM:00146178
+ROM:00146178             loc_146178                              ; CODE XREF: bthci_cmd_HandleCommand+B0↓j
+ROM:00146178                                                     ; bthci_cmd_HandleCommand+B4↓j
+ROM:00146178 08 D0                       BEQ     loc_14618C
+ROM:0014617A 08 DC                       BGT     loc_14618E
+ROM:0014617C 0A 2D                       CMP     R5, #0xA        ; fc0a: VSC_Super_Peek_Poke
+```
+
+We can simply replace the `0x4c`, which is the WriteRAM command, with `0x42`, which is not used.
+Note that `BlueTool` contains multiple copies of these `.hcd` files and you should replace all of them.
+The accordingly modified `BlueTool` needs to be copied to `/usr/sbin/BlueTool` and `/usr/sbin/BlueTool.sbin`.
+To get Bluetooth working properly again after replacing `BlueTool`, the iPhone needs to be rebooted.
+
+
+**Bluetooth will only work while the device is jailbroken with a modified BlueTool version!
+Use at your own risk and make a backup of the original.** Without jailbreak, the integrity check
+for `BlueTool` seems to fail and Bluetooth is constantly restarting.
+
+[BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other <A12 devices.

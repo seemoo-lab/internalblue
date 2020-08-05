@@ -46,7 +46,11 @@ it integrates into that workflow by identifying good starting points for further
 analysis. We already tried it across various *Broadcom* Wi-Fi and Bluetooth firmware.
 
 Looking for our random number generator measurements that we did within the analysis
-of CVE-2020-6616? You can find them [here](doc/rng.md). 
+of CVE-2020-6616? You can find them [here](doc/rng.md).
+
+Due to Spectra 👻🌈 the write and read RAM commands are disabled after driver initialization.
+Workarounds for this are described in the according *Android* and *iOS* instructions,
+bypasses for other devices will follow if needed. 
 
 
 
