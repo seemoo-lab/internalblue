@@ -20,8 +20,9 @@ There is a Settings App pane for `internalblued` to turn off the daemon and adap
 
 ## Building internalblued
 1. Install [theos](https://github.com/theos/theos)
-2. Run `make`
-3. A `.deb` file should be in the `packages` folder now
+2. Install the correct version of PrivateFramework header files (e.g. from [here](https://github.com/xybp888/iOS-SDKs)) for your build into your SDK
+3. Run `make`
+4. A `.deb` file should be in the `packages` folder now
 
 
 ## BlueTool
