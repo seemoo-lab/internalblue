@@ -1,0 +1,8 @@
+#!/bin/sh
+ldid -e /usr/sbin/bluetoothd > /tmp/bluent.xml
+jtool -e arch -arch arm64 /usr/bin/internalblued
+mv /usr/bin/internalblued.arch_arm64 /usr/bin/internalblued
+jtool --sign --ent /tmp/bluent.xml --inplace /usr/bin/internalblued
+rm /tmp/bluent.xml
+
+launchctl load /Library/LaunchDaemons/com.ttdennis.internalblued.plist
