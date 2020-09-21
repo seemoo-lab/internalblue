@@ -4,11 +4,11 @@ TOOL_NAME = internalblued
 
 internalblued_FILES = main.m ios-proxy.m
 internalblued_CFLAGS = -fobjc-arc
-internalblued_CODESIGN_FLAGS = -Sent.xml
+#internalblued_CODESIGN_FLAGS = -Sent.xml
 
 include $(THEOS_MAKE_PATH)/tool.mk
 
-#SUBPROJECTS += internalbluedprefs
+SUBPROJECTS += internalbluedprefs
 include $(THEOS_MAKE_PATH)/aggregate.mk
 
 after-internalblued-stage::

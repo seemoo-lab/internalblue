@@ -50,6 +50,7 @@ bool proxy_pref_on() {
 }
 
 void *proxy_fn() {
+    NSLog(@"main.m: Entering proxy_fn()");
     int port = get_proxy_port();
     int server_fd, client_fd;
 
@@ -78,6 +79,8 @@ void *proxy_fn() {
         // Maybe add a function that Frees everything
     }
 
+    NSLog(@"main.m: Leaving proxy_fn()");
+    NSLog(@"--------------");
     return NULL;
 }
 

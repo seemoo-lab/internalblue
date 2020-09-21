@@ -43,7 +43,7 @@ void load_AppleConvergedTransport() {
     AppleConvergedTransportWrite = dlsym(AppleConvergedTransport_handle, "AppleConvergedTransportWrite");
     AppleConvergedTransportRead = dlsym(AppleConvergedTransport_handle, "AppleConvergedTransportRead");
     AppleConvergedTransportFree = dlsym(AppleConvergedTransport_handle, "AppleConvergedTransportFree");
-    //TODO: Add Queue For Reading here
+    //If you want to use an event block Reader: Add Queue For Reading here
     //Then:  Register Event Block Queue
 }
 
@@ -125,12 +125,16 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
     NSLog(@"Allocating Buffers for Proxy Data");
     // this function establishes the relay connection between the transports(bt chip) and the client socket
     // only one fd and a ?
-    char *client_buf, *bt_buf; // buffers for incoming data
+    char *client_buf, *bti_buf, *hci_buf, *acl_buf, *sco_buf; // buffers for incoming data
 	
 	client_buf = malloc(0x2000);
-	bt_buf = malloc(0x2000);
+	bti_buf = malloc(0x2000);
+	hci_buf = malloc(0x2000);
+	acl_buf = malloc(0x2000);
+	sco_buf = malloc(0x2000);
     int ret;
     uint64_t x = 0;
+    int check_hci_event = 0;
     
     struct pollfd pfds[1];
 
@@ -141,11 +145,12 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
         poll(pfds, 1, 100);
         if(pfds[0].revents & POLLIN) {
             ret = read(pfds[0].fd, client_buf, 4096);
-            NSLog(@"Read Data from client, am: %u", ret);
+            NSLog(@"Read Data from client. Size: %u", ret);
             
             if (!ret) {
-                NSLog(@"client read error");
-                NSLog(@"Closing Transports!");
+                // This means that the client probably closed the connection 
+                NSLog(@"!!! Client read error");
+                NSLog(@"Freeing Transports!");
                 AppleConvergedTransportFree(my_conn->bti_transport);
                 AppleConvergedTransportFree(my_conn->hci_transport);
                 AppleConvergedTransportFree(my_conn->acl_transport);
@@ -154,15 +159,71 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
             }
             //send stuff to bt
             NSLog(@"Sending Data to BT Chip");
-            ret = AppleConvergedTransportWrite(my_conn->hci_transport, client_buf, ret, &x, -1, 0);
+            NSLog(@"H4 Message Type: 0x%x", ((char *)client_buf)[0]);
+            switch(((char*)client_buf)[0]) {
+                case 1:
+                    ret = AppleConvergedTransportWrite(my_conn->hci_transport, client_buf+1, ret-1, &x, -1, 0); //+1, because we strip the H4 tag
+                    check_hci_event = 1;
+                    break;
+                case 2:
+                    ret = AppleConvergedTransportWrite(my_conn->acl_transport, client_buf+1, ret-1, &x, -1, 0);
+                    break;
+                case 3:
+                    ret = AppleConvergedTransportWrite(my_conn->sco_transport, client_buf+1, ret-1, &x, -1, 0);
+                    break;
+                case 4:
+                    ret = AppleConvergedTransportWrite(my_conn->hci_transport, client_buf+1, ret-1, &x, -1, 0);
+                    break;
+                case 7:
+                    if (my_conn->bti_transport){
+                        NSLog(@"sending to bti");
+                        ret = AppleConvergedTransportWrite(my_conn->bti_transport, client_buf+1, ret-1, &x, -1, 0);}
+                    break;
+            }
         }
+        //NSLog(@"+ Done sending data to chip");
+        // HCI
+        if (check_hci_event){
+            ret = 0;
+            ret = AppleConvergedTransportRead(my_conn->hci_transport, hci_buf+1, 0x102, &x, -1, 0); // if first byte is not 0xe, do another read for more data
+            if (hci_buf[1] == (char) 0xe)
+                check_hci_event = 0;
+            *hci_buf = (char)4; // 1 or 4? (Command or Event)
+            NSLog(@"ACTRead (HCI) Returned %u", ret);
+            NSLog(@"ATCRead (HCI) to x: %u", (unsigned int)x);
+            if (ret != 0) {
+                write(pfds[0].fd, hci_buf, x+1);
+            }
+        }
+        //ACL
         ret = 0;
-        ret = AppleConvergedTransportRead(my_conn->hci_transport, bt_buf, 0x102, &x, -1, 0); // if first byte is not 0xe, do another read for more data
-        NSLog(@"ACTRead Returned %u", ret);
-        NSLog(@"ATCRead to x: %u", (unsigned int)x);
+        ret = AppleConvergedTransportRead(my_conn->acl_transport, acl_buf+1, 0x102, &x, -1, 0); // if first byte is not 0xe, do another read for more data
+        *acl_buf = (char)2;
         if (ret != 0) {
-            NSLog(@"Read Data from chip");
-            write(pfds[0].fd, bt_buf, x);
+        NSLog(@"ACTRead (ACL) Returned %u", ret);
+        NSLog(@"ATCRead (ACL) to x: %u", (unsigned int)x);}
+        if (ret != 0) {
+            write(pfds[0].fd, acl_buf, x+1);
+        }
+        //SCO
+        ret = 0;
+        ret = AppleConvergedTransportRead(my_conn->sco_transport, sco_buf+1, 0x102, &x, -1, 0); // if first byte is not 0xe, do another read for more data
+        *sco_buf = (char)3;
+        if (ret != 0) {
+        NSLog(@"ACTRead (SCO) Returned %u", ret);
+        NSLog(@"ATCRead (SCO) to x: %u", (unsigned int)x);}
+        if (ret != 0) {
+            write(pfds[0].fd, sco_buf, x+1);
+        }
+        //BTI
+        ret = 0;
+        ret = AppleConvergedTransportRead(my_conn->bti_transport, bti_buf+1, 0x102, &x, -1, 0); // if first byte is not 0xe, do another read for more data
+        *bti_buf = (char)7;
+        if (ret != 0) {
+        NSLog(@"ACTRead (BTI) Returned %u", ret);
+        NSLog(@"ATCRead (BTI) to x: %u", (unsigned int)x);}
+        if (ret != 0) {
+            write(pfds[0].fd, bti_buf, x+1);
         }
     }
 }
