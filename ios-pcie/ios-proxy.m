@@ -32,6 +32,8 @@ int (*AppleConvergedTransportCreate)(int64_t[11], uint64_t*);
 int (*AppleConvergedTransportWrite)(uint64_t,char*, uint64_t, uint64_t*, uint64_t, void*);
 int (*AppleConvergedTransportRead)(uint64_t,char*, uint64_t, uint64_t*, uint64_t, void*);
 void (*AppleConvergedTransportFree)(uint64_t);
+dispatch_queue_attr_t qos;
+dispatch_queue_t recordingQueue;
 
 void load_AppleConvergedTransport() {
     static int guard = 0; // poor mans dispatch_once?
@@ -45,66 +47,88 @@ void load_AppleConvergedTransport() {
     AppleConvergedTransportFree = dlsym(AppleConvergedTransport_handle, "AppleConvergedTransportFree");
     //If you want to use an event block Reader: Add Queue For Reading here
     //Then:  Register Event Block Queue
+    qos = dispatch_queue_attr_make_with_qos_class(0,0x15,0);
+    recordingQueue = dispatch_queue_create("com.internalblue.actbt.queue", qos);
 }
 
 int connect_bti_transport(my_connection_t * my_conn) {
+    NSLog(@"ios-proxy.m:connect_bti_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     pciparams[0] = 1; //BTI
-    pciparams[1] = 0;// dispatchQ
-    pciparams[2] = (int64_t)&_NSConcreteStackBlock;
+    pciparams[1] = (int64_t)recordingQueue;// dispatchQ
+    //pciparams[2] = (int64_t)&_NSConcreteStackBlock; // Maybe fix this?
+    void (^myBlock)() = ^(){NSLog(@"block called");};
+    pciparams[2] = (int64_t)&myBlock;
     pciparams[3] = 1000; 
     pciparams[4] = 0;
-    return AppleConvergedTransportCreate(pciparams, &my_conn->bti_transport); // returns 1 on success
+    NSLog(@"ios-proxy.m:connect_bti_transport -> Returning");
+    return AppleConvergedTransportCreate(pciparams, &my_conn->bti_transport); // THE PROBLEM IS IN HERE
 }
 
 int connect_hci_transport(my_connection_t * my_conn) {
+    NSLog(@"ios-proxy.m:connect_hci_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
-    dispatch_queue_attr_t qos = dispatch_queue_attr_make_with_qos_class(0,0x15,0);
-    dispatch_queue_t rQueue = dispatch_queue_create("com.internalblue.actbt.hci", qos);
+    //dispatch_queue_attr_t qos = dispatch_queue_attr_make_with_qos_class(0,0x15,0);
+    //dispatch_queue_t rQueue = dispatch_queue_create("com.internalblue.actbt.hci", qos);
     pciparams[0] = 2; //HCI
-    pciparams[1] = (int64_t)rQueue;
-    pciparams[2] = (int64_t)&_NSConcreteStackBlock;
+    //pciparams[1] = (int64_t)rQueue;
+    pciparams[1] = (int64_t)recordingQueue;// dispatchQ
+    void (^myBlock)() = ^(){NSLog(@"block called");};
+    pciparams[2] = (int64_t)&myBlock;
     pciparams[3] = 1000;
     pciparams[4] = 8;
     //pciparams[4] = 12;
     //pciparams[10] = 25;
+    NSLog(@"ios-proxy.m:connect_hci_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->hci_transport); // returns 1 on success
 }
 
 int connect_acl_transport(my_connection_t * my_conn) {
+    NSLog(@"ios-proxy.m:connect_acl_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     pciparams[0] = 3; //ACL
     pciparams[1] = 0;
-    pciparams[2] = (int64_t)&_NSConcreteStackBlock;
+    pciparams[1] = (int64_t)recordingQueue;// dispatchQ
+    void (^myBlock)() = ^(){NSLog(@"block called");};
+    pciparams[2] = (int64_t)&myBlock;
     pciparams[3] = 1000;
     pciparams[4] = 4;
     pciparams[10] = 33;
+    NSLog(@"ios-proxy.m:connect_acl_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->acl_transport); // returns 1 on success
 }
 
 int connect_sco_transport(my_connection_t * my_conn) {
+    NSLog(@"ios-proxy.m:connect_sco_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     pciparams[0] = 4; //SCO
     pciparams[1] = 0;
-    pciparams[2] = (int64_t)&_NSConcreteStackBlock;
+    pciparams[1] = (int64_t)recordingQueue;// dispatchQ
+    //pciparams[2] = (int64_t)&_NSConcreteStackBlock;
+    void (^myBlock)() = ^(){NSLog(@"block called");};
+    pciparams[2] = (int64_t)&myBlock;
     pciparams[3] = 1000;
     pciparams[4] = 4;
     pciparams[10] = 33;
+    NSLog(@"ios-proxy.m:connect_sco_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->sco_transport); // returns 1 on success
 }
 
 my_connection_t *  connect_bt_pcie() {
+    NSLog(@"ios-proxy.m:connect_bt_pcie -> Entered");
     // This function will create 4 transports on PCIe, and return them in a struct.
     load_AppleConvergedTransport();
+    NSLog(@"ios-proxy.m:connect_bt_pcie -> AppleConvergedTransport.dylib Loaded");
     my_connection_t *my_connection = malloc(sizeof(my_connection_t));
     my_connection->bti_transport = 0;
     my_connection->hci_transport = 0;
     my_connection->acl_transport = 0;
     my_connection->sco_transport = 0;
+    NSLog(@"ios-proxy.m:connect_bt_pcie -> Starting transport initialization");
     if (!connect_bti_transport(my_connection)) // should return 1 on success
         NSLog(@"InternalBlue: PCIe Error creating BTI Transport");
     if (!connect_hci_transport(my_connection))
