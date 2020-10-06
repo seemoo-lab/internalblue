@@ -72,7 +72,9 @@ class iOSCore(InternalBlue):
         
         device_list = []
         for dev in self.devices:
-            dev_id = "iOS Device (" + dev.serial + ")"
+            # dev_id = "iOS Device (" + dev.serial + ")" # macos
+            dev_id = "iOS Device (" + dev.serial.decode(
+                'utf-8') + ")"  # FIXME linux requires decode, macos doesn't (different libimobiledevice)
             device_list.append((self, dev, dev_id))
 
         return device_list

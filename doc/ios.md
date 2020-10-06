@@ -1,13 +1,36 @@
-# internalblued 
+# iOS internalblued 
 This project is a proxy that redirects the *iOS* Bluetooth socket and exposes it as a
 TCP socket which can be used to send HCI commands to the Bluetooth controller of the device.
 A jailbroken device is required.
 
-A compiled version of `internalblued` can be found in [`packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb`](../ios/packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb).
+A compiled version of `internalblued` can be found in [`ios/packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb`](../ios/packages/com.ttdennis.internalblued_0.0.1_iphoneos-arm.deb)
+for UART devices and in [`ios-pcie/packages/com.ttdennis.internalblued_0.0.1-54+debug_iphoneos-arm.deb)`](../ios-pcie/packages/com.ttdennis.internalblued_0.0.1-54+debug_iphoneos-arm.deb)
+for PCIe devices.
+
+UART devices:
+* iPhone 6
+* iPhone 7
+* iPhone SE
+* iPhone 8
+* iPhone XR (yes, even though this one is already A12) (not tested)
+
+PCIe devices:
+* iPhone Xs (not tested)
+* iPhone 11
+* iPhone SE2
+
 
 ## Installing
 1. Transfer the `.deb` file to your iOS device
 2. Run `dpkg -i your-deb-file.deb` to install `internalblued` on your device
+
+The installer depends on `jtool` version 1, which can be downloaded [here](http://www.newosxbook.com/tools/jtool.html)
+or from the [kiiimo](http://cydia.kiiimo.org/) repo via Cydia.
+
+On *Linux*, `libimobiledevice` bindings see to be slightly different and you might to adjust the following line:
+```
+dev_id = "iOS Device (" + dev.serial.decode('utf-8') + ")" 
+```
 
 ## Running internalblued
 Once installed, `internalblued` runs as a `LaunchDaemon` and is ready to be used. By default it will listen to port 1234 (TCP) on localhost. If `usbmux` is installed, `internalblue` will be able to connect to the phone as the port is passed through `usbmuxd`.
@@ -27,7 +50,7 @@ There is a Settings App pane for `internalblued` to turn off the daemon and adap
 
 ## BlueTool
 
-More inconvenient to use, but still an option on the PCIe *iPhone XS* and *iPhone 11*, is `BlueTool`.
+More inconvenient to use, but still an option for unsupported devices, is `BlueTool`.
 It can even be scripted, but the scripts must be located in `/etc/bluetool`.
 
 For example, during our Random Number Generator (RNG) tests, we used the following commands
