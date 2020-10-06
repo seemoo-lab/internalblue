@@ -1,0 +1,5 @@
+.theos
+.DS_STORE
+build.sh
+restart.sh
+test.py
