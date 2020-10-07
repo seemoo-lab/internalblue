@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import os
 import random
 import time
 
@@ -13,27 +14,26 @@ import socket
 import queue as queue2k
 from . import hci
 
-
-from internalblue.utils.pwnlib_wrapper import log, context, p8
+from internalblue.utils.pwnlib_wrapper import context, p8
 from .core import InternalBlue
 
-import binascii
-import os
+
 
 filepath = os.path.dirname(os.path.abspath(__file__))
 
 IOBE = None
 
 
+# noinspection SpellCheckingInspection
 class macOSCore(InternalBlue):
     def __init__(
-        self,
-        queue_size=1000,
-        btsnooplog_filename="btsnoop.log",
-        log_level="info",
-        fix_binutils="True",
-        data_directory=".",
-        replay=False,
+            self,
+            queue_size=1000,
+            btsnooplog_filename="btsnoop.log",
+            log_level="info",
+            fix_binutils="True",
+            data_directory=".",
+            replay=False,
     ):
         super(macOSCore, self).__init__(
             queue_size,
@@ -68,7 +68,7 @@ class macOSCore(InternalBlue):
             self.shutdown()
 
         if self.running:
-            log.warn("Already running. Call shutdown() first!")
+            self.logger.warning("Already running. Call shutdown() first!")
             return []
 
         # assume that a explicitly specified iPhone exists
@@ -78,17 +78,17 @@ class macOSCore(InternalBlue):
 
     def local_connect(self):
         if not self._setupSockets():
-            log.critical("No connection to target device.")
+            self.logger.critical("No connection to target device.")
             self._teardownSockets()
         return True
 
     def _setupSockets(self):
         self.hciport = random.randint(60000, 65535 - 1)
-        log.debug(
+        self.logger.debug(
             "_setupSockets: Selected random ports snoop=%d and inject=%d"
             % (self.hciport, self.hciport + 1)
         )
-        log.info(
+        self.logger.info(
             "Wireshark configuration (on Loopback interface): udp.port == %d || udp.port == %d"
             % (self.hciport, self.hciport + 1)
         )
@@ -119,7 +119,7 @@ class macOSCore(InternalBlue):
 
     def _recvThreadFunc(self):
 
-        log.debug("Receive Thread started.")
+        self.logger.debug("Receive Thread started.")
 
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
@@ -142,20 +142,20 @@ class macOSCore(InternalBlue):
                     0,
                     0,
                 )  # TODO not sure if this causes trouble?
-                log.debug("Recv: " + str(record[0]))
+                # self.logger.debug("Recv: " + str(record[0]))
 
                 # Put the record into all queues of registeredHciRecvQueues if their
                 # filter function matches.
                 for (
-                    queue,
-                    filter_function,
+                        queue,
+                        filter_function,
                 ) in (
-                    self.registeredHciRecvQueues
+                        self.registeredHciRecvQueues
                 ):  # TODO filter_function not working with bluez modifications
                     try:
                         queue.put(record, block=False)
                     except queue.Full:
-                        log.warn(
+                        self.logger.warning(
                             "recvThreadFunc: A recv queue is full. dropping packets..>"
                             + str(record_data)
                         )
@@ -165,10 +165,10 @@ class macOSCore(InternalBlue):
                 for callback in self.registeredHciCallbacks:
                     callback(record)
 
-        log.debug("Receive Thread terminated.")
+        self.logger.debug("Receive Thread terminated.")
 
     def _sendThreadFunc(self):
-        log.debug("Send Thread started.")
+        self.logger.debug("Send Thread started.")
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
@@ -190,15 +190,16 @@ class macOSCore(InternalBlue):
             data = bytearray(data)
             opcode = format(data[1], "02x") + format(data[0], "02x")
 
-            log.debug(
-                "Sending command: 0x"
-                + "".join(format(x, "02x") for x in data)
-                + ", opcode: "
-                + opcode
-            )
+            # TODO: - Only print debug messages when debug variable is set!
+            # self.logger.debug(
+            #     "Sending command: 0x"
+            #     + "".join(format(x, "02x") for x in data)
+            #     + ", opcode: "
+            #     + opcode
+            # )
 
             if not (h4type == 0x01 or h4type == 0x02):
-                log.warn("H4 Type {0} not supported by macOS Core!".format(str(h4type)))
+                self.logger.warn("H4 Type {0} not supported by macOS Core!".format(str(h4type)))
                 if queue is not None:
                     queue.put(None)
                 continue
@@ -219,7 +220,7 @@ class macOSCore(InternalBlue):
                     hcipkt = record[0]
                     data = hcipkt.data
                 except queue2k.Empty:
-                    log.warn("_sendThreadFunc: No response from the firmware.")
+                    self.logger.warning("_sendThreadFunc: No response from the firmware.")
                     data = None
                     self.unregisterHciRecvQueue(recvQueue)
                     continue
@@ -227,7 +228,7 @@ class macOSCore(InternalBlue):
                 queue.put(data)
                 self.unregisterHciRecvQueue(recvQueue)
 
-        log.debug("Send Thread terminated.")
+        self.logger.debug("Send Thread terminated.")
 
     def _teardownSockets(self):
         if self.s_inject is not None:

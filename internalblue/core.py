@@ -32,6 +32,9 @@ import struct
 
 from future import standard_library
 
+import logging
+from internalblue.utils.logging_formatter import CustomFormatter
+
 import pwnlib
 from pwnlib.asm import asm
 from pwnlib.exception import PwnlibException
@@ -109,7 +112,18 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         context.log_file = data_directory + "/_internalblue.log"
         context.arch = "thumb"
 
-        self.interface = None  # holds the context.device / hci interaface which is used to connect, is set in cli
+        # create logger with 'InternalBlue'
+        self.logger = logging.getLogger("InternalBlue")
+        self.logger.setLevel(logging.DEBUG)
+
+        # create console handler with a higher log level
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        ch.setFormatter(CustomFormatter())
+        if not self.logger.hasHandlers():
+            self.logger.addHandler(ch)
+
+        self.interface = None  # holds the context.device / hci interface which is used to connect, is set in cli
         self.fw: FirmwareDefinition = None  # holds the firmware file
 
         self.data_directory = data_directory
@@ -426,7 +440,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % tuple(
                 tracepoint_registers[13:16]
             )
-            log.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
+            self.logger.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
 
             filename = (
                 self.data_directory
@@ -434,7 +448,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 + "internalblue_tracepoint_registers_%s.bin"
                 % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             )
-            log.info("Captured Registers for Tracepoint to %s" % filename)
+            self.logger.info("Captured Registers for Tracepoint to %s" % filename)
             f = open(filename, "w")
             f.write(registers)
             f.close()
@@ -474,7 +488,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                         datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
                     )
                 )
-                log.info(
+                self.logger.info(
                     "Captured Ram Dump for Tracepoint 0x%x to %s"
                     % (self.tracepoint_memdump_address, filename)
                 )
@@ -529,7 +543,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # Check if this is the first tracepoint
         if self._tracepointHciCallbackFunction not in self.registeredHciCallbacks:
-            log.info("Initial tracepoint: setting up tracepoint engine.")
+            self.logger.info("Initial tracepoint: setting up tracepoint engine.")
 
             # compile assembler snippet containing the hook body code:
             hooks_code = asm(
@@ -569,7 +583,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.patchRom(address, saved_instructions)
         table_addresses, _, _ = self.getPatchramState()
         patchram_slot = table_addresses.index(address)
-        log.info("Using patchram slot %d for tracepoint." % patchram_slot)
+        self.logger.info("Using patchram slot %d for tracepoint." % patchram_slot)
         self.disableRomPatch(
             address
         )  # Eval board requires to delete patch before installing it again
@@ -661,7 +675,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if not self.local_connect():
             return False
 
-        log.info("Connected to %s", self.interface)
+        self.logger.info(f"Connected to {self.interface}")
 
         # start receive thread
         self.recvThread = context.Thread(target=self._recvThreadFunc)
@@ -728,7 +742,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # Safe to turn diagnostic logging on, it just gets a timeout if the Android
         # driver was recompiled with other flags but without applying a proper patch.
-        log.info("Try to enable debugging on H4 (warning if not supported)...")
+        self.logger.info("Try to enable debugging on H4 (warning if not supported)...")
         self.enableBroadcomDiagnosticLogging(True)
 
         return True
@@ -764,7 +778,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         self.running = False
         self.exit_requested = False
-        log.info("Shutdown complete.")
+        self.logger.info("Shutdown complete.")
 
     def registerHciCallback(self, callback):
         # type: (Callable[[Record], None ]) -> None
@@ -1372,7 +1386,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
             if table_addresses[i] == address:
                 slot = i
-                log.info(
+                self.logger.info(
                     "patchRom: Reusing slot for address 0x%x: %d" % (address, slot)
                 )
                 # Write new value to patchram value table at 0xd0000
@@ -1384,7 +1398,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] is None:
                     slot = i
-                    log.info("patchRom: Choosing next free slot: %d" % slot)
+                    self.logger.info("patchRom: Choosing next free slot: %d" % slot)
                     break
             if slot is None:
                 log.warn("patchRom: All slots are in use!")
@@ -1443,7 +1457,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] == address:
                     slot = i
-                    log.info("Slot for address 0x%x is: %d" % (address, slot))
+                    self.logger.info("Slot for address 0x%x is: %d" % (address, slot))
                     break
             if slot is None:
                 log.warn("No slot contains address: 0x%x" % address)
@@ -1602,7 +1616,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 "sendLmpPacket: Vendor specific HCI command only allows for 17 bytes LMP content."
             )
 
-        # log.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
+        # self.logger.info("packet: " + p16(conn_handle) + p8(len(data)) + data)
         result = self.sendHciCommand(
             HCI_COMND.VSC_SendLmpPdu,
             p16(conn_handle) + p8(len(payload + opcode_data)) + data,
@@ -1835,7 +1849,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Check if event is Connection Create Status Event
         if hcipkt.event_code == 0x0F:
             if u16(hcipkt.data[2:4]) == 0x0405:  # Create Connection HCI Cmd
-                log.info("[Connection Create initiated]")
+                self.logger.info("[Connection Create initiated]")
                 return
 
         # Check if event is Connection Create Complete Event
@@ -1850,7 +1864,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             btaddr = hcipkt.data[3:9][::-1]
             #btaddr_str = ":".join([b.encode("hex") for b in btaddr])
             btaddr_str = bytes_to_hex(btaddr)
-            log.info(
+            self.logger.info(
                 "[Connect Complete: Handle=0x%x  Address=%s  status=%s]"
                 % (conn_handle, btaddr_str, status_str)
             )
@@ -1858,7 +1872,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Also show Disconnect Complete
         if hcipkt.event_code == 0x05:
             conn_handle = u16(hcipkt.data[1:3])
-            log.info("[Disconnect Complete: Handle=0x%x]" % (conn_handle))
+            self.logger.info("[Disconnect Complete: Handle=0x%x]" % (conn_handle))
 
     def coexStatusCallback(self, record):
         # type: (Record) -> None
@@ -1882,7 +1896,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 ratio = 0
                 if coex_grant > 0:
                     ratio = coex_reject / float(coex_grant)
-                log.info(
+                self.logger.info(
                     "[Coexistence Statistics: Grant=%d Reject=%d -> Reject Ratio %.4f]"
                     % (coex_grant, coex_reject, ratio)
                 )
@@ -2054,16 +2068,16 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
             # We're called asynchronous so we can return but printing in the
             # command line does not really make sense.
-            log.info((
+            self.logger.info((
                 "\n> Pools at {time}, Min Addr 0x{free_min:06X}, "
                 "Max Addr 0x{free_max:06X}"
             ).format(**meta_info))
 
-            log.info("  Name @ Base:       Size  Alloc / Cnt   1st Free  Low  Die ")
-            log.info("  ----------------------------------------------------------")
+            self.logger.info("  Name @ Base:       Size  Alloc / Cnt   1st Free  Low  Die ")
+            self.logger.info("  ----------------------------------------------------------")
 
             for pool in pool_list:
-                log.info((
+                self.logger.info((
                     "  {name} @ 0x{base:06X}: {size:6d}"
                     "    {allocated:3d} / {count:3d}   "
                     "0x{first:06X}  {low:3d}  {die:3d}"

@@ -30,7 +30,9 @@ from typing import List
 
 
 from internalblue import Address
-from pwn import log
+import logging
+
+from internalblue.utils.logging_formatter import CustomFormatter
 
 
 class MemorySection(object):
@@ -113,9 +115,17 @@ class Firmware(object):
 
         self.version = version
 
+        logger = logging.getLogger("InternalBlue")
+        logger.setLevel(logging.DEBUG)
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        ch.setFormatter(CustomFormatter())
+        if not logger.hasHandlers():
+            logger.addHandler(ch)
+
         if version:
             # get LMP Subversion
-            log.info(
+            logger.info(
                 "Chip identifier: 0x%04x (%03d.%03d.%03d)"
                 % (version, version >> 13, (version & 0xF00) >> 8, version & 0xFF)
             )
@@ -128,12 +138,12 @@ class Firmware(object):
                             __name__ + "_" + hex(version) + "_iphone", fromlist=[""]
                         )
                     )
-                    log.info("Using fw_" + hex(version) + "_iphone.py")
+                    logger.info("Using fw_" + hex(version) + "_iphone.py")
                 else:
                     self.firmware = self._module_to_firmware_definition(
                         __import__(__name__ + "_" + hex(version), fromlist=[""])
                     )
-                    log.info("Using fw_" + hex(version) + ".py")
+                    logger.info("Using fw_" + hex(version) + ".py")
             except ImportError:
                 self.firmware = None
                 pass
@@ -143,7 +153,7 @@ class Firmware(object):
                 __import__(__name__ + "_default", fromlist=[""])
             )
 
-        log.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
+        logger.info("Loaded firmware information for " + self.firmware.FW_NAME + ".")
 
     def _module_to_firmware_definition(self, fw: ModuleType) -> FirmwareDefinition:
         """
