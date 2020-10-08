@@ -8,16 +8,15 @@ import time
 
 from future import standard_library
 
+from .utils import p8
+
 standard_library.install_aliases()
 from builtins import str
 import socket
 import queue as queue2k
 from . import hci
 
-from internalblue.utils.pwnlib_wrapper import context, p8
 from .core import InternalBlue
-
-
 
 filepath = os.path.dirname(os.path.abspath(__file__))
 
@@ -122,9 +121,6 @@ class macOSCore(InternalBlue):
         self.logger.debug("Receive Thread started.")
 
         while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
             # read record data
             try:
                 data, addr = self.s_snoop.recvfrom(1024)
@@ -170,9 +166,6 @@ class macOSCore(InternalBlue):
     def _sendThreadFunc(self):
         self.logger.debug("Send Thread started.")
         while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
             # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)

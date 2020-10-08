@@ -12,8 +12,6 @@ import socket
 import queue as queue2k
 from . import hci
 
-from internalblue.utils.pwnlib_wrapper import log, context
-
 from .usbmux import USBMux, MuxError
 from .core import InternalBlue
 
@@ -56,7 +54,7 @@ class iOSCore(InternalBlue):
             self.shutdown()
 
         if self.running:
-            log.warn("Already running. Call shutdown() first!")
+            self.logger.warn("Already running. Call shutdown() first!")
             return []
 
         # because we need to call process for every device that is connected
@@ -68,7 +66,7 @@ class iOSCore(InternalBlue):
 
         self.devices = self.mux.devices
         if not self.devices:
-            log.info("No iOS devices connected")
+            self.logger.info("No iOS devices connected")
         
         device_list = []
         for dev in self.devices:
@@ -93,10 +91,10 @@ class iOSCore(InternalBlue):
             ret = queue.get(timeout=timeout)
             return ret
         except queue2k.Empty:
-            log.warn("sendH4: waiting for response timed out!")
+            self.logger.warn("sendH4: waiting for response timed out!")
             return None
         except queue2k.Full:
-            log.warn("sendH4: send queue is full!")
+            self.logger.warn("sendH4: send queue is full!")
             return None
 
     def local_connect(self):
@@ -105,8 +103,8 @@ class iOSCore(InternalBlue):
         TCP
         """
         if not self._setupSockets():
-            log.critical("No connection to iPhone.")
-            log.info(
+            self.logger.critical("No connection to iPhone.")
+            self.logger.info(
                 "Check if\n \
                 -> Bluetooth is deactivated in the iOS device's settings\n \
                 -> internalblued is installed on the device\n \
@@ -124,7 +122,7 @@ class iOSCore(InternalBlue):
         try:
             self.s_inject = self.mux.connect(self.interface, 1234)
         except MuxError:
-            log.warn("Could not connect to iOS proxy. Is internalblued running on the connected device?")
+            self.logger.warn("Could not connect to iOS proxy. Is internalblued running on the connected device?")
             return False
         
         self.s_inject.settimeout(0.5)
@@ -173,7 +171,7 @@ class iOSCore(InternalBlue):
                     return (None, False)
                 # might be the case that we have too much
                 elif len(self.buffer) > required_len:
-                    log.info(
+                    self.logger.info(
                         "Got too much data, expected %d, got %d",
                         required_len,
                         len(self.buffer),
@@ -193,29 +191,26 @@ class iOSCore(InternalBlue):
 
     def _recvThreadFunc(self):
 
-        log.debug("Receive Thread started.")
+        self.logger.debug("Receive Thread started.")
 
         if self.write_btsnooplog:
-            log.warn("Writing btsnooplog is not supported with iOS.")
+            self.logger.warn("Writing btsnooplog is not supported with iOS.")
 
         while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
             # read record data
             try:
                 received_data = self.s_snoop.recv(1024)
             except socket.timeout:
                 continue  # this is ok. just try again without error
 
-            log.debug("H4 Data: %s", received_data)
+            self.logger.debug("H4 Data: %s", received_data)
 
             (record_data, is_more) = self._getLatestH4Blob(new_data=received_data)
             while record_data is not None:
                 # Put all relevant infos into a tuple. The HCI packet is parsed with the help of hci.py.
                 record = (hci.parse_hci_packet(record_data), 0, 0, 0, 0, 0)
 
-                log.debug("Recv: " + str(record[0]))
+                self.logger.debug("Recv: " + str(record[0]))
 
                 # Put the record into all queues of registeredHciRecvQueues if their
                 # filter function matches.
@@ -228,7 +223,7 @@ class iOSCore(InternalBlue):
                     try:
                         queue.put(record, block=False)
                     except queue2k.Full:
-                        log.warn(
+                        self.logger.warn(
                             "recvThreadFunc: A recv queue is full. dropping packets.."
                         )
 
@@ -240,7 +235,7 @@ class iOSCore(InternalBlue):
                 # Check if the stackDumpReceiver has noticed that the chip crashed.
                 if self.stackDumpReceiver.stack_dump_has_happend:
                     # A stack dump has happend!
-                    log.warn(
+                    self.logger.warn(
                         "recvThreadFunc: The controller send a stack dump. stopping.."
                     )
                     self.exit_requested = True
@@ -249,7 +244,7 @@ class iOSCore(InternalBlue):
                 if not is_more:
                     break
 
-        log.debug("Receive Thread terminated.")
+        self.logger.debug("Receive Thread terminated.")
 
     def _teardownSockets(self):
         """
