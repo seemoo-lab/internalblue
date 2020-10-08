@@ -57,7 +57,7 @@ from internalblue.hci import HCI_COMND
 from internalblue.hcicore import HCICore
 from internalblue.utils.progress_logger import ProgressLogger
 from internalblue.utils.logging_formatter import CustomFormatter
-from internalblue.utils import bytes_to_hex, p8, p16, p32, u32
+from internalblue.utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno
 
 try:
     import typing
@@ -107,11 +107,10 @@ class InternalBlueCLI(cmd2.Cmd):
 
         # create logger with 'InternalBlue' identifier
         self.logger = logging.getLogger("InternalBlue")
-        self.logger.setLevel(logging.DEBUG)
 
         # create console handler
         ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(logging.INFO)
         ch.setFormatter(CustomFormatter())
         if not self.logger.hasHandlers():
             self.logger.addHandler(ch)
@@ -142,11 +141,10 @@ class InternalBlueCLI(cmd2.Cmd):
         super().__init__(shortcuts=shortcuts, persistent_history_file=data_directory + "/_internalblue.hist")
 
         # Settings
-
         if main_args.verbose:
-            self.log_level = "debug"
+            log_level = "debug"
         else:
-            self.log_level = "info"
+            log_level = "info"
 
         if main_args.trace:
             from .socket_hooks import hook
@@ -171,18 +169,18 @@ class InternalBlueCLI(cmd2.Cmd):
                 hook(macOSCore, ReplaySocket, filename=main_args.replay)
                 connection_methods = [
                     macOSCore(
-                        log_level=self.log_level, data_directory=data_directory, replay=True
+                        log_level=log_level, data_directory=data_directory, replay=True
                     )
                 ]
             elif main_args.device == "hci_replay":
                 hook(HCICore, ReplaySocket, filename=main_args.replay)
                 connection_methods = [
-                    HCICore(log_level=self.log_level, data_directory=data_directory, replay=True)
+                    HCICore(log_level=log_level, data_directory=data_directory, replay=True)
                 ]
             elif main_args.device == "adb_replay":
                 hook(ADBCore, ReplaySocket, filename=main_args.replay)
                 connection_methods = [
-                    ADBCore(log_level=self.log_level, data_directory=data_directory, replay=True)
+                    ADBCore(log_level=log_level, data_directory=data_directory, replay=True)
                 ]
             elif main_args.device == "ios_replay":
                 raise NotImplementedError("ios replay is not implemented yet")
@@ -196,12 +194,12 @@ class InternalBlueCLI(cmd2.Cmd):
             # if /var/run/usbmuxd exists, we can check for iOS devices
             if os.path.exists("/var/run/usbmuxd"):
                 from .ioscore import iOSCore
-                connection_methods.append(iOSCore(log_level=self.log_level, data_directory=data_directory))
+                connection_methods.append(iOSCore(log_level=log_level, data_directory=data_directory))
 
             if sys.platform == "darwin":
                 try:
                     from .macoscore import macOSCore
-                    connection_methods.append(macOSCore(log_level=self.log_level, data_directory=data_directory,
+                    connection_methods.append(macOSCore(log_level=log_level, data_directory=data_directory,
                                                         replay=(main_args.replay and main_args.device == "mac")))
                 except ImportError:
                     self.logger.warning("Couldn't import macOSCore. Is IOBluetoothExtended.framework installed?")
@@ -210,12 +208,12 @@ class InternalBlueCLI(cmd2.Cmd):
                 elif main_args.save:
                     hook(macOSCore, TraceToFileHook, filename=main_args.save)
             else:
-                connection_methods.append(HCICore(log_level=self.log_level, data_directory=data_directory))
+                connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
 
             # ADB core can always be used
             connection_methods.append(
                 ADBCore(
-                    log_level=self.log_level, data_directory=data_directory, serial=main_args.serialsu
+                    log_level=log_level, data_directory=data_directory, serial=main_args.serialsu
                 ))
 
         devices = []  # type: List[DeviceTuple]
@@ -260,9 +258,6 @@ class InternalBlueCLI(cmd2.Cmd):
 
             # Enter command loop (runs until user quits)
             self.logger.info("Starting commandLoop for self.internalblue {}".format(self.internalblue))
-
-            self.log_file = data_directory + "/_internalblue.log"
-            self.arch = "thumb"
 
     """
     $$$$$$$$$$$$$$$$$
@@ -327,21 +322,6 @@ class InternalBlueCLI(cmd2.Cmd):
                 dump += '|\n'
 
         sys.stdout.write(dump)
-
-    @staticmethod
-    def yesno(message):
-        selection = input(f"[🦄] {message} [yes/no] ")
-        sys.stdout.write(f"\033[F\033[K")
-
-        while True:
-            if selection.lower() in ['y', 'yes']:
-                sys.stdout.write(f"[🦄] {message} [\033[1myes\033[0m/no] \n")
-                return True
-            elif selection.lower() in ['n', 'no']:
-                sys.stdout.write(f"[🦄] {message} [yes/\033[1mno\033[0m] \n")
-                return False
-            else:
-                selection = input(f"[🦄] {message} [yes/no] ")
 
     @staticmethod
     def options(message: str, choices: [str]) -> int:
@@ -774,7 +754,7 @@ class InternalBlueCLI(cmd2.Cmd):
             for section in [s for s in self.internalblue.fw.SECTIONS if s.is_ram]:
                 filename = args.file + "_" + hex(section.start_addr)
                 if os.path.exists(filename):
-                    if not (args.overwrite or self.yesno("Update '%s'?" % filename)):
+                    if not (args.overwrite or yesno("Update '%s'?" % filename)):
                         self.logger.info("Skipping section @%s" % hex(section.start_addr))
                         bytes_done += section.size()
                         continue
@@ -795,7 +775,7 @@ class InternalBlueCLI(cmd2.Cmd):
         # Get complete memory image
         if os.path.exists(args.file):
             if not (
-                    args.overwrite or self.yesno("Update '%s'?" % os.path.abspath(args.file))
+                    args.overwrite or yesno("Update '%s'?" % os.path.abspath(args.file))
             ):
                 return False
 
@@ -851,7 +831,7 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_hexdump(self, args):
         """Display a hexdump of a specified region in the memory."""
         # if not self.isAddressInSections(args.address, args.length):
-        #    answer = self.yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
+        #    answer = yesno("Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?" % (args.address, args.length))
         #    if not answer:
         #        return False
 
@@ -895,7 +875,7 @@ class InternalBlueCLI(cmd2.Cmd):
                 return [val, s]
 
         if not self.isAddressInSections(args.address, args.length):
-            answer = self.yesno(
+            answer = yesno(
                 "Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?"
                 % (args.address, args.length)
             )
@@ -922,7 +902,7 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_disasm(self, args):
         """Display a disassembly of a specified region in the memory."""
         if not self.isAddressInSections(args.address, args.length):
-            answer = self.yesno(
+            answer = yesno(
                 "Warning: Address 0x%08x (len=0x%x) is not inside a valid section. Continue?"
                 % (args.address, args.length)
             )
@@ -1041,7 +1021,7 @@ class InternalBlueCLI(cmd2.Cmd):
             return None
 
         if not self.isAddressInSections(args.address, len(data), sectiontype="RAM"):
-            answer = self.yesno(
+            answer = yesno(
                 "Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?"
                 % (args.address, len(data))
             )
@@ -1107,7 +1087,7 @@ class InternalBlueCLI(cmd2.Cmd):
             return None
 
         if not self.isAddressInSections(args.addr, len(data), sectiontype="RAM"):
-            answer = self.yesno(
+            answer = yesno(
                 "Warning: Address 0x%08x (len=0x%x) is not inside a RAM section. Continue?"
                 % (args.addr, len(args.data))
             )
@@ -1220,7 +1200,7 @@ class InternalBlueCLI(cmd2.Cmd):
         if args.address is not None and not self.isAddressInSections(
                 args.address, len(data), sectiontype="ROM"
         ):
-            answer = self.yesno(
+            answer = yesno(
                 "Warning: Address 0x%08x (len=0x%x) is not inside a ROM section. Continue?"
                 % (args.address, len(data))
             )

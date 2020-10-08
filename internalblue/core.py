@@ -29,6 +29,7 @@ from __future__ import division
 
 import socket
 import struct
+from threading import Thread
 
 from future import standard_library
 
@@ -39,7 +40,7 @@ import pwnlib
 from pwnlib.asm import asm
 from pwnlib.exception import PwnlibException
 from pwnlib.util.fiddling import bits, unbits
-from .utils.pwnlib_wrapper import context
+
 from internalblue.utils import p16, p8, u32, u16, p32, flat
 from .fw import FirmwareDefinition
 
@@ -95,24 +96,32 @@ try:
 except:
     pass
 
-# import logging
-# log = logging.getLogger(__name__)
-
-
 class InternalBlue(with_metaclass(ABCMeta, object)):
-    def __init__(
-        self,
-        queue_size: int = 1000,
-        btsnooplog_filename: str = "btsnoop.log",
-        log_level: str = "info",
-        fix_binutils: bool = True,
-        data_directory: str = ".",
-        replay: bool = False,
-    ) -> None:
-        context.log_level = log_level
-        context.log_file = data_directory + "/_internalblue.log"
-        context.arch = "thumb"
+    @property
+    def log_level(self):
+        return self._internal_loglevel
 
+    @log_level.setter
+    def log_level(self, new):
+        levels = {"CRITICAL": logging.CRITICAL, "ERROR": logging.ERROR,
+                  "WARNING": logging.WARNING, "INFO": logging.INFO,
+                  "DEBUG": logging.DEBUG, "NOTSET": logging.NOTSET,
+                  "WARN": logging.WARN}
+        new = new.upper()
+        self._internal_loglevel = new
+        level = levels[new]
+        if self.logger.hasHandlers() and level is not None:
+            self.logger.handlers[0].setLevel(level)
+
+    def __init__(
+            self,
+            queue_size: int = 1000,
+            btsnooplog_filename: str = "btsnoop.log",
+            log_level: str = "info",
+            fix_binutils: bool = True,
+            data_directory: str = ".",
+            replay: bool = False,
+    ) -> None:
         # create logger with 'InternalBlue'
         self.logger = logging.getLogger("InternalBlue")
         self.logger.setLevel(logging.DEBUG)
@@ -124,7 +133,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if not self.logger.hasHandlers():
             self.logger.addHandler(ch)
 
-        self.interface = None  # holds the context.device / hci interface which is used to connect, is set in cli
+        self.interface = None  # holds the self.device / hci interface which is used to connect, is set in cli
         self.fw: FirmwareDefinition = None  # holds the firmware file
 
         self.data_directory = data_directory
@@ -167,10 +176,10 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.sendQueue = queue2k.Queue(queue_size)  # type: queue2k.Queue[Task]
 
         self.recvThread: Optional[
-            pwnlib.context.Thread
+            Thread
         ] = None  # The thread which is responsible for the HCI snoop socket
         self.sendThread: Optional[
-            pwnlib.context.Thread
+            Thread
         ] = None  # The thread which is responsible for the HCI inject socket
 
         self.tracepoints = []  # A list of currently active tracepoints
@@ -228,16 +237,16 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         If 'fix' is True, check_binutils will try to fix this.
         """
 
-        saved_loglevel = context.log_level
-        context.log_level = "critical"
+        saved_loglevel = self.log_level
+        self.log_level = "critical"
         try:
             pwnlib.asm.which_binutils(
                 "as"
             )  # throws PwnlibException if as cannot be found
-            context.log_level = saved_loglevel
+            self.log_level = saved_loglevel
             return True
         except PwnlibException:
-            context.log_level = saved_loglevel
+            self.log_level = saved_loglevel
             self.logger.debug("pwnlib.asm.which_binutils() cannot find 'as'!")
             if not fix:
                 return False
@@ -307,9 +316,6 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         self.logger.debug("Send Thread started.")
         while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
             # Wait for 'send task' in send queue
             try:
                 task = self.sendQueue.get(timeout=0.5)
@@ -422,7 +428,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         if hcipkt.data[0:6] == "TRACE_":  # My custom header (see hook code)
             data = hcipkt.data[6:]
-            tracepoint_registers = [u32(data[i : i + 4]) for i in range(0, 68, 4)]
+            tracepoint_registers = [u32(data[i: i + 4]) for i in range(0, 68, 4)]
             pc = tracepoint_registers[0]
             registers = "pc:  0x%08x   lr:  0x%08x   sp:  0x%08x   cpsr: 0x%08x\n" % (
                 pc,
@@ -431,12 +437,12 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 tracepoint_registers[2],
             )
             registers += (
-                "r0:  0x%08x   r1:  0x%08x   r2:  0x%08x   r3:  0x%08x   r4:  0x%08x\n"
-                % tuple(tracepoint_registers[3:8])
+                    "r0:  0x%08x   r1:  0x%08x   r2:  0x%08x   r3:  0x%08x   r4:  0x%08x\n"
+                    % tuple(tracepoint_registers[3:8])
             )
             registers += (
-                "r5:  0x%08x   r6:  0x%08x   r7:  0x%08x   r8:  0x%08x   r9:  0x%08x\n"
-                % tuple(tracepoint_registers[8:13])
+                    "r5:  0x%08x   r6:  0x%08x   r7:  0x%08x   r8:  0x%08x   r9:  0x%08x\n"
+                    % tuple(tracepoint_registers[8:13])
             )
             registers += "r10: 0x%08x   r11: 0x%08x   r12: 0x%08x\n" % tuple(
                 tracepoint_registers[13:16]
@@ -444,10 +450,10 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             self.logger.info("Tracepoint 0x%x was hit and deactivated:\n" % pc + registers)
 
             filename = (
-                self.data_directory
-                + "/"
-                + "internalblue_tracepoint_registers_%s.bin"
-                % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                    self.data_directory
+                    + "/"
+                    + "internalblue_tracepoint_registers_%s.bin"
+                    % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             )
             self.logger.info("Captured Registers for Tracepoint to %s" % filename)
             f = open(filename, "w")
@@ -475,19 +481,19 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
             # Check if this was the last packet
             if (
-                len(self.tracepoint_memdump_parts)
-                == self.fw.TRACEPOINT_RAM_DUMP_PKT_COUNT
+                    len(self.tracepoint_memdump_parts)
+                    == self.fw.TRACEPOINT_RAM_DUMP_PKT_COUNT
             ):
                 dump = flat(self.tracepoint_memdump_parts)
                 # TODO: use this to start qemu
                 filename = (
-                    self.data_directory
-                    + "/"
-                    + "internalblue_tracepoint_0x%x_%s.bin"
-                    % (
-                        self.tracepoint_memdump_address,
-                        datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
-                    )
+                        self.data_directory
+                        + "/"
+                        + "internalblue_tracepoint_0x%x_%s.bin"
+                        % (
+                            self.tracepoint_memdump_address,
+                            datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                        )
                 )
                 self.logger.info(
                     "Captured Ram Dump for Tracepoint 0x%x to %s"
@@ -537,7 +543,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Find a free address for the hook code
         for i in range(5):
             hook_address = (
-                self.fw.TRACEPOINT_HOOKS_LOCATION + self.fw.TRACEPOINT_HOOK_SIZE * i
+                    self.fw.TRACEPOINT_HOOKS_LOCATION + self.fw.TRACEPOINT_HOOK_SIZE * i
             )
             if hook_address not in existing_hook_addresses:
                 break
@@ -679,12 +685,12 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.logger.info(f"Connected to {self.interface}")
 
         # start receive thread
-        self.recvThread = context.Thread(target=self._recvThreadFunc)
+        self.recvThread = Thread(target=self._recvThreadFunc)
         self.recvThread.setDaemon(True)
         self.recvThread.start()
 
         # start send thread
-        self.sendThread = context.Thread(target=self._sendThreadFunc)
+        self.sendThread = Thread(target=self._sendThreadFunc)
         self.sendThread.setDaemon(True)
         self.sendThread.start()
 
@@ -848,7 +854,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.logger.warning("registerHciRecvQueue: no such queue is registered!")
 
     def sendHciCommand(
-        self, hci_opcode: HCI_COMND, data: bytes, timeout: int = 3
+            self, hci_opcode: HCI_COMND, data: bytes, timeout: int = 3
     ) -> Optional[bytearray]:
         """
         Send an arbitrary HCI command packet by pushing a send-task into the
@@ -988,7 +994,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             bytes_total = length
         retry = 3  # Retry on failures
         while (
-            read_addr < address + length
+                read_addr < address + length
         ):  # Send HCI Read_RAM commands until all data is received
             # Send hci frame
             bytes_left = length - byte_counter
@@ -1067,7 +1073,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         return outbuffer
 
     def readMemAligned(
-        self, address, length, progress_log=None, bytes_done=0, bytes_total=0
+            self, address, length, progress_log=None, bytes_done=0, bytes_total=0
     ):
         # type: (int, int, Optional[Any], int, int) -> Any
         """
@@ -1209,7 +1215,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
             response = self.sendHciCommand(
                 HCI_COMND.VSC_Write_RAM,
-                p32(write_addr) + data[byte_counter : byte_counter + blocksize],
+                p32(write_addr) + data[byte_counter: byte_counter + blocksize],
             )
             if response is None:
                 self.logger.warning(
@@ -1235,7 +1241,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
     def launchRam(self, address):
         # type: (int) -> bool
         """
-        Executes a function at the specified address in the context of the HCI
+        Executes a function at the specified address in the self.context of the HCI
         handler thread. The function has to comply with the calling convention.
         As the function blocks the HCI handler thread, the chip will most likely
         crash (or be resetted by Android) if the function takes too long.
@@ -1311,14 +1317,14 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         slot_dwords = []
         slot_bits = []
         for dword in range(old_div(slot_count, 32)):
-            slot_dwords.append(slot_dump[dword * 32 : (dword + 1) * 32])
+            slot_dwords.append(slot_dump[dword * 32: (dword + 1) * 32])
 
         for dword in slot_dwords:
             slot_bits.extend(bits(bytes(dword[::-1]))[::-1])
         for i in range(slot_count):
             if slot_bits[i]:
-                table_addresses.append(u32(table_addr_dump[i * 4 : i * 4 + 4]) << 2)
-                table_values.append(table_val_dump[i * 4 : i * 4 + 4])
+                table_addresses.append(u32(table_addr_dump[i * 4: i * 4 + 4]) << 2)
+                table_values.append(table_val_dump[i * 4: i * 4 + 4])
             else:
                 table_addresses.append(None)
                 table_values.append(None)
@@ -1376,7 +1382,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             )
             self.patchRom(
                 address - alignment + 4,
-                patch[4 - alignment :] + orig[alignment + 4 :],
+                patch[4 - alignment:] + orig[alignment + 4:],
                 slot,
             )
             return True
@@ -1421,7 +1427,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         target_dword = int(old_div(slot, 32))
         table_slots[slot] = 1
         slot_dword = unbits(
-            table_slots[target_dword * 32 : (target_dword + 1) * 32][::-1]
+            table_slots[target_dword * 32: (target_dword + 1) * 32][::-1]
         )[::-1]
         self.writeMem(
             self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword * 4, slot_dword
@@ -1469,7 +1475,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         target_dword = int(old_div(slot, 32))
         table_slots[slot] = 0
         slot_dword = unbits(
-            table_slots[target_dword * 32 : (target_dword + 1) * 32][::-1]
+            table_slots[target_dword * 32: (target_dword + 1) * 32][::-1]
         )[::-1]
         self.writeMem(
             self.fw.PATCHRAM_ENABLED_BITMAP_ADDRESS + target_dword * 4, slot_dword
@@ -1558,7 +1564,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         return conn_dict
 
     def sendLmpPacket(
-        self, opcode, payload="", is_master=True, conn_handle=0x0C, extended_op=False
+            self, opcode, payload="", is_master=True, conn_handle=0x0C, extended_op=False
     ):
         # type: (Opcode, bytes, bool, ConnectionNumber, bool) -> bool
         """
@@ -1593,7 +1599,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             payload = b""
 
         if ((not extended_op) and opcode > (0xFF >> 1)) or (
-            extended_op and opcode > 0xFF
+                extended_op and opcode > 0xFF
         ):
             self.logger.warning("sendLmpPacket: opcode out of range!")
             return False
@@ -1863,7 +1869,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             )
             conn_handle = u16(hcipkt.data[1:3])
             btaddr = hcipkt.data[3:9][::-1]
-            #btaddr_str = ":".join([b.encode("hex") for b in btaddr])
+            # btaddr_str = ":".join([b.encode("hex") for b in btaddr])
             btaddr_str = bytes_to_hex(btaddr)
             self.logger.info(
                 "[Connect Complete: Handle=0x%x  Address=%s  status=%s]"
@@ -1939,7 +1945,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         bloclist = []
         current_bloc_struct_address = first_bloc_struct_address
         for index in range(
-            100
+                100
         ):  # Traverse at most 100 (don't loop forever if linked-list is corrupted)
             # Parsing BLOC struct
             bloc_struct = self.readMem(current_bloc_struct_address, 0x30)
@@ -1958,7 +1964,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 current_element["list_length"] = bloc_fields[6]
 
                 current_element["memory_size"] = current_element["capacity"] * (
-                    4 + current_element["buffer_size"]
+                        4 + current_element["buffer_size"]
                 )
 
                 # current_element["memory_size"]     = bloc_fields[6]
@@ -2001,8 +2007,8 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             bloclist.append(current_element)
             current_bloc_struct_address = current_element["next"]
             if (
-                current_bloc_struct_address == first_bloc_struct_address
-                or current_bloc_struct_address == 0
+                    current_bloc_struct_address == first_bloc_struct_address
+                    or current_bloc_struct_address == 0
             ):
                 break
 
@@ -2047,12 +2053,11 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             meta_info["rfu"] = pool_meta[4]  # RFU
             self.logger.debug(meta_info)
 
-
             # Individual Pool Information
             pool_list = []
             pool_len = hcipkt.data[2]  # Number of Pools
             for index in range(pool_len):
-                pool_fields = struct.unpack("<IIIHHHHHH", hcipkt.data[21+(index*24):21+((index+1)*24)])
+                pool_fields = struct.unpack("<IIIHHHHHH", hcipkt.data[21 + (index * 24):21 + ((index + 1) * 24)])
                 current_element = {}
                 current_element["index"] = index
                 current_element["base"] = pool_fields[0]  # Base
@@ -2070,19 +2075,19 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             # We're called asynchronous so we can return but printing in the
             # command line does not really make sense.
             self.logger.info((
-                "\n> Pools at {time}, Min Addr 0x{free_min:06X}, "
-                "Max Addr 0x{free_max:06X}"
-            ).format(**meta_info))
+                                 "\n> Pools at {time}, Min Addr 0x{free_min:06X}, "
+                                 "Max Addr 0x{free_max:06X}"
+                             ).format(**meta_info))
 
             self.logger.info("  Name @ Base:       Size  Alloc / Cnt   1st Free  Low  Die ")
             self.logger.info("  ----------------------------------------------------------")
 
             for pool in pool_list:
                 self.logger.info((
-                    "  {name} @ 0x{base:06X}: {size:6d}"
-                    "    {allocated:3d} / {count:3d}   "
-                    "0x{first:06X}  {low:3d}  {die:3d}"
-                ).format(**pool))
+                                     "  {name} @ 0x{base:06X}: {size:6d}"
+                                     "    {allocated:3d} / {count:3d}   "
+                                     "0x{first:06X}  {low:3d}  {die:3d}"
+                                 ).format(**pool))
 
             return pool_list
 
@@ -2127,7 +2132,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         queuelist = []
         current_queue_struct_address = first_queue_struct_address
         for index in range(
-            100
+                100
         ):  # Traverse at most 100 (don't loop forever if linked-list is corrupted)
             queue_struct = self.readMem(current_queue_struct_address, 0x38)
             queue_fields = struct.unpack("I" * 14, queue_struct)
@@ -2241,4 +2246,3 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
     def _teardownSockets(self):
         raise NotImplementedError()
-

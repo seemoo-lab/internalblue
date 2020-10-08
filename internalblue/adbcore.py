@@ -17,7 +17,6 @@ import random
 from internalblue import hci
 from internalblue.utils import bytes_to_hex, u32
 
-from internalblue.utils.pwnlib_wrapper import context
 from .core import InternalBlue
 
 
@@ -40,6 +39,9 @@ class ADBCore(InternalBlue):
             data_directory,
             replay,
         )
+
+        # Connect to adb device
+        self.device = self.interface
         self.hciport: Optional[int] = None  # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.serial = serial  # use serial su busybox scripting and do not try bluetooth.default.so
         self.doublecheck = False
@@ -91,9 +93,6 @@ class ADBCore(InternalBlue):
         Start the framework by connecting to the Bluetooth Stack of the Android
         device via adb and the debugging TCP ports.
         """
-
-        # Connect to adb device
-        context.device = self.interface
 
         # setup sockets
         # on magisk-rooted devices there is sometimes already a read socket and this first setup needs to be skipped...
@@ -170,9 +169,6 @@ class ADBCore(InternalBlue):
         self.logger.debug("Receive Thread started.")
 
         while not self.exit_requested:
-            # Little bit ugly: need to re-apply changes to the global context to the thread-copy
-            context.log_level = self.log_level
-
             # Read the record header
             record_hdr = b""
             while not self.exit_requested and len(record_hdr) < 24:
@@ -295,8 +291,8 @@ class ADBCore(InternalBlue):
         )
 
         # Forward ports 8872 and 8873. Ignore self.logger.info() outputs by the adb function.
-        saved_loglevel = context.log_level
-        context.log_level = "warn"
+        saved_loglevel = self.log_level
+        self.log_level = "warn"
         try:
             adb.adb(["forward", "tcp:%d" % (self.hciport), "tcp:8872"])
             adb.adb(["forward", "tcp:%d" % (self.hciport + 1), "tcp:8873"])
@@ -304,7 +300,7 @@ class ADBCore(InternalBlue):
             self.logger.warning("Setup adb port forwarding failed: " + str(e))
             return False
         finally:
-            context.log_level = saved_loglevel
+            self.log_level = saved_loglevel
 
         # Connect to hci injection port
         self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -326,10 +322,10 @@ class ADBCore(InternalBlue):
             self.s_inject.close()
             self.s_snoop.close()
             self.s_inject = self.s_snoop = None
-            context.log_level = "warn"
+            self.log_level = "warn"
             adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport)])
             adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport + 1)])
-            context.log_level = saved_loglevel
+            self.log_level = saved_loglevel
             return False
         return True
 
@@ -345,8 +341,8 @@ class ADBCore(InternalBlue):
             self.s_snoop.close()
             self.s_snoop = None
 
-        saved_loglevel = context.log_level
-        context.log_level = "warn"
+        saved_loglevel = self.log_level
+        self.log_level = "warn"
         if self.hciport is not None:
             hciport = self.hciport
             try:
@@ -356,7 +352,7 @@ class ADBCore(InternalBlue):
                 self.logger.warning("Removing adb port forwarding failed: " + str(e))
                 return False
             finally:
-                context.log_level = saved_loglevel
+                self.log_level = saved_loglevel
 
     def _setupSerialSu(self):
         """
@@ -379,8 +375,8 @@ class ADBCore(InternalBlue):
         # In sending direction, the format is different.
         self.serial = True
 
-        saved_loglevel = context.log_level
-        context.log_level = "warn"
+        saved_loglevel = self.log_level
+        self.log_level = "warn"
 
         try:
             # check dependencies
@@ -434,6 +430,6 @@ class ADBCore(InternalBlue):
             self.logger.warning("Serial scripting setup failed: " + str(e))
             return False
         finally:
-            context.log_level = saved_loglevel
+            self.log_level = saved_loglevel
 
         return True
