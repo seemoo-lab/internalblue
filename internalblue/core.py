@@ -39,7 +39,8 @@ import pwnlib
 from pwnlib.asm import asm
 from pwnlib.exception import PwnlibException
 from pwnlib.util.fiddling import bits, unbits
-from .utils.pwnlib_wrapper import p16, p8, u32, u16, p32, log, context, flat
+from .utils.pwnlib_wrapper import context
+from internalblue.utils import p16, p8, u32, u16, p32, flat
 from .fw import FirmwareDefinition
 
 standard_library.install_aliases()
@@ -237,7 +238,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             return True
         except PwnlibException:
             context.log_level = saved_loglevel
-            log.debug("pwnlib.asm.which_binutils() cannot find 'as'!")
+            self.logger.debug("pwnlib.asm.which_binutils() cannot find 'as'!")
             if not fix:
                 return False
 
@@ -257,10 +258,10 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             which_binutils_fixed("as")
             # yeay it worked! fix it in pwnlib:
             pwnlib.asm.which_binutils = which_binutils_fixed
-            log.debug("installing workaround for pwnlib.asm.which_binutils() ...")
+            self.logger.debug("installing workaround for pwnlib.asm.which_binutils() ...")
             return True
         except PwnlibException:
-            log.warn(
+            self.logger.warning(
                 "pwntools cannot find binutils for arm architecture. Disassembling will not work!"
             )
             return False
@@ -304,7 +305,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         The thread stops when exit_requested is set to True.
         """
 
-        log.debug("Send Thread started.")
+        self.logger.debug("Send Thread started.")
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
             context.log_level = self.log_level
@@ -320,7 +321,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 h4type, data, queue, filter_function = task
             except ValueError:
                 # might happen if H4 is not supported
-                log.debug("Failed to unpack queue item.")
+                self.logger.debug("Failed to unpack queue item.")
                 continue
 
             # Special handling of ADBCore and HCICore
@@ -375,13 +376,13 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
             # Send command to the chip using s_inject socket
             try:
-                log.debug("_sendThreadFunc: Send: " + bytes_to_hex(out))
+                self.logger.debug("_sendThreadFunc: Send: " + bytes_to_hex(out))
                 self.s_inject.send(out)
             except socket.error:
                 # TODO: For some reason this was required for proper save and replay, so this should be handled globally somehow. Or by implementing proper testing instead of the save/replay hack
                 pass
             except socket.error as e:
-                log.warn(
+                self.logger.warning(
                     "_sendThreadFunc: Sending to socket failed with {}, reestablishing connection.\nWith HCI sockets, some HCI commands require root!".format(
                         e
                     )
@@ -398,7 +399,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                     hcipkt = record[0]
                     data = hcipkt.data
                 except queue2k.Empty:
-                    log.warn("_sendThreadFunc: No response from the firmware.")
+                    self.logger.warning("_sendThreadFunc: No response from the firmware.")
                     data = None
                     self.unregisterHciRecvQueue(recvQueue)
                     continue
@@ -406,7 +407,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 queue.put(data)
                 self.unregisterHciRecvQueue(recvQueue)
 
-        log.debug("Send Thread terminated.")
+        self.logger.debug("Send Thread terminated.")
 
     def _tracepointHciCallbackFunction(self, record):
         # type: (Record) -> None
@@ -507,7 +508,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             "TRACEPOINT_HOOK_SIZE",
         ]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "addTracepoint: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const
                 )
                 return False
@@ -517,7 +518,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # FIXME: Currently only works for aligned addresses
         if address % 4 != 0:
-            log.warn("Only tracepoints at aligned addresses are allowed!")
+            self.logger.warning("Only tracepoints at aligned addresses are allowed!")
             return False
 
         # Check if tracepoint exists
@@ -525,12 +526,12 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         for tp_address, tp_hook_address in self.tracepoints:
             existing_hook_addresses.append(tp_hook_address)
             if tp_address == address:
-                log.warn("Tracepoint at 0x%x does already exist!" % address)
+                self.logger.warning("Tracepoint at 0x%x does already exist!" % address)
                 return False
 
         # we only have room for 0x90/28 = 5 tracepoints
         if len(self.tracepoints) >= 5:
-            log.warn("Already using the maximum of 5 tracepoints")
+            self.logger.warning("Already using the maximum of 5 tracepoints")
             return False
 
         # Find a free address for the hook code
@@ -552,7 +553,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 arch="thumb",
             )
             if len(hooks_code) > 0x100:
-                log.error(
+                self.logger.error(
                     "Assertion failed: len(hooks_code)=%d  is larger than 0x100!"
                     % len(hooks_code)
                 )
@@ -597,23 +598,23 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         )
 
         if len(stage1_hook_code) > self.fw.TRACEPOINT_HOOK_SIZE:
-            log.error(
+            self.logger.error(
                 "Assertion failed: len(stage1_hook_code)=%d  is larger than TRACEPOINT_HOOK_SIZE!"
                 % len(stage1_hook_code)
             )
             return False
 
         # write code for hook to memory
-        log.debug("addTracepoint: injecting hook function...")
+        self.logger.debug("addTracepoint: injecting hook function...")
         self.writeMem(hook_address, stage1_hook_code)
 
         # patch in the hook branch instruction
         patch = asm("b 0x%x" % hook_address, vma=address, arch="thumb")
         if not self.patchRom(address, patch):
-            log.warn("addTracepoint: couldn't insert tracepoint hook!")
+            self.logger.warning("addTracepoint: couldn't insert tracepoint hook!")
             return False
 
-        log.debug(
+        self.logger.debug(
             "addTracepoint: Placed Tracepoint at 0x%08x (hook at 0x%x)."
             % (address, hook_address)
         )
@@ -634,7 +635,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 self.tracepoints.remove(tp)
                 break
         else:
-            log.warn("deleteTracepoint: No tracepoint at address: 0x%x" % address)
+            self.logger.warning("deleteTracepoint: No tracepoint at address: 0x%x" % address)
             return False
 
         return True
@@ -650,7 +651,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             self.shutdown()
 
         if not self.running:
-            log.warn("Not running. call connect() first!")
+            self.logger.warning("Not running. call connect() first!")
             return False
         return True
 
@@ -665,11 +666,11 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             self.shutdown()
 
         if self.running:
-            log.warn("Already running. call shutdown() first!")
+            self.logger.warning("Already running. call shutdown() first!")
             return False
 
         if not self.interface:
-            log.warn("No adb device identifier is set")
+            self.logger.warning("No adb device identifier is set")
             return False
 
         if not self.local_connect():
@@ -694,7 +695,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.registerHciCallback(self.stackDumpReceiver.recvPacket)
 
         if not self.initialize_fimware():
-            log.warn("connect: Failed to initialize firmware!")
+            self.logger.warning("connect: Failed to initialize firmware!")
             return False
 
         self.running = True
@@ -718,7 +719,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         )
 
         if not version or len(version) < 11:
-            log.warn(
+            self.logger.warning(
                 """initialize_fimware: Failed to send a HCI command to the Bluetooth driver.
             adb: Check if you installed a custom bluetooth.default.so properly on your
               Android device. bluetooth.default.so must contain the string 'hci_inject'.
@@ -729,7 +730,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Broadcom uses 0x000f as vendor ID, Cypress 0x0131
         vendor = (version[9] << 8) + version[8]
         if vendor != 0xF and vendor != 0x131:
-            log.critical("Not running on a Broadcom or Cypress chip!")
+            self.logger.critical("Not running on a Broadcom or Cypress chip!")
             return False
         else:
             subversion = (version[11] << 8) + version[10]
@@ -796,7 +797,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         """
 
         if callback in self.registeredHciCallbacks:
-            log.warn("registerHciCallback: callback already registered!")
+            self.logger.warning("registerHciCallback: callback already registered!")
             return
         self.registeredHciCallbacks.append(callback)
 
@@ -809,7 +810,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if callback in self.registeredHciCallbacks:
             self.registeredHciCallbacks.remove(callback)
             return
-        log.warn("registerHciCallback: no such callback is registered!")
+        self.logger.warning("registerHciCallback: no such callback is registered!")
 
     def registerHciRecvQueue(self, queue, filter_function=None):
         # type: (queue2k.Queue[Record], FilterFunction) -> None
@@ -830,7 +831,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         """
 
         if queue in self.registeredHciRecvQueues:
-            log.warn("registerHciRecvQueue: queue already registered!")
+            self.logger.warning("registerHciRecvQueue: queue already registered!")
             return
         self.registeredHciRecvQueues.append((queue, filter_function))
 
@@ -844,7 +845,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             if entry[0] == queue:
                 self.registeredHciRecvQueues.remove(entry)
                 return
-        log.warn("registerHciRecvQueue: no such queue is registered!")
+        self.logger.warning("registerHciRecvQueue: no such queue is registered!")
 
     def sendHciCommand(
         self, hci_opcode: HCI_COMND, data: bytes, timeout: int = 3
@@ -887,7 +888,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             # type: (Record) -> bool
             hcipkt = record[0]
 
-            log.debug("sendHciCommand.recvFilterFunction: got response")
+            self.logger.debug("sendHciCommand.recvFilterFunction: got response")
 
             # Interpret HCI event
             if isinstance(hcipkt, hci.HCI_Event):
@@ -908,14 +909,14 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             ret = queue.get(timeout=timeout)
             return ret
         except queue2k.Empty:
-            log.warn("sendHciCommand: waiting for response timed out!")
+            self.logger.warning("sendHciCommand: waiting for response timed out!")
             # If there was no response because the Trace Replay Hook throw an assert it will be in this attribute.
             # Raise this so the main thread doesn't ignore this and it will be caught by any testing framework
             if hasattr(self, "test_failed"):
                 raise self.test_failed
             return None
         except queue2k.Full:
-            log.warn("sendHciCommand: send queue is full!")
+            self.logger.warning("sendHciCommand: send queue is full!")
             return None
 
     def sendH4(self, h4type, data, timeout=2):
@@ -932,7 +933,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             self.sendQueue.put((h4type, data, None, None), timeout=timeout)
             return True
         except queue2k.Full:
-            log.warn("sendH4: send queue is full!")
+            self.logger.warning("sendH4: send queue is full!")
             return False
 
     def recvPacket(self, timeout=None):
@@ -950,7 +951,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         functionality as an alternative which works asynchronously.
         """
 
-        log.debug("recvPacket: called")
+        self.logger.debug("recvPacket: called")
 
         if not self.check_running():
             return None
@@ -974,7 +975,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         - bytes_total:  Total bytes that will be read within the transaction covered by progress_log.
         """
 
-        log.debug("readMem: reading at 0x%x" % address)
+        self.logger.debug("readMem: reading at 0x%x" % address)
         if not self.check_running():
             return None
 
@@ -1001,27 +1002,27 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             )
 
             if response is None or not response:
-                log.warn(
+                self.logger.warning(
                     "readMem: No response to readRAM HCI command! (read_addr=%x, len=%x)"
                     % (read_addr, length)
                 )
                 # Retry once...
                 if retry > 0:
-                    log.debug("readMem: retrying once...")
+                    self.logger.debug("readMem: retrying once...")
                     retry = retry - 1
                     continue
                 else:
-                    log.warning("readMem: failed!")
+                    self.logger.warninging("readMem: failed!")
                     return None
 
             data = response[4:]  # start of the actual data is at offset 4
 
             if len(data) == 0:  # this happens i.e. if not called on a brcm chip
-                log.warn("readMem: empty response, quitting...")
+                self.logger.warning("readMem: empty response, quitting...")
                 break
 
             if len(data) != blocksize:
-                log.debug("readMem: insufficient bytes returned, retrying...")
+                self.logger.debug("readMem: insufficient bytes returned, retrying...")
                 continue
 
             status = response[3]
@@ -1032,7 +1033,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 #       0x00 (0) means everything okay
                 #       0x12 means Command Disallowed
                 # e.g. for address 0xff000000 (aka 'EEPROM') it is 0x12
-                log.warn(
+                self.logger.warning(
                     "readMem: [TODO] Got status != 0 : error 0x%02X at address 0x%08x"
                     % (status, read_addr)
                 )
@@ -1044,7 +1045,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                     HCI_COMND.VSC_Read_RAM, p32(read_addr) + p8(blocksize)
                 )
                 if response != response_check:
-                    log.debug(
+                    self.logger.debug(
                         "readMem: double checking response failed at 0x%x! retry..."
                         % read_addr
                     )
@@ -1088,7 +1089,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Check if constants are defined in fw.py
         for const in ["READ_MEM_ALIGNED_ASM_LOCATION", "READ_MEM_ALIGNED_ASM_SNIPPET"]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "readMemAligned: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const
                 )
                 return False
@@ -1098,12 +1099,12 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # Force length to be multiple of 4 (needed for strict alignment)
         if length % 4 != 0:
-            log.warn("readMemAligned: length (0x%x) must be multiple of 4!" % length)
+            self.logger.warning("readMemAligned: length (0x%x) must be multiple of 4!" % length)
             return None
 
         # Force address to be multiple of 4 (needed for strict alignment)
         if address % 4 != 0:
-            log.warn("readMemAligned: address (0x%x) must be 4-byte aligned!" % address)
+            self.logger.warning("readMemAligned: address (0x%x) must be 4-byte aligned!" % address)
             return None
 
         recvQueue = queue2k.Queue(1)
@@ -1149,16 +1150,16 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             if not self.launchRam(self.fw.READ_MEM_ALIGNED_ASM_LOCATION):
                 # on iOSCore the return value might be wrong
                 if self.doublecheck:
-                    log.debug("readMemAligned: probably failed, but continuing...")
+                    self.logger.debug("readMemAligned: probably failed, but continuing...")
                 else:
-                    log.error("readMemAligned: launching assembler snippet failed!")
+                    self.logger.error("readMemAligned: launching assembler snippet failed!")
                     return None
 
             # wait for the custom HCI event sent by the snippet:
             try:
                 record = recvQueue.get(timeout=1)
             except queue2k.Empty:
-                log.warn("readMemAligned: No response from assembler snippet.")
+                self.logger.warning("readMemAligned: No response from assembler snippet.")
                 return None
 
             hcipkt = record[0]
@@ -1190,7 +1191,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         - bytes_total:  Total bytes that will be written within the transaction covered by progress_log.
         """
 
-        log.debug("writeMem: writing to 0x%x" % address)
+        self.logger.debug("writeMem: writing to 0x%x" % address)
 
         if not self.check_running():
             return None
@@ -1211,12 +1212,12 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 p32(write_addr) + data[byte_counter : byte_counter + blocksize],
             )
             if response is None:
-                log.warn(
+                self.logger.warning(
                     "writeMem: Timeout while reading response, probably need to wait longer."
                 )
                 return False
             elif response[3] != 0:
-                log.warn(
+                self.logger.warning(
                     "writeMem: Got error code %d in command complete event."
                     % response[3]
                 )
@@ -1242,19 +1243,19 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         response = self.sendHciCommand(HCI_COMND.VSC_Launch_RAM, p32(address))
         if response is None:
-            log.warn(
+            self.logger.warning(
                 "Empty HCI response during launchRam, driver crashed due to invalid code or destination"
             )
             return False
 
         error_code = response[3]
         if error_code != 0:
-            log.warn("Got error code %x in command complete event." % error_code)
+            self.logger.warning("Got error code %x in command complete event." % error_code)
             return False
 
         # Nexus 6P Bugfix
         if "LAUNCH_RAM_PAUSE" in dir(self.fw) and self.fw.LAUNCH_RAM_PAUSE:
-            log.debug("launchRam: Bugfix, sleeping %ds" % self.fw.LAUNCH_RAM_PAUSE)
+            self.logger.debug("launchRam: Bugfix, sleeping %ds" % self.fw.LAUNCH_RAM_PAUSE)
             time.sleep(self.fw.LAUNCH_RAM_PAUSE)
 
         return True
@@ -1278,7 +1279,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             "PATCHRAM_ALIGNED",
         ]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "getPatchramState: '%s' not in fw.py. FEATURE NOT SUPPORTED!"
                     % const
                 )
@@ -1347,26 +1348,26 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             "PATCHRAM_NUMBER_OF_SLOTS",
         ]:
             if const not in dir(self.fw):
-                log.warn("patchRom: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
+                self.logger.warning("patchRom: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
         if len(patch) != 4:
-            log.warn("patchRom: patch (%s) must be a 32-bit dword!" % patch)
+            self.logger.warning("patchRom: patch (%s) must be a 32-bit dword!" % patch)
             return False
 
-        log.debug(
+        self.logger.debug(
             "patchRom: applying patch 0x%x to address 0x%x" % (u32(patch), address)
         )
 
         alignment = address % 4
         if alignment != 0:
-            log.debug("patchRom: Address 0x%x is not 4-byte aligned!" % address)
+            self.logger.debug("patchRom: Address 0x%x is not 4-byte aligned!" % address)
             if slot is not None:
-                log.warn(
+                self.logger.warning(
                     "patchRom: Patch must be splitted into two slots, but fixed slot value was enforced. Do nothing!"
                 )
                 return False
-            log.debug("patchRom: applying patch 0x%x in two rounds" % u32(patch))
+            self.logger.debug("patchRom: applying patch 0x%x in two rounds" % u32(patch))
             # read original content
             orig = self.readMem(address - alignment, 8)
             # patch the difference of the 4 bytes we want to patch within the original 8 bytes
@@ -1401,11 +1402,11 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                     self.logger.info("patchRom: Choosing next free slot: %d" % slot)
                     break
             if slot is None:
-                log.warn("patchRom: All slots are in use!")
+                self.logger.warning("patchRom: All slots are in use!")
                 return False
         else:
             if table_values[slot] == 1:
-                log.warn("patchRom: Slot %d is already in use. Overwriting..." % slot)
+                self.logger.warning("patchRom: Slot %d is already in use. Overwriting..." % slot)
 
         # Write new value to patchram value table at 0xd0000
         self.writeMem(self.fw.PATCHRAM_VALUE_TABLE_ADDRESS + slot * 4, patch)
@@ -1443,7 +1444,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             "PATCHRAM_ENABLED_BITMAP_ADDRESS",
         ]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "disableRomPatch: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const
                 )
                 return False
@@ -1452,7 +1453,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         if slot is None:
             if address is None:
-                log.warn("disableRomPatch: address is None.")
+                self.logger.warning("disableRomPatch: address is None.")
                 return False
             for i in range(self.fw.PATCHRAM_NUMBER_OF_SLOTS):
                 if table_addresses[i] == address:
@@ -1460,7 +1461,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                     self.logger.info("Slot for address 0x%x is: %d" % (address, slot))
                     break
             if slot is None:
-                log.warn("No slot contains address: 0x%x" % address)
+                self.logger.warning("No slot contains address: 0x%x" % address)
                 return False
 
         # Disable patchram slot (enable bitfield starts at 0x310204)
@@ -1512,13 +1513,13 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 # Do we have a list implementation?
                 for const in ["CONNECTION_LIST_ADDRESS"]:
                     if const not in dir(self.fw):
-                        log.warn(
+                        self.logger.warning(
                             "readConnectionInformation: neither CONNECTION_LIST nor CONNECTION_ARRAY in fw.py. FEATURE NOT SUPPORTED!"
                         )
                         return None
 
         if conn_number < 1 or conn_number > self.fw.CONNECTION_MAX:
-            log.warn(
+            self.logger.warning(
                 "readConnectionInformation: connection number out of bounds: %d"
                 % conn_number
             )
@@ -1584,7 +1585,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Check the connection handle
         # Range: 0x0000-0x0EFF (all other values reserved for future use)
         if conn_handle < 0 or conn_handle > 0x0EFF:
-            log.warn("sendLmpPacket: connection handle out of bounds: %d" % conn_handle)
+            self.logger.warning("sendLmpPacket: connection handle out of bounds: %d" % conn_handle)
             return False
 
         # must be string...
@@ -1594,7 +1595,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if ((not extended_op) and opcode > (0xFF >> 1)) or (
             extended_op and opcode > 0xFF
         ):
-            log.warn("sendLmpPacket: opcode out of range!")
+            self.logger.warning("sendLmpPacket: opcode out of range!")
             return False
 
         # Build the LMP packet
@@ -1612,7 +1613,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         data = opcode_data + payload + b"\x00" * (17 - len(opcode_data) - len(payload))
 
         if len(data) > 17:
-            log.warn(
+            self.logger.warning(
                 "sendLmpPacket: Vendor specific HCI command only allows for 17 bytes LMP content."
             )
 
@@ -1623,7 +1624,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         )
 
         if result is None:
-            log.warn(
+            self.logger.warning(
                 "sendLmpPacket: did not get a result from firmware, maybe crashed internally?"
             )
             return False
@@ -1631,7 +1632,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             error_status = result[3]
 
         if error_status != 0:
-            log.warn("sendLmpPacket: got error status 0x%02x" % error_status)
+            self.logger.warning("sendLmpPacket: got error status 0x%02x" % error_status)
             return False
 
         return True
@@ -1653,7 +1654,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             "FUZZLMP_HOOK_ADDRESS",
         ]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "fuzzLmpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const
                 )
                 return False
@@ -1672,7 +1673,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             vma=self.fw.FUZZLMP_HOOK_ADDRESS,
         )
         if not self.patchRom(self.fw.FUZZLMP_HOOK_ADDRESS, patch):
-            log.warn("Error writing to patchram when installing fuzzLmp patch!")
+            self.logger.warning("Error writing to patchram when installing fuzzLmp patch!")
             return False
 
         return True
@@ -1704,14 +1705,14 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             "SENDLMP_ASM_CODE",
         ]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "sendLmpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const
                 )
                 return False
 
         # connection number bounds check
         if conn_nr < 1 or conn_nr > self.fw.CONNECTION_MAX:
-            log.warn("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
+            self.logger.warning("sendLmpPacket: connection number out of bounds: %d" % conn_nr)
             return False
 
         # Build the LMP packet
@@ -1736,7 +1737,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if self.launchRam(self.fw.SENDLMP_CODE_BASE_ADDRESS):
             return True
         else:
-            log.warn("sendLmpPacket: launchRam failed!")
+            self.logger.warning("sendLmpPacket: launchRam failed!")
             return False
 
     def sendLcpPacket(self, conn_idx, payload):
@@ -1756,7 +1757,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Check if constants are defined in fw.py
         for const in ["SENDLCP_CODE_BASE_ADDRESS", "SENDLCP_ASM_CODE"]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "sendLcpPacket: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const
                 )
                 return False
@@ -1778,7 +1779,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         if self.launchRam(self.fw.SENDLCP_CODE_BASE_ADDRESS):
             return True
         else:
-            log.warn("sendLcpPacket: launchRam failed!")
+            self.logger.warning("sendLcpPacket: launchRam failed!")
             return False
 
     def connectToRemoteDevice(self, bt_addr):
@@ -1925,7 +1926,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Check if constants are defined in fw.py
         for const in ["BLOC_HEAD"]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "readHeapInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!"
                     % const
                 )
@@ -1970,7 +1971,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             else:
                 bloc_fields = struct.unpack("I" * 12, bloc_struct)
                 if bloc_fields[0] != u32(b"COLB"):
-                    log.warn(
+                    self.logger.warning(
                         "readHeapInformation: BLOC double-linked list contains non-BLOC element. abort."
                     )
                     return None
@@ -2034,7 +2035,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # Check if event is Connection Create Status Event
         if hcipkt.event_code == 0xFF and hcipkt.data[0:2] == b'\x1b\x08':  # Dump Type 8
-            log.debug("[MemPool Statistics Received]")
+            self.logger.debug("[MemPool Statistics Received]")
 
             # Pool Meta Information
             pool_meta = struct.unpack("<HIIII", hcipkt.data[3:21])
@@ -2044,7 +2045,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             meta_info["free_max"] = pool_meta[2]  # Free Memory Max Address Plus One
             meta_info["time"] = pool_meta[3]  # Timestamp
             meta_info["rfu"] = pool_meta[4]  # RFU
-            log.debug(meta_info)
+            self.logger.debug(meta_info)
 
 
             # Individual Pool Information
@@ -2063,7 +2064,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 current_element["allocated"] = pool_fields[6]  # Allocated Blocks
                 current_element["free"] = pool_fields[7]  # Free Blocks
                 current_element["die"] = pool_fields[8]  # Die Reserve Count
-                log.debug(current_element)
+                self.logger.debug(current_element)
                 pool_list.append(current_element)
 
             # We're called asynchronous so we can return but printing in the
@@ -2113,7 +2114,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # Check if constants are defined in fw.py
         for const in ["QUEUE_HEAD"]:
             if const not in dir(self.fw):
-                log.warn(
+                self.logger.warning(
                     "readQueueInformation: '%s' not in fw.py. FEATURE NOT SUPPORTED!"
                     % const
                 )
@@ -2131,7 +2132,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             queue_struct = self.readMem(current_queue_struct_address, 0x38)
             queue_fields = struct.unpack("I" * 14, queue_struct)
             if queue_fields[0] != u32(b"UEUQ"):
-                log.warn(
+                self.logger.warning(
                     "readQueueInformation: QUEUE double-linked list contains non-QUEU element. abort."
                 )
                 return None
@@ -2188,7 +2189,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # We can send the activation to the serial, but then the Android driver
         # itself crashes when receiving diagnostic frames...
         else:
-            log.warn("Diagnostic protocol requires modified Android driver!")
+            self.logger.warning("Diagnostic protocol requires modified Android driver!")
 
     def enableEnhancedAdvReport(self):
         # type: () -> bool
@@ -2228,7 +2229,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # Check if constants are defined in fw.py
         if "ENHANCED_ADV_REPORT_ADDRESS" not in dir(self.fw):
-            log.warn(
+            self.logger.warning(
                 "enableEnhancedAdvReport: 'ENHANCED_ADV_REPORT_ADDRESS' not in fw.py. FEATURE NOT SUPPORTED!"
             )
             return False

@@ -99,16 +99,6 @@ def read(path, count=-1, skip=0):
         return fd.read(count)
 
 
-def flat(data: [Address, bytes], filler: int) -> bytes:
-    res = bytes()
-    last_section_end = 0
-    for address in data:
-        res += bytes([filler]) * (address - last_section_end)
-        res += data[address]
-        last_section_end = address + len(data[address])
-    return res
-
-
 class InternalBlueCLI(cmd2.Cmd):
     def __init__(self):
         # define shortcuts for commands
@@ -140,8 +130,6 @@ class InternalBlueCLI(cmd2.Cmd):
                  + "type <help -v> for usage information!"
 
         self.intro = style(banner, fg=fg.blue)
-
-        self.device = None
 
         # History file
         if main_args.data_directory is not None:
@@ -1403,7 +1391,7 @@ class InternalBlueCLI(cmd2.Cmd):
             device_name = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
             device_name_len = device_name[0] - 1
             device_name = device_name[2: 2 + device_name_len]
-            adb_serial = self.device
+            adb_serial = self.internalblue.device
 
             self.logger.info("### | Device ###")
             self.logger.info("    - Name:       %s" % device_name.decode("utf-8"))

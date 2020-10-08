@@ -15,10 +15,9 @@ import socket
 import queue as queue2k
 import random
 from internalblue import hci
-from internalblue.utils import bytes_to_hex
+from internalblue.utils import bytes_to_hex, u32
 
-
-from internalblue.utils.pwnlib_wrapper import log, context, u32
+from internalblue.utils.pwnlib_wrapper import context
 from .core import InternalBlue
 
 
@@ -54,7 +53,7 @@ class ADBCore(InternalBlue):
             self.shutdown()
 
         if self.running:
-            log.warn("Already running. call shutdown() first!")
+            self.logger.warning("Already running. call shutdown() first!")
             return []
 
         if self.replay:
@@ -63,7 +62,7 @@ class ADBCore(InternalBlue):
         try:
             adb_devices = adb.devices()
         except ValueError:
-            log.info(
+            self.logger.info(
                 "Could not find devices with pwnlib. If you see devices with `adb devices`, try to remove the lines 'for field in fields[2:]:... = v' in `pwnlib/adb/adb.py`."
             )
             adb_devices = 0
@@ -71,11 +70,11 @@ class ADBCore(InternalBlue):
             adb_devices = 0
 
         if adb_devices == 0 or len(adb_devices) == 0:
-            log.info("No adb devices found.")
+            self.logger.info("No adb devices found.")
             return []
 
         # At least one device found
-        log.info("Found multiple adb devices")
+        self.logger.info("Found multiple adb devices")
 
         # Enumerate over found devices and put them into an array of tupple
         # First index is a self reference of the class
@@ -100,21 +99,21 @@ class ADBCore(InternalBlue):
         # on magisk-rooted devices there is sometimes already a read socket and this first setup needs to be skipped...
         if not self.serial:
             if not self._setupSockets():
-                log.info("Could not connect using Bluetooth module.")
-                log.info(
+                self.logger.info("Could not connect using Bluetooth module.")
+                self.logger.info(
                     "Trying to set up connection for rooted smartphone with busybox installed."
                 )
             else:
                 return True  # successfully finished setup with bluetooth.default.so
 
         if not self._setupSerialSu():
-            log.critical("Failed to setup scripts for rooted devices.")
+            self.logger.critical("Failed to setup scripts for rooted devices.")
             return False
 
         # try again
         if not self._setupSockets():
-            log.critical("No connection to target device.")
-            log.info(
+            self.logger.critical("No connection to target device.")
+            self.logger.info(
                 "Check if:\n -> Bluetooth is active\n -> Bluetooth Stack has Debug Enabled\n -> BT HCI snoop log is activated\n -> USB debugging is authorized\n"
             )
             return False
@@ -138,7 +137,7 @@ class ADBCore(InternalBlue):
             u32(data[8:12], endian="big"),
             u32(data[12:16], endian="big"),
         )
-        log.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
+        self.logger.debug("BT Snoop Header: %s, version: %d, data link type: %d" % btsnoop_hdr)
         return btsnoop_hdr
 
     def _btsnoop_parse_time(self, time):
@@ -168,7 +167,7 @@ class ADBCore(InternalBlue):
         if it encounters a fatal error or the stackDumpReceiver reports that the chip crashed.
         """
 
-        log.debug("Receive Thread started.")
+        self.logger.debug("Receive Thread started.")
 
         while not self.exit_requested:
             # Little bit ugly: need to re-apply changes to the global context to the thread-copy
@@ -179,12 +178,12 @@ class ADBCore(InternalBlue):
             while not self.exit_requested and len(record_hdr) < 24:
                 try:
                     recv_data = self.s_snoop.recv(24 - len(record_hdr))
-                    log.debug(
+                    self.logger.debug(
                         "recvThreadFunc: received bt_snoop data "
                         + bytes_to_hex(recv_data)
                     )
                     if len(recv_data) == 0:
-                        log.info(
+                        self.logger.info(
                             "recvThreadFunc: bt_snoop socket was closed by remote site. stopping recv thread..."
                         )
                         self.exit_requested = True
@@ -195,7 +194,7 @@ class ADBCore(InternalBlue):
 
             if not record_hdr or len(record_hdr) != 24:
                 if not self.exit_requested:
-                    log.warn("recvThreadFunc: Cannot recv record_hdr. stopping.")
+                    self.logger.warning("recvThreadFunc: Cannot recv record_hdr. stopping.")
                     self.exit_requested = True
                 break
 
@@ -213,7 +212,7 @@ class ADBCore(InternalBlue):
                 try:
                     recv_data = self.s_snoop.recv(inc_len - len(record_data))
                     if len(recv_data) == 0:
-                        log.info(
+                        self.logger.info(
                             "recvThreadFunc: bt_snoop socket was closed by remote site. stopping.."
                         )
                         self.exit_requested = True
@@ -224,7 +223,7 @@ class ADBCore(InternalBlue):
 
             if not record_data or len(record_data) != inc_len:
                 if not self.exit_requested:
-                    log.warn("recvThreadFunc: Cannot recv data. stopping.")
+                    self.logger.warning("recvThreadFunc: Cannot recv data. stopping.")
                     self.exit_requested = True
                 break
 
@@ -247,7 +246,7 @@ class ADBCore(InternalBlue):
                 parsed_time,
             )
 
-            log.debug(
+            self.logger.debug(
                 "_recvThreadFunc Recv: [" + str(parsed_time) + "] " + str(record[0])
             )
 
@@ -258,7 +257,7 @@ class ADBCore(InternalBlue):
                     try:
                         queue.put(record, block=False)
                     except queue2k.Full:
-                        log.warn(
+                        self.logger.warning(
                             "recvThreadFunc: A recv queue is full. dropping packets.."
                         )
 
@@ -270,10 +269,10 @@ class ADBCore(InternalBlue):
             # Check if the stackDumpReceiver has noticed that the chip crashed.
             # if self.stackDumpReceiver and self.stackDumpReceiver.stack_dump_has_happend:
             # A stack dump has happend!
-            # log.warn("recvThreadFunc: The controller sent a stack dump.")
+            # self.logger.warning("recvThreadFunc: The controller sent a stack dump.")
             # self.exit_requested = True
 
-        log.debug("Receive Thread terminated.")
+        self.logger.debug("Receive Thread terminated.")
 
     def _setupSockets(self):
         """
@@ -290,19 +289,19 @@ class ADBCore(InternalBlue):
         self.hciport = random.randint(
             60000, 65534
         )  # minus 1, as we are using hciport + 1
-        log.debug(
+        self.logger.debug(
             "_setupSockets: Selected random ports snoop=%d and inject=%d"
             % (self.hciport, self.hciport + 1)
         )
 
-        # Forward ports 8872 and 8873. Ignore log.info() outputs by the adb function.
+        # Forward ports 8872 and 8873. Ignore self.logger.info() outputs by the adb function.
         saved_loglevel = context.log_level
         context.log_level = "warn"
         try:
             adb.adb(["forward", "tcp:%d" % (self.hciport), "tcp:8872"])
             adb.adb(["forward", "tcp:%d" % (self.hciport + 1), "tcp:8873"])
         except PwnlibException as e:
-            log.warn("Setup adb port forwarding failed: " + str(e))
+            self.logger.warning("Setup adb port forwarding failed: " + str(e))
             return False
         finally:
             context.log_level = saved_loglevel
@@ -313,7 +312,7 @@ class ADBCore(InternalBlue):
             self.s_inject.connect(("127.0.0.1", self.hciport + 1))
             self.s_inject.settimeout(0.5)
         except socket.error:
-            log.warn("Could not connect to adb. Is your device authorized?")
+            self.logger.warning("Could not connect to adb. Is your device authorized?")
             return False
 
         # Connect to hci snoop log port
@@ -323,7 +322,7 @@ class ADBCore(InternalBlue):
 
         # Read btsnoop header
         if self._read_btsnoop_hdr() == None:
-            log.warn("Could not read btsnoop header")
+            self.logger.warning("Could not read btsnoop header")
             self.s_inject.close()
             self.s_snoop.close()
             self.s_inject = self.s_snoop = None
@@ -354,7 +353,7 @@ class ADBCore(InternalBlue):
                 adb.adb(["forward", "--remove", f"tcp:{hciport}"])
                 adb.adb(["forward", "--remove", f"tcp:{hciport + 1}"])
             except PwnlibException as e:
-                log.warn("Removing adb port forwarding failed: " + str(e))
+                self.logger.warning("Removing adb port forwarding failed: " + str(e))
                 return False
             finally:
                 context.log_level = saved_loglevel
@@ -386,11 +385,11 @@ class ADBCore(InternalBlue):
         try:
             # check dependencies
             if adb.which("su") is None:
-                log.critical("su not found, rooted smartphone required!")
+                self.logger.critical("su not found, rooted smartphone required!")
                 return False
 
             if adb.process(["su", "-c", "which", "nc"]).recvall() == "":
-                log.critical("nc not found, install busybox!")
+                self.logger.critical("nc not found, install busybox!")
                 return False
 
             # automatically detect the proper serial device with lsof
@@ -402,7 +401,7 @@ class ADBCore(InternalBlue):
                 .strip()
                 .decode("utf-8")
             )
-            log.info("Android btsnoop logfile %s...", logfile)
+            self.logger.info("Android btsnoop logfile %s...", logfile)
             interface = (
                 adb.process(
                     ["su", "-c", "lsof | grep bluetooth | grep tty | awk '{print $NF}'"]
@@ -411,16 +410,16 @@ class ADBCore(InternalBlue):
                 .strip()
                 .decode("utf-8")
             )
-            log.info("Android Bluetooth interface %s...", interface)
+            self.logger.info("Android Bluetooth interface %s...", interface)
 
             if logfile == "":
-                log.critical(
+                self.logger.critical(
                     "Could not find Bluetooth logfile. Enable Bluetooth snoop logging."
                 )
                 return False
 
             if interface == "":
-                log.critical("Could not find Bluetooth interface. Enable Bluetooth.")
+                self.logger.critical("Could not find Bluetooth interface. Enable Bluetooth.")
                 return False
 
             # spawn processes
@@ -432,7 +431,7 @@ class ADBCore(InternalBlue):
             sleep(2)
 
         except PwnlibException as e:
-            log.warn("Serial scripting setup failed: " + str(e))
+            self.logger.warning("Serial scripting setup failed: " + str(e))
             return False
         finally:
             context.log_level = saved_loglevel
