@@ -74,6 +74,7 @@ void *proxy_fn() {
         NSLog(@"PCIe transports created, starting proxy...");
         proxy_bt_pcie(client_fd, my_conn);
 
+        NSLog(@"Proxy connection closed, closing files");
         close(client_fd);
         close(server_fd);
         // Maybe add a function that Frees everything
