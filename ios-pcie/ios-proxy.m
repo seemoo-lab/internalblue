@@ -52,7 +52,7 @@ void load_AppleConvergedTransport() {
 }
 
 int connect_bti_transport(my_connection_t * my_conn) {
-    NSLog(@"ios-proxy.m:connect_bti_transport -> Starting");
+    //NSLog(@"ios-proxy.m:connect_bti_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     pciparams[0] = 1; //BTI
@@ -62,12 +62,12 @@ int connect_bti_transport(my_connection_t * my_conn) {
     pciparams[2] = (int64_t)&myBlock;
     pciparams[3] = 1000; 
     pciparams[4] = 0;
-    NSLog(@"ios-proxy.m:connect_bti_transport -> Returning");
+    //NSLog(@"ios-proxy.m:connect_bti_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->bti_transport); // THE PROBLEM IS IN HERE
 }
 
 int connect_hci_transport(my_connection_t * my_conn) {
-    NSLog(@"ios-proxy.m:connect_hci_transport -> Starting");
+    //NSLog(@"ios-proxy.m:connect_hci_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     //dispatch_queue_attr_t qos = dispatch_queue_attr_make_with_qos_class(0,0x15,0);
@@ -81,12 +81,12 @@ int connect_hci_transport(my_connection_t * my_conn) {
     pciparams[4] = 8;
     //pciparams[4] = 12;
     //pciparams[10] = 25;
-    NSLog(@"ios-proxy.m:connect_hci_transport -> Returning");
+    //NSLog(@"ios-proxy.m:connect_hci_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->hci_transport); // returns 1 on success
 }
 
 int connect_acl_transport(my_connection_t * my_conn) {
-    NSLog(@"ios-proxy.m:connect_acl_transport -> Starting");
+    //NSLog(@"ios-proxy.m:connect_acl_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     pciparams[0] = 3; //ACL
@@ -97,12 +97,12 @@ int connect_acl_transport(my_connection_t * my_conn) {
     pciparams[3] = 1000;
     pciparams[4] = 4;
     pciparams[10] = 33;
-    NSLog(@"ios-proxy.m:connect_acl_transport -> Returning");
+    //NSLog(@"ios-proxy.m:connect_acl_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->acl_transport); // returns 1 on success
 }
 
 int connect_sco_transport(my_connection_t * my_conn) {
-    NSLog(@"ios-proxy.m:connect_sco_transport -> Starting");
+    //NSLog(@"ios-proxy.m:connect_sco_transport -> Starting");
     int64_t pciparams[11];
     AppleConvergedTransportInitParameters(pciparams);
     pciparams[0] = 4; //SCO
@@ -114,12 +114,12 @@ int connect_sco_transport(my_connection_t * my_conn) {
     pciparams[3] = 1000;
     pciparams[4] = 4;
     pciparams[10] = 33;
-    NSLog(@"ios-proxy.m:connect_sco_transport -> Returning");
+    //NSLog(@"ios-proxy.m:connect_sco_transport -> Returning");
     return AppleConvergedTransportCreate(pciparams, &my_conn->sco_transport); // returns 1 on success
 }
 
 my_connection_t *  connect_bt_pcie() {
-    NSLog(@"ios-proxy.m:connect_bt_pcie -> Entered");
+    //NSLog(@"ios-proxy.m:connect_bt_pcie -> Entered");
     // This function will create 4 transports on PCIe, and return them in a struct.
     load_AppleConvergedTransport();
     NSLog(@"ios-proxy.m:connect_bt_pcie -> AppleConvergedTransport.dylib Loaded");
@@ -128,7 +128,7 @@ my_connection_t *  connect_bt_pcie() {
     my_connection->hci_transport = 0;
     my_connection->acl_transport = 0;
     my_connection->sco_transport = 0;
-    NSLog(@"ios-proxy.m:connect_bt_pcie -> Starting transport initialization");
+    //NSLog(@"ios-proxy.m:connect_bt_pcie -> Starting transport initialization");
     if (!connect_bti_transport(my_connection)) // should return 1 on success
         NSLog(@"InternalBlue: PCIe Error creating BTI Transport");
     if (!connect_hci_transport(my_connection))
@@ -137,16 +137,18 @@ my_connection_t *  connect_bt_pcie() {
         NSLog(@"InternalBlue: PCIe Error creating ACL Transport");
     if (!connect_sco_transport(my_connection))
         NSLog(@"InternalBlue: PCIe Error creating SCO Transport");
-    NSLog(@"Transport Initialized:");
+    NSLog(@"Transports Initialized:");
     NSLog(@"BTI: %u", (unsigned int) my_connection->bti_transport);
     NSLog(@"HCI: %u", (unsigned int) my_connection->hci_transport);
     NSLog(@"ACL: %u", (unsigned int) my_connection->acl_transport);
     NSLog(@"SCO: %u", (unsigned int) my_connection->sco_transport);
+    if (!(my_connection->bti_transport||my_connection->hci_transport||my_connection->acl_transport||my_connection->sco_transport))
+        NSLog(@"ERROR: All Transports Failed! Did you forget to turn Bluetooth OFF?");
     return my_connection;
 }
 
 void proxy_bt_pcie(int client, my_connection_t * my_conn) {
-    NSLog(@"Allocating Buffers for Proxy Data");
+    //NSLog(@"Allocating Buffers for Proxy Data");
     // this function establishes the relay connection between the transports(bt chip) and the client socket
     // only one fd and a ?
     char *client_buf, *bti_buf, *hci_buf, *acl_buf, *sco_buf; // buffers for incoming data
@@ -169,7 +171,7 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
         poll(pfds, 1, 100);
         if(pfds[0].revents & POLLIN) {
             ret = read(pfds[0].fd, client_buf, 4096);
-            NSLog(@"Read Data from client. Size: %u", ret);
+            //NSLog(@"Read Data from client. Size: %u", ret);
             
             if (!ret) {
                 // This means that the client probably closed the connection 
@@ -182,8 +184,8 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
                 return;
             }
             //send stuff to bt
-            NSLog(@"Sending Data to BT Chip");
-            NSLog(@"H4 Message Type: 0x%x", ((char *)client_buf)[0]);
+            //NSLog(@"Sending Data to BT Chip");
+            //NSLog(@"H4 Message Type: 0x%x", ((char *)client_buf)[0]);
             switch(((char*)client_buf)[0]) {
                 case 1:
                     ret = AppleConvergedTransportWrite(my_conn->hci_transport, client_buf+1, ret-1, &x, -1, 0); //+1, because we strip the H4 tag
@@ -200,7 +202,7 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
                     break;
                 case 7:
                     if (my_conn->bti_transport){
-                        NSLog(@"sending to bti");
+                        //NSLog(@"sending to bti");
                         ret = AppleConvergedTransportWrite(my_conn->bti_transport, client_buf+1, ret-1, &x, -1, 0);}
                     break;
             }
@@ -245,7 +247,8 @@ void proxy_bt_pcie(int client, my_connection_t * my_conn) {
         *bti_buf = (char)7;
         if (ret != 0) {
         NSLog(@"ACTRead (BTI) Returned %u", ret);
-        NSLog(@"ATCRead (BTI) to x: %u", (unsigned int)x);}
+        NSLog(@"ATCRead (BTI) to x: %u", (unsigned int)x);
+        }
         if (ret != 0) {
             write(pfds[0].fd, bti_buf, x+1);
         }
@@ -301,57 +304,3 @@ int wait_for_connection(int server_fd) {
 	
 	return client_fd;
 }
-
-void proxy_bt_socket(int client, int bt) {
-	char *client_buf, *bt_buf; // buffers for incoming data
-    int nfds, x;
-	fd_set R;
-	size_t n;
-	
-	client_buf = malloc(0x2000);
-	bt_buf = malloc(0x2000);
-	
-	nfds = client > bt ? client : bt; //highest open fd plus 1
-	nfds++;
-    
-	while(1) {
-		FD_ZERO(&R);
-        FD_SET(client, &R);
-        FD_SET(bt, &R); // Set of fd's to monitor: (client, bt)
-		
-		struct timeval to;
-		to.tv_sec = 0;
-		to.tv_usec = 100;
-		x = select(nfds+1, &R, 0, 0, &to); //might be an err, we do nfds++ twice. wait until fds are ready for reading.
-		if (x > 0) {
-			if (FD_ISSET(client, &R)) {
-                n = read(client, client_buf, 4096);
-                if (n > 0) {
-                    write(bt, client_buf, n);
-                } else {
-                    close(client);
-                    NSLog(@"[!] Client read failed\n");
-                    return;
-                }
-			}
-			
-			if (FD_ISSET(bt, &R)) {
-                n = read(bt, bt_buf, 4096);
-                if (n > 0) {
-                    write(client, bt_buf, n);
-                } else {
-                    close(client);
-                    NSLog(@"[!] H4 socket read failed\n");
-                    return;
-                }
-			}
-		} else if (x < 0 && errno != EINTR){
-			NSLog(@"[!] Select failed with %s\n", strerror(errno));
-			close(client);
-			return;
-		}
-		
-	}
-}
-
-

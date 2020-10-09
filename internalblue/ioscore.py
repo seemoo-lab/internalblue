@@ -16,6 +16,7 @@ from internalblue.utils.pwnlib_wrapper import log, context
 
 from .usbmux import USBMux, MuxError
 from .core import InternalBlue
+import sys
 
 
 class iOSCore(InternalBlue):
@@ -72,9 +73,11 @@ class iOSCore(InternalBlue):
         
         device_list = []
         for dev in self.devices:
-            # dev_id = "iOS Device (" + dev.serial + ")" # macos
-            dev_id = "iOS Device (" + dev.serial.decode(
-                'utf-8') + ")"  # FIXME linux requires decode, macos doesn't (different libimobiledevice)
+            if sys.platform == "darwin":
+                dev_id = "iOS Device (" + dev.serial + ")" # macos
+            else:
+                dev_id = "iOS Device (" + dev.serial.decode(
+                    'utf-8') + ")"  
             device_list.append((self, dev, dev_id))
 
         return device_list

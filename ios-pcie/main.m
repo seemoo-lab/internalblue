@@ -71,9 +71,18 @@ void *proxy_fn() {
         my_connection_t *my_conn;
 
         my_conn = connect_bt_pcie();
+
+        if (!(my_conn->bti_transport||my_conn->hci_transport||my_conn->acl_transport||my_conn->sco_transport)){
+            NSLog(@"Error Creating Transports...");
+            close(client_fd);
+            close(server_fd);
+            continue;
+        }
+
         NSLog(@"PCIe transports created, starting proxy...");
         proxy_bt_pcie(client_fd, my_conn);
 
+        NSLog(@"Proxy connection closed, closing files");
         close(client_fd);
         close(server_fd);
         // Maybe add a function that Frees everything
