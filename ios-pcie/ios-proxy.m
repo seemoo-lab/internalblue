@@ -142,6 +142,8 @@ my_connection_t *  connect_bt_pcie() {
     NSLog(@"HCI: %u", (unsigned int) my_connection->hci_transport);
     NSLog(@"ACL: %u", (unsigned int) my_connection->acl_transport);
     NSLog(@"SCO: %u", (unsigned int) my_connection->sco_transport);
+    if (!(my_connection->bti_transport||my_connection->hci_transport||my_connection->acl_transport||my_connection->sco_transport))
+        NSLog(@"ERROR: All Transports Failed! Did you forget to turn Bluetooth OFF?");
     return my_connection;
 }
 
