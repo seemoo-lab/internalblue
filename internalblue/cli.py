@@ -47,8 +47,6 @@ from threading import Timer
 
 import cmd2
 from cmd2 import fg, style
-from pwnlib.asm import disasm, asm
-from pwnlib.exception import PwnlibException
 
 from internalblue import Address
 from internalblue.adbcore import ADBCore
@@ -264,6 +262,23 @@ class InternalBlueCLI(cmd2.Cmd):
     $ CUSTOM CUSTOM $
     $$$$$$$$$$$$$$$$$
     """
+
+    class needs_pwnlibs(object):
+        def __init__(self, func):
+            self.__name__ = 'dec'
+            self.func = func
+
+        def __call__(self, *args, **kwargs):
+            if "context" not in self.func.__globals__:
+                from pwnlib import context
+                from pwnlib.asm import disasm, asm
+                from pwnlib.exception import PwnlibException
+                context.context.arch = 'thumb'
+                self.func.__globals__["context"] = context
+                self.func.__globals__["asm"] = asm
+                self.func.__globals__["disasm"] = disasm
+                self.func.__globals__["PwnlibException"] = PwnlibException
+            return self.func(*args, **kwargs)
 
     @staticmethod
     def bt_addr_to_str(bt_addr):
@@ -899,6 +914,7 @@ class InternalBlueCLI(cmd2.Cmd):
     disasm_parser.add_argument('address', type=auto_int, help='Start address of the disassembly.')
 
     @cmd2.with_argparser(disasm_parser)
+    @needs_pwnlibs
     def do_disasm(self, args):
         """Display a disassembly of a specified region in the memory."""
         if not self.isAddressInSections(args.address, args.length):
@@ -978,6 +994,7 @@ class InternalBlueCLI(cmd2.Cmd):
     writeasm_parser.add_argument('code', nargs='*', help='Assembler code as string')
 
     @cmd2.with_argparser(writeasm_parser)
+    @needs_pwnlibs
     def do_writeasm(self, args):
         """Writes assembler instructions to a specified memory address."""
         if args.file is not None:
@@ -1047,6 +1064,7 @@ class InternalBlueCLI(cmd2.Cmd):
     exec_parser.add_argument('cmd', help='Name of the command to execute (corresponds to file exec_<cmd>.s)')
 
     @cmd2.with_argparser(exec_parser)
+    @needs_pwnlibs
     def do_exec(self, args):
         """Writes assembler instructions to RAM and jumps there."""
         filename = self.internalblue.data_directory + "/exec_%s.s" % args.cmd
@@ -1142,6 +1160,7 @@ class InternalBlueCLI(cmd2.Cmd):
     patch_parser.add_argument('data', nargs='*', help='Data as string (or hexstring/integer/instruction, see --hex, --int, --asm)')
 
     @cmd2.with_argparser(patch_parser)
+    @needs_pwnlibs
     def do_patch(self, args):
         """Patches 4 byte of data at a specified ROM address."""
         if args.slot is not None:
@@ -1361,7 +1380,7 @@ class InternalBlueCLI(cmd2.Cmd):
             print()
             return None
 
-        def infoDevice():
+        def infoDevice(arg):
             for const in ["BD_ADDR", "DEVICE_NAME"]:
                 if const not in dir(self.internalblue.fw):
                     self.logger.warning(" '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
@@ -1379,7 +1398,8 @@ class InternalBlueCLI(cmd2.Cmd):
             self.logger.info("    - Address:    %s" % bt_addr_str)
             return None
 
-        def infoPatchram():
+        @self.needs_pwnlibs
+        def infoPatchram(arg):
             if not hasattr(self.internalblue.fw, "PATCHRAM_NUMBER_OF_SLOTS"):
                 self.logger.warning("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")
                 return False
