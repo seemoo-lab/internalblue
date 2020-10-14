@@ -32,7 +32,7 @@ from builtins import object
 from enum import Enum
 from datetime import datetime
 
-from internalblue.utils.pwnlib_wrapper import (
+from internalblue.utils import (
     p8,
     u16,
     p16,
@@ -43,8 +43,9 @@ from internalblue.utils.pwnlib_wrapper import (
     p32,
     u32,
 )
-from internalblue.utils.pwnlib_wrapper import log
-from pwnlib.util.packing import flat
+
+from internalblue.utils import flat
+from internalblue.utils.internalblue_logger import getInternalBlueLogger
 
 
 class HCI_COMND(Enum):
@@ -879,7 +880,7 @@ class HCI_Event(HCI):
         if code_int in d:
             return d[code_int]
 
-        log.warning("Hci event not found: %s" % code)
+        getInternalBlueLogger().warning("Hci event not found: %s" % code)
 
         return False
 
@@ -934,6 +935,7 @@ class StackDumpReceiver(object):
 
     def __init__(self, data_directory="."):
         self.data_directory = data_directory
+        self.logger = getInternalBlueLogger()
         self.stack_dump_filename = data_directory + ("/internalblue_stackdump_%s.bin" % datetime.now())
 
     def recvPacket(self, record):
@@ -969,14 +971,14 @@ class StackDumpReceiver(object):
         if self.memdump_addr is None:
             self.memdump_addr = addr
         self.memdumps[addr - self.memdump_addr] = bytes(data[4:])  # convert from bytearray to bytes
-        log.debug("Stack dump handling addr %08x", addr - self.memdump_addr)
+        self.logger.debug("Stack dump handling addr %08x", addr - self.memdump_addr)
 
     def finishStackDump(self):
         """
         Write the stack dump to a file once it is finished.
         """
         dump = flat(self.memdumps)  # flatten, as we have one entry per address chunk
-        log.warn(
+        self.logger.warning(
             "Stack dump @0x%08x written to %s!"
             % (self.memdump_addr, self.stack_dump_filename)
         )
@@ -994,7 +996,7 @@ class StackDumpReceiver(object):
         if packet_type == 0x2C:
             data = hcipkt.data[6:]
             values = [u32(data[i : i + 4]) for i in range(0, 64, 4)]
-            log.debug(
+            self.logger.debug(
                 "Stack Dump (%s):\n%s"
                 % (
                     "checksum correct" if checksum_correct else "checksum NOT correct",
@@ -1003,7 +1005,7 @@ class StackDumpReceiver(object):
             )
             if data[0] == 0x02:
                 # This is the second stack dump event (contains register values)
-                log.warn(
+                self.logger.warn(
                     "Received Stack-Dump Event (contains %d registers):" % (data[1])
                 )
                 registers = (
@@ -1014,7 +1016,7 @@ class StackDumpReceiver(object):
                     "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n"
                     % tuple(values[6:11])
                 )
-                log.warn(registers)
+                self.logger.warn(registers)
                 return True
 
         elif packet_type == 0xF0:  # RAM dump
@@ -1035,7 +1037,7 @@ class StackDumpReceiver(object):
         if packet_type in [0x2C, 0x4C]:
             data = hcipkt.data[9:]
             values = [u32(data[i : i + 4]) for i in range(0, 64, 4)]
-            log.debug(
+            self.logger.debug(
                 "Stack Dump (%s) [packet_type=0x%x]:\n%s"
                 % (
                     "checksum correct" if checksum_correct else "checksum NOT correct",
@@ -1046,7 +1048,7 @@ class StackDumpReceiver(object):
 
             if packet_type == 0x2C and data[0] == 0x02:
                 # This is the second stack dump event (contains register values)
-                log.warn(
+                self.logger.warn(
                     "Received Stack-Dump Event (contains %d registers):" % (data[1])
                 )
                 registers = (
@@ -1057,7 +1059,7 @@ class StackDumpReceiver(object):
                     "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n"
                     % tuple(values[6:11])
                 )
-                log.warn(registers)
+                self.logger.warn(registers)
                 return True
 
         elif packet_type == 0xF0:  # RAM dump
@@ -1095,7 +1097,7 @@ class StackDumpReceiver(object):
         checksum_correct = self.verifyChecksum(hcipkt.data[3:])
         packet_type = hcipkt.data[2]
 
-        log.debug("packet type %x", packet_type)
+        self.logger.debug("packet type %x", packet_type)
 
         # TODO CoreDumpInfo (shows LMP/HCI version, memory dumps)
 
@@ -1103,7 +1105,7 @@ class StackDumpReceiver(object):
         if packet_type == 0x2C:
             data = hcipkt.data[4:]
             values = [u32(data[i : i + 4]) for i in range(0, 64, 4)]
-            log.debug(
+            self.logger.debug(
                 "Stack Dump (%s):\n%s"
                 % (
                     "checksum correct" if checksum_correct else "checksum NOT correct",
@@ -1112,7 +1114,7 @@ class StackDumpReceiver(object):
             )
             if data[0] == 0x02:
                 # This is the second stack dump event (contains register values)
-                log.warn(
+                self.logger.warn(
                     "Received Evaluation Stack-Dump Event (contains %d registers):"
                     % (data[1])
                 )
@@ -1124,7 +1126,7 @@ class StackDumpReceiver(object):
                     "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n"
                     % tuple(values[6:11])
                 )
-                log.warn(registers)
+                self.logger.warn(registers)
                 return True
 
         # CoreDumpRAMImage
@@ -1137,7 +1139,7 @@ class StackDumpReceiver(object):
         # Last packet produced by CoreDumpRAMImage
         elif packet_type == 0x78:  # RAM dump (last frame), TODO not sure if this works
             # This is the last pkt ouput:
-            log.info("End of stackdump block...")
+            self.logger.info("End of stackdump block...")
             self.finishStackDump()
             return True
 
@@ -1147,7 +1149,7 @@ class StackDumpReceiver(object):
             # address change from 0001fe38 to packet type e8 and then it's computing addr -0130000
             # negative addr does not work with finishStackDump()
             # so even though the last packet is 0x40, let's just finish on 0xe8
-            log.info(
+            self.logger.info(
                 "End of first stackdump block, writing to file and skipping second..."
             )
             self.finishStackDump()
@@ -1171,7 +1173,7 @@ class StackDumpReceiver(object):
         if packet_type == 0x90:
             data = hcipkt.data[4:]
             values = [u32(data[i : i + 4]) for i in range(0, 64 * 2, 4)]
-            log.debug(
+            self.logger.debug(
                 "Stack Dump (%s):\n%s"
                 % (
                     "checksum correct" if checksum_correct else "checksum NOT correct",
@@ -1179,7 +1181,7 @@ class StackDumpReceiver(object):
                 )
             )
             # Values different than in other stack dump formats, experimental output!
-            log.warn(
+            self.logger.warn(
                 "Received S10 Stack-Dump Event (contains %d registers):" % (data[1])
             )
             registers = (
@@ -1190,10 +1192,10 @@ class StackDumpReceiver(object):
                 "r2: 0x%08x   r3: 0x%08x   r4: 0x%08x   r5: 0x%08x   r6: 0x%08x\n"
                 % (values[21], values[22], values[23], values[24], values[25])
             )
-            log.warn(registers)
+            self.logger.warn(registers)
             return True
 
-        # log.info("%x" % u32(hcipkt.data[8:12]))
+        # self.logger.info("%x" % u32(hcipkt.data[8:12]))
         # no last packet for S10e, just the size counts here... also is sometimes longer and sometimes shorter
         if packet_type == 0xF0 and u32(hcipkt.data[8:12]) == 0x230080:
             # This is the last pkt ouput:

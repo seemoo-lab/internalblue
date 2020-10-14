@@ -18,6 +18,14 @@ def p8(num, endian: str = ''):
     return struct.pack('B', num)
 
 
+def u8(num, endian: str = ''):
+    if endian.lower() == 'big':
+        return struct.unpack('>B', num)
+    elif endian.lower() == 'little':
+        return struct.unpack('<B', num)
+    return struct.unpack('B', num)
+
+
 def p16(num, endian: str = ''):
     if endian.lower() == 'big':
         return struct.pack('>H', num)
@@ -155,19 +163,13 @@ def unbits(s, endian='big'):
     return out
 
 
-class needs_pwnlibs(object):
-    def __init__(self, func):
-        self.__name__ = 'dec'
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        if "context" not in self.func.__globals__:
-            from pwnlib import context
-            from pwnlib.asm import disasm, asm
-            from pwnlib.exception import PwnlibException
-            context.context.arch = 'thumb'
-            self.func.__globals__["context"] = context
-            self.func.__globals__["asm"] = asm
-            self.func.__globals__["disasm"] = disasm
-            self.func.__globals__["PwnlibException"] = PwnlibException
-        return self.func(*args, **kwargs)
+def bits_str(s, endian='big'):
+    """bits_str(s, endian = 'big') -> str
+    A wrapper around :func:`bits`, which converts the output into a string.
+    Examples:
+       >>> bits_str(511)
+       '0000000111111111'
+       >>> bits_str(b"bits_str", endian = "little")
+       '0100011010010110001011101100111011111010110011100010111001001110'
+    """
+    return ''.join(bits(s, endian, 0, 1))

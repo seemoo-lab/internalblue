@@ -8,16 +8,15 @@ from future import standard_library
 from pwnlib import adb
 from pwnlib.exception import PwnlibException
 
-standard_library.install_aliases()
 from builtins import str
 import datetime
 import socket
 import queue as queue2k
 import random
-from internalblue import hci
-from internalblue.utils import bytes_to_hex, u32
-
+from . import hci
+from .utils import bytes_to_hex, u32
 from .core import InternalBlue
+standard_library.install_aliases()
 
 
 class ADBCore(InternalBlue):
@@ -240,9 +239,9 @@ class ADBCore(InternalBlue):
                 parsed_time,
             )
 
-            self.logger.debug(
-                "_recvThreadFunc Recv: [" + str(parsed_time) + "] " + str(record[0])
-            )
+            # self.logger.debug(
+            #     "_recvThreadFunc Recv: [" + str(parsed_time) + "] " + str(record[0])
+            # )
 
             # Put the record into all queues of registeredHciRecvQueues if their
             # filter function matches.

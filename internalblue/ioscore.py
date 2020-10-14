@@ -2,8 +2,6 @@
 
 from __future__ import absolute_import
 
-import struct
-
 from future import standard_library
 
 standard_library.install_aliases()

@@ -27,70 +27,60 @@
 
 from __future__ import division
 
+import datetime
+import logging
+import queue as queue2k
 import socket
 import struct
+import time
+from abc import ABCMeta, abstractmethod
+from builtins import hex, str, range, object
 from threading import Thread
 
 from future import standard_library
-
-import logging
-from internalblue.utils.logging_formatter import CustomFormatter
-from internalblue.utils import p16, p8, u32, u16, p32, flat, bits, unbits, needs_pwnlibs
-from .fw import FirmwareDefinition
-
-standard_library.install_aliases()
-from builtins import hex
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
-from abc import ABCMeta, abstractmethod
-
-from .fw.fw import Firmware
-import datetime
-import time
-import queue as queue2k
-from . import hci
-from .objects.queue_element import QueueElement
-from .objects.connection_information import ConnectionInformation
 from future.utils import with_metaclass
-from internalblue.utils import bytes_to_hex
-from internalblue.hci import HCI, HCI_COMND
+from past.utils import old_div
+
+from . import hci
+from .fw import FirmwareDefinition
+from .fw.fw import Firmware
+from .hci import HCI, HCI_COMND
+from .objects.connection_information import ConnectionInformation
+from .objects.queue_element import QueueElement
+from .utils import p16, p8, u32, u16, p32, flat, bits, unbits, bytes_to_hex
+from .utils.internalblue_logger import getInternalBlueLogger
+standard_library.install_aliases()
 
 try:
-    from typing import (
-        List,
-        Optional,
-        Any,
-        TYPE_CHECKING,
-        Tuple,
-        Union,
-        NewType,
-        Callable,
-        cast,
-    )
-    from internalblue import (
-        Address,
-        Record,
-        Task,
-        HCI_CMD,
-        FilterFunction,
-        ConnectionNumber,
-        ConnectionDict,
-        ConnectionIndex,
-        BluetoothAddress,
-        HeapInformation,
-        QueueInformation,
-        Opcode,
-    )
+    from typing import List, Optional, Any, TYPE_CHECKING, Tuple, Union, NewType, Callable, cast
+    from internalblue import (Address, Record, Task, HCI_CMD, FilterFunction, ConnectionNumber, ConnectionDict,
+                              ConnectionIndex, BluetoothAddress, HeapInformation, QueueInformation, Opcode)
     from . import DeviceTuple
-
-    if TYPE_CHECKING:
-        from pwnlib import context
-        from pwnlib.asm import disasm, asm
-        from pwnlib.exception import PwnlibException
-except:
+except ImportError:
     pass
+
+try:
+    from pwnlib import context
+    from pwnlib.asm import disasm, asm
+    from pwnlib.exception import PwnlibException
+    context.context.arch = 'thumb'
+except ImportError:
+    context, disasm, asm, PwnlibException = None, None, None, None
+    _has_pwnlib = False
+    import warnings
+    warnings.formatwarning = (lambda x, *args, **kwargs: f"\x1b[31m[!] {x}\x1b[0m\n")
+    warnings.warn("pwnlibs is not installed. Some features will not work.")
+else:
+    _has_pwnlib = True
+
+
+def needs_pwnlibs(func):
+    def inner(*args, **kwargs):
+        if not _has_pwnlib:
+            raise ImportError("pwnlibs is required for this function.")
+        return func(*args, **kwargs)
+
+    return inner
 
 
 class InternalBlue(with_metaclass(ABCMeta, object)):
@@ -108,7 +98,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self._internal_loglevel = new
         level = levels[new]
         if self.logger.hasHandlers() and level is not None:
-            self.logger.handlers[0].setLevel(level)
+            self.logger.setLevel(level)
+            if len(self.logger.handlers) > 0:
+                self.logger.handlers[0].setLevel(level)
 
     def __init__(
             self,
@@ -118,16 +110,8 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             data_directory: str = ".",
             replay: bool = False,
     ) -> None:
-        # create logger with 'InternalBlue'
-        self.logger = logging.getLogger("InternalBlue")
-        self.logger.setLevel(logging.DEBUG)
-
-        # create console handler with a higher log level
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        ch.setFormatter(CustomFormatter())
-        if not self.logger.hasHandlers():
-            self.logger.addHandler(ch)
+        # get and store 'InternalBlue' logger
+        self.logger = getInternalBlueLogger()
 
         self.interface = None  # holds the self.device / hci interface which is used to connect, is set in cli
         self.fw: FirmwareDefinition = None  # holds the firmware file

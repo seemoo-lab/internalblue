@@ -30,9 +30,8 @@ from typing import List
 
 
 from internalblue import Address
-import logging
 
-from internalblue.utils.logging_formatter import CustomFormatter
+from internalblue.utils.internalblue_logger import getInternalBlueLogger
 
 
 class MemorySection(object):
@@ -115,13 +114,8 @@ class Firmware(object):
 
         self.version = version
 
-        logger = logging.getLogger("InternalBlue")
-        logger.setLevel(logging.DEBUG)
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        ch.setFormatter(CustomFormatter())
-        if not logger.hasHandlers():
-            logger.addHandler(ch)
+        # get and store 'InternalBlue' logger
+        logger = getInternalBlueLogger()
 
         if version:
             # get LMP Subversion
@@ -167,7 +161,7 @@ class Firmware(object):
             for name, cls in fw.__dict__.items()
             if isinstance(cls, type)
             and issubclass(cls, FirmwareDefinition)
-            and not cls is FirmwareDefinition
+            and cls is not FirmwareDefinition
         }
 
         if len(_types) == 1:

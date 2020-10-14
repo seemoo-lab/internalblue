@@ -37,7 +37,7 @@ class macOSCore(InternalBlue):
             queue_size,
             btsnooplog_filename,
             log_level,
-            data_directory=".",
+            data_directory=data_directory,
             replay=replay,
         )
         self.doublecheck = False

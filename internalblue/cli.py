@@ -33,7 +33,6 @@ from __future__ import print_function
 import argparse
 import binascii
 import inspect
-import logging
 import os
 import re
 import select
@@ -48,14 +47,12 @@ from threading import Timer
 import cmd2
 from cmd2 import fg, style
 
-from internalblue import Address
-from internalblue.adbcore import ADBCore
-from internalblue.cmds import CmdMonitor
-from internalblue.hci import HCI_COMND
-from internalblue.hcicore import HCICore
-from internalblue.utils.progress_logger import ProgressLogger
-from internalblue.utils.logging_formatter import CustomFormatter
-from internalblue.utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno, needs_pwnlibs
+from . import Address
+from .hci import HCI_COMND
+from .utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno
+from .utils.progress_logger import ProgressLogger
+from .utils.internalblue_logger import getInternalBlueLogger
+from .hcicore import HCICore
 
 try:
     import typing
@@ -66,15 +63,29 @@ try:
     if TYPE_CHECKING:
         from internalblue.core import InternalBlue
         from internalblue import Record, BluetoothAddress, Address
-
-        # Only needed to fix PyCharm errors.
-        # In normal execution, the needs_pwnlibs
-        # decorator deals with the imports.
-        from pwnlib import context
-        from pwnlib.asm import disasm, asm
-        from pwnlib.exception import PwnlibException
 except ImportError:
     pass
+
+try:
+    from pwnlib import context
+    from pwnlib.asm import disasm, asm
+    from pwnlib.exception import PwnlibException
+    context.context.arch = 'thumb'
+    from .adbcore import ADBCore
+except ImportError:
+    context, disasm, asm, PwnlibException = None, None, None, None
+    _has_pwnlib = False
+else:
+    _has_pwnlib = True
+
+
+def needs_pwnlibs(func):
+    def inner(*args, **kwargs):
+        if not _has_pwnlib:
+            raise ImportError("pwnlibs is required for this function.")
+        return func(*args, **kwargs)
+
+    return inner
 
 
 def auto_int(x):
@@ -110,15 +121,8 @@ class InternalBlueCLI(cmd2.Cmd):
         shortcuts = dict(cmd2.DEFAULT_SHORTCUTS)
         shortcuts.update({'bye': 'exit'})
 
-        # create logger with 'InternalBlue' identifier
-        self.logger = logging.getLogger("InternalBlue")
-
-        # create console handler
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(CustomFormatter())
-        if not self.logger.hasHandlers():
-            self.logger.addHandler(ch)
+        # get and store 'InternalBlue' logger
+        self.logger = getInternalBlueLogger()
 
         # create progress logger
         self.progress_log = None
@@ -163,6 +167,7 @@ class InternalBlueCLI(cmd2.Cmd):
             hook(ADBCore, TraceToFileHook, filename=main_args.save)
 
         connection_methods = []  # type: List[InternalBlue]
+        # Connection methods for replay script
         if main_args.replay:
             from .socket_hooks import hook, ReplaySocket
             from .macoscore import macOSCore
@@ -195,12 +200,12 @@ class InternalBlueCLI(cmd2.Cmd):
                         replay_devices
                     )
                 )
+        # Connection methods for normal operation
         else:
             # if /var/run/usbmuxd exists, we can check for iOS devices
             if os.path.exists("/var/run/usbmuxd"):
                 from .ioscore import iOSCore
                 connection_methods.append(iOSCore(log_level=log_level, data_directory=data_directory))
-
             if sys.platform == "darwin":
                 try:
                     from .macoscore import macOSCore
@@ -215,11 +220,12 @@ class InternalBlueCLI(cmd2.Cmd):
             else:
                 connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
 
-            # ADB core can always be used
-            connection_methods.append(
-                ADBCore(
-                    log_level=log_level, data_directory=data_directory, serial=main_args.serialsu
-                ))
+            # Add ADB core if it is possible
+            if _has_pwnlib:
+                connection_methods.append(
+                    ADBCore(
+                        log_level=log_level, data_directory=data_directory, serial=main_args.serialsu
+                    ))
 
         devices = []  # type: List[DeviceTuple]
         for connection_method in connection_methods:
@@ -552,12 +558,12 @@ class InternalBlueCLI(cmd2.Cmd):
 
             @staticmethod
             def getMonitorController(internalblue):
-                if CmdMonitor.MonitorController.instance is None:
+                if MonitorController.instance is None:
                     # Encapsulation type: Bluetooth H4 with linux header (99) None:
-                    CmdMonitor.MonitorController.instance = MonitorController.__MonitorController(
+                    MonitorController.instance = MonitorController.__MonitorController(
                         internalblue, 0xC9
                     )
-                return CmdMonitor.MonitorController.instance
+                return MonitorController.instance
 
             # noinspection PyPep8Naming,SpellCheckingInspection
             class __MonitorController(object):
@@ -600,6 +606,8 @@ class InternalBlueCLI(cmd2.Cmd):
                         wireshark_binary = "wireshark"
                     elif os.path.isfile("/usr/bin/wireshark-gtk"):
                         wireshark_binary = "wireshark-gtk"
+                    elif os.path.isfile("/Applications/Wireshark.app/Contents/MacOS/Wireshark"):
+                        wireshark_binary = "/Applications/Wireshark.app/Contents/MacOS/Wireshark"
                     else:
                         self.internalblue.logger.warning("Wireshark not found!")
                         return False
@@ -622,7 +630,7 @@ class InternalBlueCLI(cmd2.Cmd):
 
                     self.poll_timer = Timer(3, self._pollTimer, ())
                     self.poll_timer.start()
-                    return None
+                    return True
 
                 def _pollTimer(self):
                     if self.running and self.wireshark_process is not None:
@@ -1397,7 +1405,7 @@ class InternalBlueCLI(cmd2.Cmd):
             self.logger.info("    - Address:    %s" % bt_addr_str)
             return None
 
-        @self.needs_pwnlibs
+        @needs_pwnlibs
         def infoPatchram(arg):
             if not hasattr(self.internalblue.fw, "PATCHRAM_NUMBER_OF_SLOTS"):
                 self.logger.warning("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")
