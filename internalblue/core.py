@@ -35,13 +35,7 @@ from future import standard_library
 
 import logging
 from internalblue.utils.logging_formatter import CustomFormatter
-
-import pwnlib
-from pwnlib.asm import asm
-from pwnlib.exception import PwnlibException
-from pwnlib.util.fiddling import bits, unbits
-
-from internalblue.utils import p16, p8, u32, u16, p32, flat
+from internalblue.utils import p16, p8, u32, u16, p32, flat, bits, unbits, needs_pwnlibs
 from .fw import FirmwareDefinition
 
 standard_library.install_aliases()
@@ -92,9 +86,12 @@ try:
     from . import DeviceTuple
 
     if TYPE_CHECKING:
-        pass
+        from pwnlib import context
+        from pwnlib.asm import disasm, asm
+        from pwnlib.exception import PwnlibException
 except:
     pass
+
 
 class InternalBlue(with_metaclass(ABCMeta, object)):
     @property
@@ -228,52 +225,6 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         # If the --replay flag was used and a chip is spoofed.
         self.replay = replay
-
-    def check_binutils(self, fix=True):
-        """
-        Test if ARM binutils is in path so that asm and disasm (provided by
-        pwntools) work correctly.
-        It may happen, that ARM binutils are installed but not found by pwntools.
-        If 'fix' is True, check_binutils will try to fix this.
-        """
-
-        saved_loglevel = self.log_level
-        self.log_level = "critical"
-        try:
-            pwnlib.asm.which_binutils(
-                "as"
-            )  # throws PwnlibException if as cannot be found
-            self.log_level = saved_loglevel
-            return True
-        except PwnlibException:
-            self.log_level = saved_loglevel
-            self.logger.debug("pwnlib.asm.which_binutils() cannot find 'as'!")
-            if not fix:
-                return False
-
-        # Work around for arch (with installed arm-none-eabi-binutils)
-        import os
-        from glob import glob
-
-        def which_binutils_fixed(tool):
-            pattern = "arm-*-%s" % tool
-            for directory in os.environ["PATH"].split(":"):
-                res = sorted(glob(os.path.join(directory, pattern)))
-                if res:
-                    return res[0]
-            raise PwnlibException("Could not find tool %s." % tool)
-
-        try:
-            which_binutils_fixed("as")
-            # yeay it worked! fix it in pwnlib:
-            pwnlib.asm.which_binutils = which_binutils_fixed
-            self.logger.debug("installing workaround for pwnlib.asm.which_binutils() ...")
-            return True
-        except PwnlibException:
-            self.logger.warning(
-                "pwntools cannot find binutils for arm architecture. Disassembling will not work!"
-            )
-            return False
 
     def _parse_time(self, time):
         # type: (Any) -> datetime.datetime
@@ -503,6 +454,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 f.write(dump)
                 f.close()
 
+    @needs_pwnlibs
     def addTracepoint(self, address):
         # type: (Address) -> bool
         # Check if constants are defined in fw.py
@@ -1072,6 +1024,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             retry = 3  # this round worked, so we re-enable retries
         return outbuffer
 
+    @needs_pwnlibs
     def readMemAligned(
             self, address, length, progress_log=None, bytes_done=0, bytes_total=0
     ):
@@ -1643,6 +1596,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         return True
 
+    @needs_pwnlibs
     def fuzzLmp(self):
         # type: ()-> bool
         """
@@ -1684,6 +1638,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         return True
 
+    @needs_pwnlibs
     def sendLmpPacketLegacy(self, conn_nr, opcode, payload, extended_op=False):
         # type: (int, Opcode, bytes, bool) -> bool
         """
@@ -1746,6 +1701,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             self.logger.warning("sendLmpPacket: launchRam failed!")
             return False
 
+    @needs_pwnlibs
     def sendLcpPacket(self, conn_idx, payload):
         # type: (ConnectionIndex, bytes) -> bool
         """

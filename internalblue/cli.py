@@ -55,7 +55,7 @@ from internalblue.hci import HCI_COMND
 from internalblue.hcicore import HCICore
 from internalblue.utils.progress_logger import ProgressLogger
 from internalblue.utils.logging_formatter import CustomFormatter
-from internalblue.utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno
+from internalblue.utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno, needs_pwnlibs
 
 try:
     import typing
@@ -269,23 +269,6 @@ class InternalBlueCLI(cmd2.Cmd):
     $ CUSTOM CUSTOM $
     $$$$$$$$$$$$$$$$$
     """
-
-    class needs_pwnlibs(object):
-        def __init__(self, func):
-            self.__name__ = 'dec'
-            self.func = func
-
-        def __call__(self, *args, **kwargs):
-            if "context" not in self.func.__globals__:
-                from pwnlib import context
-                from pwnlib.asm import disasm, asm
-                from pwnlib.exception import PwnlibException
-                context.context.arch = 'thumb'
-                self.func.__globals__["context"] = context
-                self.func.__globals__["asm"] = asm
-                self.func.__globals__["disasm"] = disasm
-                self.func.__globals__["PwnlibException"] = PwnlibException
-            return self.func(*args, **kwargs)
 
     @staticmethod
     def bt_addr_to_str(bt_addr):
