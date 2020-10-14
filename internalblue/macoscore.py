@@ -136,7 +136,7 @@ class macOSCore(InternalBlue):
                     0,
                     0,
                 )  # TODO not sure if this causes trouble?
-                # self.logger.debug("Recv: " + str(record[0]))
+                self.logger.debug("Recv: " + str(record[0]))
 
                 # Put the record into all queues of registeredHciRecvQueues if their
                 # filter function matches.
