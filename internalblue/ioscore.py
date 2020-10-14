@@ -24,11 +24,10 @@ class iOSCore(InternalBlue):
         queue_size=1000,
         btsnooplog_filename="btsnoop.log",
         log_level="info",
-        fix_binutils=True,
         data_directory=".",
     ):
         super(iOSCore, self).__init__(
-            queue_size, btsnooplog_filename, log_level, fix_binutils, data_directory="."
+            queue_size, btsnooplog_filename, log_level, data_directory="."
         )
         self.serial = False
         self.doublecheck = True

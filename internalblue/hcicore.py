@@ -49,7 +49,6 @@ class HCICore(InternalBlue):
         queue_size=1000,
         btsnooplog_filename="btsnoop.log",
         log_level="info",
-        fix_binutils="True",
         data_directory=".",
         replay=False,
     ):
@@ -57,7 +56,6 @@ class HCICore(InternalBlue):
             queue_size,
             btsnooplog_filename,
             log_level,
-            fix_binutils,
             data_directory,
             replay,
         )

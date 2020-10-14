@@ -498,6 +498,15 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_exit(self, args):
         """Exit the program."""
         self.internalblue.exit_requested = True
+        # [IMPORTANT] for you, yes you, reading this:
+        # in all Cmd2 commands (functions starting with
+        # do_*), `return True` exits the command loop.
+        # So if you just want to return that a command
+        # exited successfully, return `None` instead.
+        # You can see in `do_repeat` that we just check
+        # for a return code of `None` to verify everything
+        # went fine and there were no errors.
+        # Only here, we return True to exit InternalBlue.
         return True
 
     # noinspection PyUnusedLocal
@@ -613,7 +622,7 @@ class InternalBlueCLI(cmd2.Cmd):
 
                     self.poll_timer = Timer(3, self._pollTimer, ())
                     self.poll_timer.start()
-                    return True
+                    return None
 
                 def _pollTimer(self):
                     if self.running and self.wireshark_process is not None:
@@ -645,7 +654,7 @@ class InternalBlueCLI(cmd2.Cmd):
                         self.internalblue.registerHciCallback(self.adbhciCallback)
 
                     self.internalblue.logger.info("HCI Monitor started.")
-                    return True
+                    return None
 
                 def stopMonitor(self):
                     if not self.running:
@@ -655,7 +664,7 @@ class InternalBlueCLI(cmd2.Cmd):
                         self.internalblue.unregisterHciCallback(self.adbhciCallback)
                     self.running = False
                     self.internalblue.logger.info("HCI Monitor stopped.")
-                    return True
+                    return None
 
                 def killMonitor(self):
                     if self.running:
@@ -927,7 +936,7 @@ class InternalBlueCLI(cmd2.Cmd):
             else:
                 d = dump
             print(disasm(d, vma=args.address))  # type: ignore
-            return True
+            return None
 
     writemem_parser = argparse.ArgumentParser()
     writemem_parser.add_argument('--hex', action='store_true', help='Interpret data as hex string (e.g. ff000a20...)')
@@ -972,7 +981,7 @@ class InternalBlueCLI(cmd2.Cmd):
             self.progress_log.success(
                 "Written %d bytes to 0x%08x." % (len(data), args.address)
             )
-            return True
+            return None
         else:
             self.progress_log.failure("Write failed!")
             return False
@@ -1699,7 +1708,7 @@ class InternalBlueCLI(cmd2.Cmd):
                         continue
                     else:
                         readafh(connection.connection_handle)
-                return True
+                return None
             # if not set but connection struct unknown, typical connection handles seem to be 0x0b...0x0d
             else:
                 return readafh(0x0C)
@@ -1740,7 +1749,7 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_launch(self, args):
         """Executes launch RAM HCI command. Note that this causes threading issues on some chips."""
         self.internalblue.launchRam(args.address)
-        return True
+        return None
 
     def do_adv(self):
         """Enables enhanced advertisement reports in the first half of the `Event Type` field."""

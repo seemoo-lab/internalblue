@@ -115,7 +115,6 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             queue_size: int = 1000,
             btsnooplog_filename: str = "btsnoop.log",
             log_level: str = "info",
-            fix_binutils: bool = True,
             data_directory: str = ".",
             replay: bool = False,
     ) -> None:
@@ -209,12 +208,6 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.running = False  # 'running' is True once the connection to the HCI sockets is established
         # and the recvThread and sendThread are started (see connect() and shutdown())
         self.log_level = log_level
-
-        self.check_binutils(
-            fix_binutils
-        )  # Check if ARM binutils are installed (needed for asm() and disasm())
-        # If fix_binutils is True, the function tries to fix the error were
-        # the binutils are installed but not found by pwntools (e.g. under Arch Linux)
 
         self.stackDumpReceiver = None  # This class will monitor the HCI Events and detect stack trace events.
 
