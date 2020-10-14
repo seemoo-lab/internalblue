@@ -38,7 +38,6 @@ class ADBCore(InternalBlue):
         )
 
         # Connect to adb device
-        self.device = self.interface
         self.hciport: Optional[int] = None  # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.serial = serial  # use serial su busybox scripting and do not try bluetooth.default.so
         self.doublecheck = False

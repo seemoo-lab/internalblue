@@ -1397,7 +1397,7 @@ class InternalBlueCLI(cmd2.Cmd):
             device_name = self.readMem(self.internalblue.fw.DEVICE_NAME, 258)
             device_name_len = device_name[0] - 1
             device_name = device_name[2: 2 + device_name_len]
-            adb_serial = self.internalblue.device
+            adb_serial = self.internalblue.interface
 
             self.logger.info("### | Device ###")
             self.logger.info("    - Name:       %s" % device_name.decode("utf-8"))
