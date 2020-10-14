@@ -66,6 +66,13 @@ try:
     if TYPE_CHECKING:
         from internalblue.core import InternalBlue
         from internalblue import Record, BluetoothAddress, Address
+
+        # Only needed to fix PyCharm errors.
+        # In normal execution, the needs_pwnlibs
+        # decorator deals with the imports.
+        from pwnlib import context
+        from pwnlib.asm import disasm, asm
+        from pwnlib.exception import PwnlibException
 except ImportError:
     pass
 
@@ -1653,117 +1660,6 @@ class InternalBlueCLI(cmd2.Cmd):
         if not addr:
             return False
         self.internalblue.connectToRemoteLEDevice(addr, args.addrtype)
-
-    def do_custom(self):
-        """Add custom command to internalblue"""
-
-        keywords = ["custom", "c"]
-        actions = ["list", "add", "run", "remove"]
-
-        for keyword in list(keywords):
-            for action in actions:
-                keywords.append("%s %s" % (keyword, action))
-
-        parser = argparse.ArgumentParser(
-            prog=keywords[0],
-            description=description,
-            epilog="Aliases: " + ", ".join(keywords),
-        )
-
-        parser.add_argument("do", help="one of (%s)" % ", ".join(actions))
-        parser.add_argument("alias", nargs="?", default=None, help="alias of the cmd")
-        parser.add_argument("cmd", nargs="*", default=[], help="only used with add")
-
-        file = "custom.json"
-        custom_commands = {}
-
-        if os.path.isfile(file):
-            try:
-                with open(file, "r") as reader:
-                    custom_commands = json.loads(reader.read())
-            except Exception as e:
-                log.critical(
-                    "Encountered an error while trying to load custom commands!" f"{e}"
-                )
-
-        @staticmethod
-        def save(custom_commands):
-            with open(CmdCustom.file, "w") as writer:
-                json.dump(custom_commands, writer, sort_keys=True, indent=2)
-
-        def work(self):
-            args = self.getArgs()
-
-            if args is None:
-                return True
-
-            if args.do == "list":
-                custom_cmds = [
-                    "\t%s\t\t%s\n" % (k, v)
-                    for k, v in sorted(CmdCustom.custom_commands.items())
-                ]
-                self.logger.info("Custom commands:\n%s" % "".join(custom_cmds))
-                return True
-
-            if args.do == "add":
-
-                alias = args.alias
-                cmd = " ".join(args.cmd)
-
-                log.debug("Alias: " + alias)
-                log.debug("Command " + cmd)
-
-                # if cmd not found, return False
-                if not findCmd(cmd.split(" ")[0]):
-                    self.logger.warninging("Custom command not found: " + cmd.split(" ")[0])
-                    return False
-
-                CmdCustom.custom_commands[alias] = cmd
-                CmdCustom.save(CmdCustom.custom_commands)
-
-                self.logger.info("Custom Command added: " + alias)
-
-            if args.do == "run":
-                alias = args.alias
-
-                # check if no cmd has been passed
-                if len(args.cmd) == 0:
-
-                    if alias in CmdCustom.custom_commands:
-
-                        cmd = CmdCustom.custom_commands[alias]
-
-                        matching_cmd = findCmd(cmd.split(" ")[0])
-
-                        if matching_cmd is None:
-                            self.logger.warning("Command unknown: " + cmd)
-                            return False
-
-                        cmd_instance = matching_cmd(cmd, self.internalblue)
-
-                        if not cmd_instance.work():
-                            self.logger.warning("Command failed: " + str(cmd_instance))
-
-                        return True
-
-                    self.logger.info("Custom Command not found: " + alias)
-
-                    return False
-
-                return True
-
-            if args.do == "remove":
-                if args.alias not in CmdCustom.custom_commands:
-                    self.logger.info("Custom command not found: " + args.alias)
-                    return False
-
-                CmdCustom.custom_commands.pop(args.alias, None)
-
-                self.logger.info("Custom command removed: " + args.alias)
-
-                return True
-
-            return True
 
     readafh_parser = argparse.ArgumentParser()
     readafh_parser.add_argument('-c', '--conn_handle', type=auto_int,
