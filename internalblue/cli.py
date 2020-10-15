@@ -43,6 +43,7 @@ import time
 from builtins import str
 from curses.ascii import isprint
 from threading import Timer
+from functools import wraps
 
 import cmd2
 from cmd2 import fg, style
@@ -80,6 +81,11 @@ else:
 
 
 def needs_pwnlibs(func):
+    # this decorator copies over
+    # function name, docstring,
+    # arguments list etc. so our
+    # help command still works
+    @wraps(func)
     def inner(*args, **kwargs):
         if not _has_pwnlib:
             raise ImportError("pwnlibs is required for this function.")
@@ -117,10 +123,6 @@ def read(path, count=-1, skip=0):
 
 class InternalBlueCLI(cmd2.Cmd):
     def __init__(self):
-        # define shortcuts for commands
-        shortcuts = dict(cmd2.DEFAULT_SHORTCUTS)
-        shortcuts.update({'bye': 'exit'})
-
         # get and store 'InternalBlue' logger
         self.logger = getInternalBlueLogger()
 
@@ -147,7 +149,39 @@ class InternalBlueCLI(cmd2.Cmd):
         if not os.path.exists(data_directory):
             os.mkdir(data_directory)
 
+        # Define shortcuts for commands (before call to super())
+        shortcuts = dict(cmd2.DEFAULT_SHORTCUTS)
+        shortcuts.update({
+            'bye': 'exit',
+            'verbosity': 'loglevel',  'log_level': 'loglevel',
+            'wireshark': 'monitor',
+            'watch': 'repeat',
+            'memdump': 'dumpmem',
+            'memsearch': 'searchmem',
+            'hd': 'hexdump', 'readmem': 'hexdump',
+            'disassemble': 'disasm',
+            'asm': 'writeasm',
+            'execute': 'exec',
+            'show': 'info',
+            'tp': 'tracepoint',
+            'bp': 'breakpoint',
+            'heap': 'memorypool', 'pool': 'memorypool',
+            'leconnect': 'connectle', 'cle': 'connectle', 'lec': 'connectle',
+            'sendh4': 'diag'})
+
         super().__init__(shortcuts=shortcuts, persistent_history_file=data_directory + "/_internalblue.hist")
+
+        # Aliases have to be used instead of shortcuts
+        # When the alias is equal with the beginning
+        # of a command name. Has to be called after super().
+        self.runcmds_plus_hooks(["alias create break breakpoint > /dev/null",
+                                 "alias create trace tracepoint > /dev/null",
+                                 "alias create tel telescope > /dev/null",
+                                 "alias create disas disasm > /dev/null",
+                                 "alias create d disasm > /dev/null",
+                                 "alias create i info > /dev/null",
+                                 "alias create q quit > /dev/null"],
+                                add_to_history=False)
 
         # Settings
         if main_args.verbose:
@@ -516,7 +550,7 @@ class InternalBlueCLI(cmd2.Cmd):
         return True
 
     # noinspection PyUnusedLocal
-    def do_iPython(self, args):
+    def do_ipython(self, args):
         """Drop into an IPython shell (for debugging internalblue)"""
         print(
             "\n\tDropping into IPython shell!\n\tUse 'self.internalblue' to access the framework."
@@ -1296,7 +1330,7 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_fuzzlmp(self, args):
         """Installs a hook to sendlmp that skips checking opcodes and lengths inside firmware. A remaining
         firmware constraint is the buffer allocated by lm_allocLmpBlock (32 bytes)."""
-        return self.internalblue.fuzzLmp()
+        return None if self.internalblue.fuzzLmp() else False
 
     sendlcp_parser = argparse.ArgumentParser()
     sendlcp_parser.add_argument('-c', '--conn_index', type=auto_int, help='Connection index, starts at 0 for first connection.')
@@ -1624,7 +1658,7 @@ class InternalBlueCLI(cmd2.Cmd):
                 self.logger.info("Active Tracepoints:\n" + tracepoints)
 
     breakpoint_parser = argparse.ArgumentParser()
-    breakpoint_parser.add_argument('address', type=auto_int, nargs='?', help='Address of the breakpoint')
+    breakpoint_parser.add_argument('address', type=auto_int, help='Address of the breakpoint')
 
     @cmd2.with_argparser(breakpoint_parser)
     def do_breakpoint(self, args):
@@ -1759,7 +1793,7 @@ class InternalBlueCLI(cmd2.Cmd):
         self.internalblue.launchRam(args.address)
         return None
 
-    def do_adv(self):
+    def do_adv(self, args):
         """Enables enhanced advertisement reports in the first half of the `Event Type` field."""
         self.internalblue.enableEnhancedAdvReport()
 
@@ -1782,4 +1816,3 @@ if __name__ == "__main__":
 
     cli = InternalBlueCLI()
     sys.exit(cli.cmdloop())
-    # internalblue_cli(sys.argv[1:])
