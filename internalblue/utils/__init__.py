@@ -20,10 +20,10 @@ def p8(num, endian: str = ''):
 
 def u8(num, endian: str = ''):
     if endian.lower() == 'big':
-        return struct.unpack('>B', num)
+        return struct.unpack('>B', num)[0]
     elif endian.lower() == 'little':
-        return struct.unpack('<B', num)
-    return struct.unpack('B', num)
+        return struct.unpack('<B', num)[0]
+    return struct.unpack('B', num)[0]
 
 
 def p16(num, endian: str = ''):
