@@ -176,24 +176,30 @@ class macOSCore(InternalBlue):
             # Prepend UART TYPE and length.
             out = p8(h4type) + p8(len(data)) + data
 
-            # Send command to the chip using IOBluetoothExtended framework
-            h4type, data, queue, filter_function = task
-            data = bytearray(data)
-            opcode = format(data[1], "02x") + format(data[0], "02x")
-
-            # TODO: - Only print debug messages when debug variable is set!
-            # self.logger.debug(
-            #     "Sending command: 0x"
-            #     + "".join(format(x, "02x") for x in data)
-            #     + ", opcode: "
-            #     + opcode
-            # )
-
+            # Check if command is not a H4 type
             if not (h4type == 0x01 or h4type == 0x02):
-                self.logger.warn("H4 Type {0} not supported by macOS Core!".format(str(h4type)))
+                self.logger.warn(f"H4 Type {str(h4type)} not supported by macOS Core!")
                 if queue is not None:
                     queue.put(None)
                 continue
+
+            # Check if data size is OK
+            if len(data) < 2:
+                self.logger.warn(f"Command is less than 2 bytes. Cannot send. Bytes: {data}")
+                if queue is not None:
+                    queue.put(None)
+                continue
+
+            # Send command to the chip using IOBluetoothExtended framework
+            data = bytearray(data)
+            opcode = format(data[1], "02x") + format(data[0], "02x")
+
+            self.logger.debug(
+                "Sending command: 0x"
+                + "".join(format(x, "02x") for x in data)
+                + ", opcode: "
+                + opcode
+            )
 
             # if the caller expects a response: register a queue to receive the response
             if queue is not None and filter_function is not None:
