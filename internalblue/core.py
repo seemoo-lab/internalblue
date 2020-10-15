@@ -947,7 +947,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                     retry = retry - 1
                     continue
                 else:
-                    self.logger.warninging("readMem: failed!")
+                    self.logger.warning("readMem: failed!")
                     return None
 
             data = response[4:]  # start of the actual data is at offset 4
