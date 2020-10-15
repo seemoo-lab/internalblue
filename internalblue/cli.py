@@ -54,6 +54,7 @@ from .utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno
 from .utils.progress_logger import ProgressLogger
 from .utils.internalblue_logger import getInternalBlueLogger
 from .hcicore import HCICore
+from .adbcore import ADBCore
 
 try:
     import typing
@@ -72,7 +73,6 @@ try:
     from pwnlib.asm import disasm, asm
     from pwnlib.exception import PwnlibException
     context.context.arch = 'thumb'
-    from .adbcore import ADBCore
 except ImportError:
     context, disasm, asm, PwnlibException = None, None, None, None
     _has_pwnlib = False
@@ -254,12 +254,8 @@ class InternalBlueCLI(cmd2.Cmd):
             else:
                 connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
 
-            # Add ADB core if it is possible
-            if _has_pwnlib:
-                connection_methods.append(
-                    ADBCore(
-                        log_level=log_level, data_directory=data_directory, serial=main_args.serialsu
-                    ))
+            # ADB core can always be used
+            connection_methods.append(ADBCore(log_level=log_level, data_directory=data_directory, serial=main_args.serialsu))
 
         devices = []  # type: List[DeviceTuple]
         for connection_method in connection_methods:

@@ -5,10 +5,6 @@ from typing import Optional
 
 from future import standard_library
 
-from pwnlib import adb
-from pwnlib.exception import PwnlibException
-
-from builtins import str
 import datetime
 import socket
 import queue as queue2k
@@ -16,6 +12,7 @@ import random
 from . import hci
 from .utils import bytes_to_hex, u32
 from .core import InternalBlue
+from ppadb.client import Client as AdbClient
 standard_library.install_aliases()
 
 
@@ -41,6 +38,10 @@ class ADBCore(InternalBlue):
         self.hciport: Optional[int] = None  # hciport is the port number of the forwarded HCI snoop port (8872). The inject port is at hciport+1
         self.serial = serial  # use serial su busybox scripting and do not try bluetooth.default.so
         self.doublecheck = False
+        self.client = AdbClient(host="127.0.0.1", port=5037)
+
+    def device(self):
+        return self.client.device(self.interface)
 
     def device_list(self):
         """
@@ -58,7 +59,7 @@ class ADBCore(InternalBlue):
             return [(self, "adb_replay", "adb: ReplayDevice")]
         # Check for connected adb devices
         try:
-            adb_devices = adb.devices()
+            adb_devices = self.client.devices()
         except ValueError:
             self.logger.info(
                 "Could not find devices with pwnlib. If you see devices with `adb devices`, try to remove the lines 'for field in fields[2:]:... = v' in `pwnlib/adb/adb.py`."
@@ -74,13 +75,13 @@ class ADBCore(InternalBlue):
         # At least one device found
         self.logger.info("Found multiple adb devices")
 
-        # Enumerate over found devices and put them into an array of tupple
+        # Enumerate over found devices and put them into an array of tuple
         # First index is a self reference of the class
         # Second index is the identifier which is passed to connect()
         # Third index is the label which is shown in options(...)
         device_list = []
         for d in adb_devices:
-            device_list.append((self, d.serial, "adb: %s (%s)" % (d.serial, d.model)))
+            device_list.append((self, d.serial, "adb: %s (%s)" % (d.get_serial_no(), d.get_properties()['ro.product.model'])))
 
         return device_list
 
@@ -259,8 +260,8 @@ class ADBCore(InternalBlue):
                 callback(record)
 
             # Check if the stackDumpReceiver has noticed that the chip crashed.
-            # if self.stackDumpReceiver and self.stackDumpReceiver.stack_dump_has_happend:
-            # A stack dump has happend!
+            # if self.stackDumpReceiver and self.stackDumpReceiver.stack_dump_has_happened:
+            # A stack dump has happened!
             # self.logger.warning("recvThreadFunc: The controller sent a stack dump.")
             # self.exit_requested = True
 
@@ -287,16 +288,8 @@ class ADBCore(InternalBlue):
         )
 
         # Forward ports 8872 and 8873. Ignore self.logger.info() outputs by the adb function.
-        saved_loglevel = self.log_level
-        self.log_level = "warn"
-        try:
-            adb.adb(["forward", "tcp:%d" % (self.hciport), "tcp:8872"])
-            adb.adb(["forward", "tcp:%d" % (self.hciport + 1), "tcp:8873"])
-        except PwnlibException as e:
-            self.logger.warning("Setup adb port forwarding failed: " + str(e))
-            return False
-        finally:
-            self.log_level = saved_loglevel
+        self.device().forward(f"tcp:{self.hciport}", "tcp:8872")
+        self.device().forward(f"tcp:{self.hciport+1}", "tcp:8873")
 
         # Connect to hci injection port
         self.s_inject = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -313,15 +306,12 @@ class ADBCore(InternalBlue):
         self.s_snoop.settimeout(0.5)
 
         # Read btsnoop header
-        if self._read_btsnoop_hdr() == None:
+        if self._read_btsnoop_hdr() is None:
             self.logger.warning("Could not read btsnoop header")
             self.s_inject.close()
             self.s_snoop.close()
             self.s_inject = self.s_snoop = None
-            self.log_level = "warn"
-            adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport)])
-            adb.adb(["forward", "--remove", "tcp:%d" % (self.hciport + 1)])
-            self.log_level = saved_loglevel
+            self.device().killforward_all()
             return False
         return True
 
@@ -337,18 +327,14 @@ class ADBCore(InternalBlue):
             self.s_snoop.close()
             self.s_snoop = None
 
-        saved_loglevel = self.log_level
-        self.log_level = "warn"
         if self.hciport is not None:
             hciport = self.hciport
-            try:
-                adb.adb(["forward", "--remove", f"tcp:{hciport}"])
-                adb.adb(["forward", "--remove", f"tcp:{hciport + 1}"])
-            except PwnlibException as e:
-                self.logger.warning("Removing adb port forwarding failed: " + str(e))
-                return False
-            finally:
-                self.log_level = saved_loglevel
+            self.interface.killforward_all()
+
+    def spawn(self, device, cmd):
+        conn = device.create_connection()
+        cmd = "exec:{}".format(cmd)
+        conn.send(cmd)
 
     def _setupSerialSu(self):
         """
@@ -371,61 +357,41 @@ class ADBCore(InternalBlue):
         # In sending direction, the format is different.
         self.serial = True
 
-        saved_loglevel = self.log_level
-        self.log_level = "warn"
-
-        try:
-            # check dependencies
-            if adb.which("su") is None:
-                self.logger.critical("su not found, rooted smartphone required!")
-                return False
-
-            if adb.process(["su", "-c", "which", "nc"]).recvall() == "":
-                self.logger.critical("nc not found, install busybox!")
-                return False
-
-            # automatically detect the proper serial device with lsof
-            logfile = (
-                adb.process(
-                    ["su", "-c", "lsof | grep btsnoop_hci.log | tail -n 1 | awk '{print $NF}'"]
-                )
-                .recvall()
-                .strip()
-                .decode("utf-8")
-            )
-            self.logger.info("Android btsnoop logfile %s...", logfile)
-            interface = (
-                adb.process(
-                    ["su", "-c", "lsof | grep bluetooth | grep tty | awk '{print $NF}'"]
-                )
-                .recvall()
-                .strip()
-                .decode("utf-8")
-            )
-            self.logger.info("Android Bluetooth interface %s...", interface)
-
-            if logfile == "":
-                self.logger.critical(
-                    "Could not find Bluetooth logfile. Enable Bluetooth snoop logging."
-                )
-                return False
-
-            if interface == "":
-                self.logger.critical("Could not find Bluetooth interface. Enable Bluetooth.")
-                return False
-
-            # spawn processes
-            adb.process(["su", "-c", "tail -f -n +0 %s | nc -l -p 8872" % logfile])
-            adb.process(["su", "-c", "nc -l -p 8873 >/sdcard/internalblue_input.bin"])
-            adb.process(
-                ["su", "-c", "tail -f /sdcard/internalblue_input.bin >>%s" % interface]
-            )
-            sleep(2)
-
-        except PwnlibException as e:
-            self.logger.warning("Serial scripting setup failed: " + str(e))
+        # check dependencies
+        which_cmd = '''
+        echo $PATH | while read -d: directory; do
+            [ -x "$directory/{name}" ] || continue;
+            echo -n "$directory/{name}\\x00";
+        done
+        [ -x "{name}" ] && echo -n "$PWD/{name}\\x00"
+        '''.format(name="su")
+        su_path = self.device().shell(f"sh -c '{which_cmd}'")
+        if su_path is None or len(su_path) == 0:
+            self.logger.critical("su not found, rooted smartphone required!")
             return False
-        finally:
-            self.log_level = saved_loglevel
+
+        if self.device().shell("su -c 'which nc'") == "":
+            self.logger.critical("nc not found, install busybox!")
+            return False
+
+        # automatically detect the proper serial device with lsof
+        logfile = self.device().shell("su -c \"lsof | grep btsnoop_hci.log | tail -n 1\" | awk '{print $NF}'")[:-1]
+        self.logger.info("Android btsnoop logfile %s...", logfile)
+        interface = self.device().shell("su -c \"lsof | grep bluetooth | grep tty\" | awk '{print $NF}'")[:-1]
+        self.logger.info("Android Bluetooth interface %s...", interface)
+
+        if logfile == "":
+            self.logger.critical("Could not find Bluetooth logfile. Enable Bluetooth snoop logging.")
+            return False
+
+        if interface == "":
+            self.logger.critical("Could not find Bluetooth interface. Enable Bluetooth.")
+            return False
+
+        # spawn processes
+        self.spawn(self.device(), f"su -c \"tail -f -n +0 {logfile} | nc -l -p 8872\"")
+        self.spawn(self.device(), f"su -c \"nc -l -p 8873 >/sdcard/internalblue_input.bin\"")
+        self.spawn(self.device(), f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}")
+        sleep(2)
 
         return True

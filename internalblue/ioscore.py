@@ -230,8 +230,8 @@ class iOSCore(InternalBlue):
                     callback(record)
 
                 # Check if the stackDumpReceiver has noticed that the chip crashed.
-                if self.stackDumpReceiver.stack_dump_has_happend:
-                    # A stack dump has happend!
+                if self.stackDumpReceiver.stack_dump_has_happened:
+                    # A stack dump has happened!
                     self.logger.warn(
                         "recvThreadFunc: The controller send a stack dump. stopping.."
                     )

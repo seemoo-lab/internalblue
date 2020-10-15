@@ -931,7 +931,7 @@ def parse_hci_packet(data):
 class StackDumpReceiver(object):
     memdump_addr = None
     memdumps = {}
-    stack_dump_has_happend = False
+    stack_dump_has_happened = False
 
     def __init__(self, data_directory="."):
         self.data_directory = data_directory
@@ -987,7 +987,7 @@ class StackDumpReceiver(object):
         f.close()
 
         # Shut down:
-        self.stack_dump_has_happend = True
+        self.stack_dump_has_happened = True
 
     def handleNexus5StackDump(self, hcipkt):
         checksum_correct = self.verifyChecksum(hcipkt.data[5:])

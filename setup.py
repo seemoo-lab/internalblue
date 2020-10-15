@@ -17,7 +17,7 @@ setup(
         "internalblue/utils",
     ],
     python_requires='>=3.6',
-    install_requires=["pyelftools", "future", "cmd2"],
+    install_requires=["pyelftools", "future", "cmd2", "pure-python-adb"],
     extras_require={"macoscore": ["pyobjc"], "ipython": ["IPython"], "binutils": ["pwntools>=4.0.1"]},
     tests_require=["nose", "pytest", "pwntools>=4.2.0.dev0"],
     entry_points={
