@@ -134,22 +134,22 @@ class TraceToFileHook(SocketDuplexHook):
         self.closed = False
 
     def recv_hook(self, data):
-        line = "RX {}\n".format(binascii.hexlify(data))
+        line = "RX {}\n".format(data.hex())
         print(line)
         self.log.append(line)
 
     def send_hook(self, data):
-        line = "TX {}\n".format(binascii.hexlify(data))
+        line = "TX {}\n".format(data.hex())
         print(line)
         self.log.append(line)
 
     def recvfrom_hook(self, data, socket, **kwargs):
-        line = "RX {}\n".format(binascii.hexlify(data))
+        line = "RX {}\n".format(data.hex())
         print(line)
         self.log.append(line)
 
     def sendto_hook(self, data, socket, **kwargs):
-        line = "TX {}\n".format(binascii.hexlify(data))
+        line = "TX {}\n".format(data.hex())
         print(line)
         self.log.append(line)
 
@@ -173,16 +173,16 @@ import socket
 
 class PrintTrace(SocketDuplexHook):
     def send_hook(self, data, **kwargs):
-        print("Sent: {}".format(binascii.hexlify(data)))
+        print("Sent: {}".format(data.hex()))
 
     def recv_hook(self, data, **kwargs):
-        print("Recv: {}".format(binascii.hexlify(data)))
+        print("Recv: {}".format(data.hex()))
 
     def recvfrom_hook(self, data, addr, **kwargs):
-        print("Recv: {}".format(binascii.hexlify(data)))
+        print("Recv: {}".format(data.hex()))
 
     def sendto_hook(self, data, socket, **kwargs):
-        print("Sent: {}".format(binascii.hexlify(data)))
+        print("Sent: {}".format(data.hex()))
 
     def send_exception(self, e):
         print("Exception: {}".format(e))
@@ -203,19 +203,19 @@ class ReplaySocket(SocketDuplexHook):
 
     def send_hook(self, data, **kwargs):
         if self.debug:
-            print("Sent: {}".format(binascii.hexlify(data)))
+            print("Sent: {}".format(data.hex()))
 
     def recv_hook(self, data, **kwargs):
         if self.debug:
-            print("Recv: {}".format(binascii.hexlify(data)))
+            print("Recv: {}".format(data.hex()))
 
     def recvfrom_hook(self, data, addr, **kwargs):
         if self.debug:
-            print("Recv: {}".format(binascii.hexlify(data)))
+            print("Recv: {}".format(data.hex()))
 
     def sendto_hook(self, data, socket, **kwargs):
         if self.debug:
-            print("Sent: {}".format(binascii.hexlify(data)))
+            print("Sent: {}".format(data.hex()))
 
     def send_exception(self, e):
         if self.debug:

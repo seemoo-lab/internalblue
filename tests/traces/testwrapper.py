@@ -1,7 +1,7 @@
 from builtins import object
 import argparse
 
-from internalblue.cli import internalblue_cli, _parse_argv
+from internalblue.cli import InternalBlueCLI, parse_args
 
 import os
 
@@ -41,28 +41,30 @@ def get_trace_path_cmd_tuple(core, tracefile):
     with open(tracepath) as f:
         cmd = f.readline()
     if cmd.startswith("#"):
-        return tracepath, cmd[1:]
+        return tracepath, cmd[1:-1]
     else:
         return tracepath, None
 
 
-
 def trace_test(core, tracepath, commands):
-    args = _parse_argv("")
+    args, unknown_args = parse_args()
     args.device = core_to_device[core]
     args.replay = tracepath
-    args.commands = commands + "; quit"
-    internalblue_cli("", args=args)
+    cli = InternalBlueCLI(args)
+    cmd_array = commands.split("; ")
+    if "quit" not in cmd_array[len(cmd_array)-1]:
+        cmd_array += "quit"
+    cli.runcmds_plus_hooks(cmd_array)
 
-
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--core")
-    parser.add_argument("--trace")
-    parser.add_argument("--commands")
-    args = parser.parse_args()
-
-    tracepath, commands = get_trace_path_cmd_tuple(args.core, args.trace)
-    trace_test(args.core, tracepath, commands)
+# TODO: - Running individual tests with this method is currently a bit broken
+# if __name__ == '__main__':
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--core")
+    # parser.add_argument("--trace")
+    # parser.add_argument("--commands")
+    # margs = parser.parse_args()
+    #
+    # tracepath, commands = get_trace_path_cmd_tuple(margs.core, margs.trace)
+    # print(tracepath)
+    # print(commands)
+    # trace_test(margs.core, tracepath, commands)

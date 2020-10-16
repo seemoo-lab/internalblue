@@ -1,18 +1,10 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-from .testwrapper import trace_test, get_trace_path_cmd_tuple
-
-
+from tests.traces.testwrapper import trace_test, get_trace_path_cmd_tuple
+import unittest
 import os
 tracedir = os.path.dirname(__file__)
-
-#cores = ['macoscore', 'ioscore', 'adbcore', 'hcicore']
-
-
-
-
-import unittest
 
 
 def generate_test_suite_from_traces():
