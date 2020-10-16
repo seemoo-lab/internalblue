@@ -74,7 +74,7 @@ try:
     from pwnlib.exception import PwnlibException
     context.context.arch = 'thumb'
 except ImportError:
-    context, disasm, asm, PwnlibException = None, None, None, None
+    context = disasm = asm = PwnlibException = None
     _has_pwnlib = False
 else:
     _has_pwnlib = True
@@ -122,7 +122,7 @@ def read(path, count=-1, skip=0):
 
 
 class InternalBlueCLI(cmd2.Cmd):
-    def __init__(self):
+    def __init__(self, main_args):
         # get and store 'InternalBlue' logger
         self.logger = getInternalBlueLogger()
 
@@ -153,7 +153,7 @@ class InternalBlueCLI(cmd2.Cmd):
         shortcuts = dict(cmd2.DEFAULT_SHORTCUTS)
         shortcuts.update({
             'bye': 'exit',
-            'verbosity': 'loglevel',  'log_level': 'loglevel',
+            'verbosity': 'loglevel', 'log_level': 'loglevel',
             'wireshark': 'monitor',
             'watch': 'repeat',
             'memdump': 'dumpmem',
@@ -169,7 +169,7 @@ class InternalBlueCLI(cmd2.Cmd):
             'leconnect': 'connectle', 'cle': 'connectle', 'lec': 'connectle',
             'sendh4': 'diag'})
 
-        super().__init__(shortcuts=shortcuts, persistent_history_file=data_directory + "/_internalblue.hist")
+        super().__init__(shortcuts=shortcuts, persistent_history_file=data_directory + "/_internalblue.hist", use_ipython=True)
 
         # Aliases have to be used instead of shortcuts
         # When the alias is equal with the beginning
@@ -188,7 +188,6 @@ class InternalBlueCLI(cmd2.Cmd):
             log_level = "debug"
         else:
             log_level = "info"
-
         if main_args.trace:
             from .socket_hooks import hook
             from internalblue import socket_hooks
@@ -246,10 +245,13 @@ class InternalBlueCLI(cmd2.Cmd):
                     connection_methods.append(macOSCore(log_level=log_level, data_directory=data_directory,
                                                         replay=(main_args.replay and main_args.device == "mac")))
                 except ImportError:
+                    macOSCore = None
                     self.logger.warning("Couldn't import macOSCore. Is IOBluetoothExtended.framework installed?")
                 if main_args.trace:
+                    from .socket_hooks import hook
                     hook(macOSCore, HookClass)
                 elif main_args.save:
+                    from .socket_hooks import hook
                     hook(macOSCore, TraceToFileHook, filename=main_args.save)
             else:
                 connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
@@ -534,6 +536,7 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_exit(self, args):
         """Exit the program."""
         self.internalblue.exit_requested = True
+        self.internalblue.shutdown()
         # [IMPORTANT] for you, yes you, reading this:
         # in all Cmd2 commands (functions starting with
         # do_*), `return True` exits the command loop.
@@ -544,20 +547,6 @@ class InternalBlueCLI(cmd2.Cmd):
         # went fine and there were no errors.
         # Only here, we return True to exit InternalBlue.
         return True
-
-    # noinspection PyUnusedLocal
-    def do_ipython(self, args):
-        """Drop into an IPython shell (for debugging internalblue)"""
-        print(
-            "\n\tDropping into IPython shell!\n\tUse 'self.internalblue' to access the framework."
-        )
-        print("\tUse 'quit' or 'exit' to return to the InternalBlue CLI.\n")
-        try:
-            from IPython import embed
-            embed()
-        except Exception as e:
-            self.logger.warning("Error when dropping into IPython shell: " + str(e))
-        return None
 
     loglevel_parser = argparse.ArgumentParser()
     loglevel_parser.add_argument('level', help='New log level (CRITICAL, DEBUG, ERROR, INFO, NOTSET, WARN, WARNING)')
@@ -1247,7 +1236,7 @@ class InternalBlueCLI(cmd2.Cmd):
             return False
 
         if len(data) > 4:
-            self.logger.warning("Data size is %d bytes. Trunkating to 4 byte!" % len(data))
+            self.logger.warning("Data size is %d bytes. Truncating to 4 byte!" % len(data))
             data = data[0:4]
         if len(data) < 4:
             self.logger.warning("Data size is %d bytes. 0-Padding to 4 byte!" % len(data))
@@ -1371,7 +1360,7 @@ class InternalBlueCLI(cmd2.Cmd):
     def do_info(self, args):
         """Display various types of information parsed from live RAM"""
 
-        def infoConnections():
+        def infoConnections(_):
             if not hasattr(self.internalblue.fw, "CONNECTION_MAX"):
                 self.logger.warning("CONNECTION_MAX not defined in fw.")
                 return False
@@ -1417,7 +1406,7 @@ class InternalBlueCLI(cmd2.Cmd):
             print()
             return None
 
-        def infoDevice(arg):
+        def infoDevice(_):
             for const in ["BD_ADDR", "DEVICE_NAME"]:
                 if const not in dir(self.internalblue.fw):
                     self.logger.warning(" '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
@@ -1436,7 +1425,7 @@ class InternalBlueCLI(cmd2.Cmd):
             return None
 
         @needs_pwnlibs
-        def infoPatchram(arg):
+        def infoPatchram(_):
             if not hasattr(self.internalblue.fw, "PATCHRAM_NUMBER_OF_SLOTS"):
                 self.logger.warning("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")
                 return False
@@ -1469,9 +1458,9 @@ class InternalBlueCLI(cmd2.Cmd):
             bloc_address = None
             bloc_index = None
             verbose = False
-            for arg in info_args:
+            for ar in info_args:
                 try:
-                    if arg in ["verbose"]:
+                    if ar in ["verbose"]:
                         verbose = True
                     elif info_args[0].startswith("0x"):
                         bloc_address = int(info_args[0], 16)
@@ -1563,7 +1552,7 @@ class InternalBlueCLI(cmd2.Cmd):
             progress_log.success("done")
             return None
 
-        def infoQueue():
+        def infoQueue(_):
             progress_log = self.progress("Traversing Queues")
             queuelist = self.internalblue.readQueueInformation()  # List of QUEU structs
 
@@ -1662,7 +1651,7 @@ class InternalBlueCLI(cmd2.Cmd):
         self.logger.info("Inserting breakpoint at 0x%x..." % args.address)
         self.internalblue.patchRom(args.address, b'\x00\xbe\x00\x00')  # on ARM, hex code for a break point is 0xBE00
 
-    def do_memorypool(self, args):
+    def do_memorypool(self, _):
         """Enable memory pool statistics."""
         self.logger.info("Memory statistics will now appear every second.")
         self.internalblue.sendHciCommand(HCI_COMND.VSC_DBFW, b'\x50')
@@ -1698,7 +1687,7 @@ class InternalBlueCLI(cmd2.Cmd):
 
     @cmd2.with_argparser(readafh_parser)
     def do_readafh(self, args):
-        """Read adaptive freuency hopping (AFH) channel map."""
+        """Read adaptive frequency hopping (AFH) channel map."""
 
         def readafh(handle):
             """ This is a standard HCI command but might be useful when playing around with the physical layer.
@@ -1789,12 +1778,12 @@ class InternalBlueCLI(cmd2.Cmd):
         self.internalblue.launchRam(args.address)
         return None
 
-    def do_adv(self, args):
+    def do_adv(self, _):
         """Enables enhanced advertisement reports in the first half of the `Event Type` field."""
         self.internalblue.enableEnhancedAdvReport()
 
 
-if __name__ == "__main__":
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data-directory", help="Set data directory. Default: ~/.internalblue")
     parser.add_argument("-v", "--verbose", help="Set log level to DEBUG", action="store_true")
@@ -1807,8 +1796,11 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--commands", help="CLI command to run before prompting, separated by ';' (used for easier testing)")
     parser.add_argument("--replay", help="Intercept and replace every communication with the core with the one in the specified file")
     parser.add_argument("--save", help="Store a trace into the file that can be used with --replay")
-    main_args, unknown_args = parser.parse_known_args()
-    sys.argv = sys.argv[:1] + unknown_args
+    return parser.parse_known_args()
 
-    cli = InternalBlueCLI()
+
+if __name__ == "__main__":
+    arg, unknown_args = parse_args()
+    sys.argv = sys.argv[:1] + unknown_args
+    cli = InternalBlueCLI(arg)
     sys.exit(cli.cmdloop())
