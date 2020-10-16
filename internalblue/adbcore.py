@@ -329,7 +329,7 @@ class ADBCore(InternalBlue):
 
         if self.hciport is not None:
             hciport = self.hciport
-            self.interface.killforward_all()
+            self.device().killforward_all()
 
     def spawn(self, device, cmd):
         conn = device.create_connection()
