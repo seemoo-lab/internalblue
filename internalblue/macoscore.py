@@ -241,5 +241,6 @@ class macOSCore(InternalBlue):
     def shutdown(self):
         if not self.replay:
             self.iobe.shutdown()
-        self.s_inject.sendto(b"", ("127.0.0.1", self.s_snoop.getsockname()[1]))
+        if self.s_inject is not None:
+            self.s_inject.sendto(b"", ("127.0.0.1", self.s_snoop.getsockname()[1]))
         super(macOSCore, self).shutdown()
