@@ -60,12 +60,13 @@ except ImportError:
     pass
 
 try:
+    import pwnlib
     from pwnlib import context
     from pwnlib.asm import disasm, asm
     from pwnlib.exception import PwnlibException
     context.context.arch = 'thumb'
 except ImportError:
-    context, disasm, asm, PwnlibException = None, None, None, None
+    pwnlib = context = disasm = asm = PwnlibException = None
     _has_pwnlib = False
     import warnings
     warnings.formatwarning = (lambda x, *args, **kwargs: f"\x1b[31m[!] {x}\x1b[0m\n")
@@ -193,6 +194,11 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # and the recvThread and sendThread are started (see connect() and shutdown())
         self.log_level = log_level
 
+        if _has_pwnlib:
+            self.check_binutils()  # Check if ARM binutils are installed (needed for asm() and disasm())
+            # If fix_binutils is True, the function tries to fix the error were
+            # the binutils are installed but not found by pwntools (e.g. under Arch Linux)
+
         self.stackDumpReceiver = None  # This class will monitor the HCI Events and detect stack trace events.
 
         # Register callbacks which handle specific HCI Events:
@@ -203,7 +209,54 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # If the --replay flag was used and a chip is spoofed.
         self.replay = replay
 
-    def _parse_time(self, time):
+    @needs_pwnlibs
+    def check_binutils(self, fix=True):
+        """
+        Test if ARM binutils is in path so that asm and disasm (provided by
+        pwntools) work correctly.
+        It may happen, that ARM binutils are installed but not found by pwntools.
+        If 'fix' is True, check_binutils will try to fix this.
+        """
+
+        saved_loglevel = self.log_level
+        context.log_level = "critical"
+        try:
+            pwnlib.asm.which_binutils(
+                "as"
+            )  # throws PwnlibException if as cannot be found
+            self.log_level = saved_loglevel
+            return True
+        except PwnlibException:
+            self.log_level = saved_loglevel
+            self.logger.debug("pwnlib.asm.which_binutils() cannot find 'as'!")
+            if not fix:
+                return False
+
+        # Work around for arch (with installed arm-none-eabi-binutils)
+        import os
+        from glob import glob
+
+        def which_binutils_fixed(tool):
+            pattern = "arm-*-%s" % tool
+            for directory in os.environ["PATH"].split(":"):
+                res = sorted(glob(os.path.join(directory, pattern)))
+                if res:
+                    return res[0]
+            raise PwnlibException("Could not find tool %s." % tool)
+
+        try:
+            which_binutils_fixed("as")
+            # yeay it worked! fix it in pwnlib:
+            pwnlib.asm.which_binutils = which_binutils_fixed
+            self.logger.debug("installing workaround for pwnlib.asm.which_binutils() ...")
+            return True
+        except PwnlibException:
+            self.logger.warning(
+                "pwntools cannot find binutils for arm architecture. Disassembling will not work!"
+            )
+            return False
+
+    def _parse_time(self, timeParam):
         # type: (Any) -> datetime.datetime
         """
         Taken from: https://github.com/joekickass/python-btsnoop
@@ -217,7 +270,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         """
         time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
         time_since_2000_epoch = datetime.timedelta(
-            microseconds=time
+            microseconds=timeParam
         ) - datetime.timedelta(microseconds=time_betw_0_and_2000_ad)
         return datetime.datetime(2000, 1, 1) + time_since_2000_epoch
 
