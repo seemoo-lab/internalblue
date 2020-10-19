@@ -12,6 +12,7 @@ from . import hci
 
 from .usbmux import USBMux, MuxError
 from .core import InternalBlue
+import sys
 
 
 class iOSCore(InternalBlue):
@@ -67,7 +68,11 @@ class iOSCore(InternalBlue):
         
         device_list = []
         for dev in self.devices:
-            dev_id = "iOS Device (" + dev.serial + ")"
+            if sys.platform == "darwin":
+                dev_id = "iOS Device (" + dev.serial + ")" # macos
+            else:
+                dev_id = "iOS Device (" + dev.serial.decode(
+                    'utf-8') + ")"  
             device_list.append((self, dev, dev_id))
 
         return device_list
