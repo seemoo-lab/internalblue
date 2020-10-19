@@ -15,6 +15,7 @@ class CustomFormatter(logging.Formatter):
     cyan = "\x1b[36m"
     white = "\x1b[37m"
     reset = "\x1b[0m"
+    bright_red = "\u001b[31;1m"
 
     # "\033[F" # back to previous line
     # "\033[K" # clear line
@@ -22,9 +23,9 @@ class CustomFormatter(logging.Formatter):
     FORMATS = {
         logging.DEBUG: f"{yellow}[!]{reset} %(message)s",
         logging.INFO: f"{blue}[*]{reset} %(message)s",
-        logging.WARNING: f"{yellow}[*]{reset} %(message)s",
-        logging.ERROR: f"{red}[!]{reset} %(message)s",
-        logging.CRITICAL: f"{red}[!] %(message)s{reset}",
+        logging.WARNING: f"{yellow}[!]{reset} %(message)s",
+        logging.ERROR: f"{bright_red}[ERROR]{reset} %(message)s",
+        logging.CRITICAL: f"{red}[CRITICAL] %(message)s{reset}",
         PROGRESS: f"\033[F\033[K%(message)s",
     }
 

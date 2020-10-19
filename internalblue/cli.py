@@ -337,7 +337,6 @@ class InternalBlueCLI(cmd2.Cmd):
     # noinspection PyUnusedLocal
     @staticmethod
     def hexdump(data: bytes, begin: int = 0, highlight: bytes = None):
-        black = "\x1b[30m"
         red = "\x1b[31m"
         green = "\x1b[32m"
         blue = "\x1b[34m"
@@ -354,16 +353,15 @@ class InternalBlueCLI(cmd2.Cmd):
             elif not isprint(byte):
                 dump += f'{blue}{abyte}{reset}'
             else:
-                dump += f'{black}{abyte}{reset}'
+                dump += f'{reset}{abyte}{reset}'
             if i % 4 == 3:
                 dump += ' '
             if i % 16 == 15:
                 dump += ' |'
                 dump += ''.join(
-                    [(f'{black}{chr(c)}{reset}' if 32 <= c <= 127 else f'{red if byte == 0x00 or byte == 0x0a else blue}·{reset}') + ('|' if j % 4 == 3 else '')
-                     for j, c in enumerate(data[i - 15:i])])
-                dump += '|\n'
-
+                    [(f'{reset}{chr(c)}{reset}' if 32 <= c <= 127 else f'{red if c == 0x00 or c == 0x0a else blue}·{reset}') + ('|' if j % 4 == 3 else '')
+                     for j, c in enumerate(data[i - 15:i+1])])
+                dump += '\n'
         sys.stdout.write(dump)
 
     @staticmethod
