@@ -9,6 +9,10 @@ import datetime
 import socket
 import queue as queue2k
 import random
+
+from ppadb.connection import Connection
+from ppadb.device import Device
+
 from . import hci
 from .utils import bytes_to_hex, u32
 from .core import InternalBlue
@@ -40,7 +44,7 @@ class ADBCore(InternalBlue):
         self.doublecheck = False
         self.client = AdbClient(host="127.0.0.1", port=5037)
 
-    def device(self):
+    def device(self) -> Device:
         return self.client.device(self.interface)
 
     def device_list(self):
@@ -331,10 +335,11 @@ class ADBCore(InternalBlue):
             hciport = self.hciport
             self.device().killforward_all()
 
-    def spawn(self, device, cmd):
-        conn = device.create_connection()
+    def spawn(self, device: Device, cmd: str):
+        conn: Connection = device.create_connection()
         cmd = "exec:{}".format(cmd)
         conn.send(cmd)
+        conn.close()
 
     def _setupSerialSu(self):
         """
@@ -391,7 +396,7 @@ class ADBCore(InternalBlue):
         # spawn processes
         self.spawn(self.device(), f"su -c \"tail -f -n +0 {logfile} | nc -l -p 8872\"")
         self.spawn(self.device(), f"su -c \"nc -l -p 8873 >/sdcard/internalblue_input.bin\"")
-        self.spawn(self.device(), f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}")
+        self.spawn(self.device(), f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}\"")
         sleep(2)
 
         return True
