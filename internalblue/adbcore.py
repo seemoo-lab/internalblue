@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 import struct
+import threading
 from time import sleep
 from typing import Optional
 
@@ -10,13 +11,13 @@ import socket
 import queue as queue2k
 import random
 
-from ppadb.connection import Connection
 from ppadb.device import Device
+from ppadb.connection import Connection
+from ppadb.client import Client as AdbClient
 
 from . import hci
 from .utils import bytes_to_hex, u32
 from .core import InternalBlue
-from ppadb.client import Client as AdbClient
 standard_library.install_aliases()
 
 
@@ -335,11 +336,12 @@ class ADBCore(InternalBlue):
             hciport = self.hciport
             self.device().killforward_all()
 
-    def spawn(self, device: Device, cmd: str):
-        conn: Connection = device.create_connection()
+    def _spawn(self, cmd: str):
+        conn: Connection = self.device().create_connection()
         cmd = "exec:{}".format(cmd)
         conn.send(cmd)
-        conn.close()
+        while True:
+            sleep(1)
 
     def _setupSerialSu(self):
         """
@@ -394,9 +396,9 @@ class ADBCore(InternalBlue):
             return False
 
         # spawn processes
-        self.spawn(self.device(), f"su -c \"tail -f -n +0 {logfile} | nc -l -p 8872\"")
-        self.spawn(self.device(), f"su -c \"nc -l -p 8873 >/sdcard/internalblue_input.bin\"")
-        self.spawn(self.device(), f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}\"")
+        threading.Thread(target=self._spawn, args=f"su -c \"tail -f -n +0 {logfile} | nc -l -p 8872\"").start()
+        threading.Thread(target=self._spawn, args=f"su -c \"nc -l -p 8873 >/sdcard/internalblue_input.bin\"").start()
+        threading.Thread(target=self._spawn, args=f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}\"").start()
         sleep(2)
 
         return True
