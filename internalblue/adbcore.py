@@ -396,9 +396,9 @@ class ADBCore(InternalBlue):
             return False
 
         # spawn processes
-        threading.Thread(target=self._spawn, args=f"su -c \"tail -f -n +0 {logfile} | nc -l -p 8872\"").start()
-        threading.Thread(target=self._spawn, args=f"su -c \"nc -l -p 8873 >/sdcard/internalblue_input.bin\"").start()
-        threading.Thread(target=self._spawn, args=f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}\"").start()
+        threading.Thread(target=self._spawn, args=(f"su -c \"tail -f -n +0 {logfile} | nc -l -p 8872\"",)).start()
+        threading.Thread(target=self._spawn, args=(f"su -c \"nc -l -p 8873 >/sdcard/internalblue_input.bin\"",)).start()
+        threading.Thread(target=self._spawn, args=(f"su -c \"tail -f /sdcard/internalblue_input.bin >> {interface}\"",)).start()
         sleep(2)
 
         return True
