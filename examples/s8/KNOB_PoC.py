@@ -26,7 +26,7 @@ if not internalblue.connect():
     exit(-1)
 
 
-log.info("Installing patch which ensures that send_LMP_encryptoin_key_size_req is always len=1!")
+log.info("Installing patch which ensures that send_LMP_encryption_key_size_req is always len=1!")
 
 # modify function lm_SendLmpEncryptKeySizeReq
 patch = asm("mov r2, #0x1", vma=0x530F6)  # connection struct key entropy

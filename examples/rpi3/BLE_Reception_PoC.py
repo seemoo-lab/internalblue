@@ -5,14 +5,14 @@
 # Get receive statistics on a Raspberry Pi 3 for BLE connection events
 from internalblue import Address
 from internalblue.hcicore import HCICore
-from internalblue.utils.pwnlib_wrapper import log, asm
+from pwnlib.asm import asm
 
 internalblue = HCICore()
 device_list = internalblue.device_list()
 if len(device_list) == 0:
-    log.warn("No HCI devices connected!")
+    internalblue.logger.warn("No HCI devices connected!")
     exit(-1)
-internalblue.interface = device_list[0][1] # just use the first device
+internalblue.interface = device_list[0][1]  # just use the first device
 
 
 RX_DONE_HOOK_ADDRESS = Address(0x35fbc)  # _connTaskRxDone
@@ -68,22 +68,21 @@ ASM_HOOKS = """
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
 # Install hooks
 code = asm(ASM_HOOKS, vma=HOOKS_LOCATION)
-log.info("Writing hooks to 0x%x..." % HOOKS_LOCATION)
+internalblue.logger.info("Writing hooks to 0x%x..." % HOOKS_LOCATION)
 if not internalblue.writeMem(HOOKS_LOCATION, code):
-    log.critical("Cannot write hooks at 0x%x" % HOOKS_LOCATION)
+    internalblue.logger.critical("Cannot write hooks at 0x%x" % HOOKS_LOCATION)
     exit(-1)
 
-log.info("Installing hook patch...")
+internalblue.logger.info("Installing hook patch...")
 patch = asm("b 0x%x" % HOOKS_LOCATION, vma=RX_DONE_HOOK_ADDRESS)
 if not internalblue.patchRom(RX_DONE_HOOK_ADDRESS, patch):
-    log.critical("Installing patch for _connTaskRxDone failed!")
+    internalblue.logger.critical("Installing patch for _connTaskRxDone failed!")
     exit(-1)
 
-
-log.info("--------------------")
-log.info("To see statistics, execute 'internalblue' and run 'log_level debug'.")
+internalblue.logger.info("--------------------")
+internalblue.logger.info("To see statistics, execute 'internalblue' and run 'log_level debug'.")
