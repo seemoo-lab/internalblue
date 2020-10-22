@@ -263,14 +263,3 @@ until the Start the build section. Then do:
 Flex crashes on Ubuntu 18.04 - [workaround](https://stackoverflow.com/questions/49301627/android-7-1-2-armv7):
 
     export LC_ALL=C
-    
-    
-Empty Device List
------------------
-
-If `adb devices` returns something, but *InternalBlue* cannot find your device, you might try to comment out the following 
-lines in `pwnlib/adb/adb.py`:
-
-        #for field in fields[2:]:
-        #    k,v = field.split(':', 1)
-        #    kwargs[k] = v

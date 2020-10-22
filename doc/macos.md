@@ -1,50 +1,56 @@
-macOS Setup
+Prerequisites
 -----------
-
-### 1. Prerequisites
 
 *InternalBlue* runs as regular user, no administrator access is required.
 
-Install `homebrew` (see https://brew.sh/) and then use it to install `git` and `python3`.
+Install `homebrew` (see https://brew.sh/) and then use it to install `python3` and `git` (optional).
 
-If you want to use ARM assembly and disassembly, which is required for some patches and debugging, install[binutils](https://github.com/Gallopsled/pwntools-binutils).
-```
-brew install https://raw.githubusercontent.com/Gallopsled/pwntools-binutils/master/macos/binutils-arm.rb
-```
+Installation
+-----------
 
-### 2. Installation
-
-#### a) With Git
-Clone *InternalBlue* and install it. Preferrably in a new virtual environment.
-```
+#### [1] Get files
+Get *InternalBlue*, either by cloning with `git`
+```sh
 git clone https://github.com/seemoo-lab/internalblue
 cd internalblue
-
-virtualenv -p python3 venv
-source venv/bin/activate
-pip install --editable ./
-pip install pyobjc
 ```
-
-Without `pyobjc`, you might get an error message that the `IOBluetoothExtended.framework` was not found even
-if the folder is correct.
-
-#### b) Without Git
-Download *InternalBlue* and install it. Preferrably in a new virtual environment.
-```
+or downloading from GitHub.
+```sh
 curl -LJO https://github.com/seemoo-lab/internalblue/archive/master.zip
 unzip internalblue-master.zip
 cd internalblue-master
-
-virtualenv -p python3 venv
-source venv/bin/activate
-pip install --editable ./
-pip install pyobjc
 ```
 
-### 3. Framework Setup
+#### [2] New virtual environment.
+```sh
+virtualenv -p python3 venv
+source venv/bin/activate
+```
 
-#### a) Precompiled
+#### [3] Install
+Now you have to choose whether you want to install the requirements for (dis)assembly,
+which can not only take a long time on low-power devices but you also might not need
+the features that require these dependencies.
+
+#### [3a] Install Without binutils
+If you don't need ARM assembly and disassembly, just specify that you need the macOS-specific dependencies:
+```sh
+pip install -e .\[macoscore\]
+```
+
+#### [3b] Install With binutils
+If you want to use ARM assembly and disassembly, which is required for some patches and debugging, install [binutils](https://github.com/Gallopsled/pwntools-binutils).
+```sh
+brew install https://raw.githubusercontent.com/Gallopsled/pwntools-binutils/master/macos/binutils-arm.rb
+```
+Also add the `binutils` requirement so that `pip install` looks like this:
+```sh
+pip install -e .\[macoscore,binutils\]
+``` 
+
+Framework Setup
+-----------
+#### [a] Precompiled
 On macOS High Sierra or older, you need to use a precompiled [IOBluetoothExtended.framework](../macos/IOBluetoothExtended.framework.zip) file.
 It only runs after installing the *Swift 5 Runtime Support Command Line Tools*, otherwise, the error
 message `Library not loaded: @rpath/libswiftCore.dylib` is shown.
@@ -58,7 +64,7 @@ Depending on the installation location, if the `IOBluetoothExtended.framework` i
 adapt the path in `macoscore.py`.
 
 
-#### b) Compile yourself
+#### [b] Compile yourself
 On macOS Mojave and newer, *Xcode 10.2.1* and up is supported. On these systems, you can build the
 framework yourself.
 
@@ -68,7 +74,8 @@ open internalblue/macos/IOBluetoothExtended/IOBluetoothExtended.xcodeproj/
 
 ⌘ + B
 
-### 4. Startup
+Startup
+-----------
 Now, *InternalBlue* can be executed normally, like shown.
 ```
 python3 -m internalblue.cli
@@ -76,8 +83,8 @@ python3 -m internalblue.cli
 You can also use the shortcut `internalblue`.
 
 
-### 5. Debugging
-
+Debugging
+-----------
 You can open `PacketLogger`, which is included in the `Additional Tools for Xcode`, to observe all Bluetooth packets.
 
 If you do excessive IO such as dumping the ROM and get the message `Failure: creating socket: Too many open

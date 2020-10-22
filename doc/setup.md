@@ -78,12 +78,14 @@ pip install --upgrade https://github.com/seemoo-lab/internalblue/archive/master.
 
 ### Development Install
 
-If you except that you might want to read the code locally, debug it
+If you expect that you might want to read the code locally, debug it
 or possibly change it you should setup an editable install.
 
 ```sh
 git clone https://github.com/seemoo-lab/internalblue
 cd internalblue
+virtualenv -p python3 venv
+source venv/bin/activate
 pip install --editable ./
 ```
 Any changes to the python code in your git checkout will now be immediately reflected when importing `internalblue` or starting it from your shell.
@@ -96,10 +98,26 @@ hub fork # requires https://github.com/cli/cli to be set up before
 git checkout -b $your_new_feature_branch
 ```
 
+### Full Install including assembly, disassembly etc.
+Perform all steps of the development install, but additionally tell `pip` to install the `binutils` requirements as well.
+```sh
+git clone https://github.com/seemoo-lab/internalblue
+cd internalblue
+virtualenv -p python3 venv
+source venv/bin/activate
+pip install --editable .\[binutils\]
+```
+
 ### Dependencies
 
-It will install the following dependencies:
+InternalBlue will by default install the following dependencies:
+* `cmd2`
+*  `pure-python-adb`
+
+If you opt for the full set of features, additionally these dependencies are installed:
+
 * `pwntools`
+* `pyelftools`
 
 The `pwntools` module needs the `binutils` package for ARM 32-bit to be installed
 on the system. This has to be installed manually by using the packet manager
