@@ -3,21 +3,21 @@
 # Jiska Classen
 
 # Get receive statistics on a Nexus 5 for BLE connection events
-
+import sys
+from argparse import Namespace
 from builtins import range
-from internalblue.adbcore import ADBCore
 import internalblue.hci as hci
-import internalblue.cli as cli
-from internalblue.utils.pwnlib_wrapper import log, asm, u8, u16
+from internalblue.adbcore import ADBCore
+from internalblue.cli import InternalBlueCLI
+from internalblue.utils import u16
+from pwnlib.asm import asm
 
 internalblue = ADBCore(serial=False)
 device_list = internalblue.device_list()
 if len(device_list) == 0:
-    log.warn("No HCI devices connected!")
+    internalblue.logger.warning("No HCI devices connected!")
     exit(-1)
-internalblue.interface = device_list[0][1] # just use the first device
-
-
+internalblue.interface = device_list[0][1]  # just use the first device
 
 """
 # _connTaskRxDone has a Patchram position, Nexus 5 patches look so worse that I guess
@@ -78,26 +78,25 @@ ASM_HOOKS = """
     // branch back to _connTaskRxDone + 4
     b 0x%x
 
-""" % (RX_DONE_HOOK_ADDRESS+4)
+""" % (RX_DONE_HOOK_ADDRESS + 4)
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
 # Install hooks
 code = asm(ASM_HOOKS, vma=HOOKS_LOCATION)
-log.info("Writing hooks to 0x%x..." % HOOKS_LOCATION)
+internalblue.logger.info("Writing hooks to 0x%x..." % HOOKS_LOCATION)
 if not internalblue.writeMem(HOOKS_LOCATION, code):
-    log.critical("Cannot write hooks at 0x%x" % HOOKS_LOCATION)
+    internalblue.logger.critical("Cannot write hooks at 0x%x" % HOOKS_LOCATION)
     exit(-1)
 
-log.info("Installing hook patch...")
+internalblue.logger.info("Installing hook patch...")
 patch = asm("b 0x%x" % HOOKS_LOCATION, vma=RX_DONE_HOOK_ADDRESS)
 if not internalblue.writeMem(RX_DONE_HOOK_ADDRESS, patch):
-    log.critical("Installing patch for _connTaskRxDone failed!")
+    internalblue.logger.critical("Installing patch for _connTaskRxDone failed!")
     exit(-1)
-
 
 # RXDN statistics callback variables
 internalblue.last_nesn_sn = None
@@ -127,18 +126,18 @@ def lereceiveStatusCallback(record):
 
         # !!! Nexus 5 has really outdated struct...
         packet_curr_nesn_sn = data[0xa0]
-        packet_channel_map = data[0x4c:0x4c+38]
+        packet_channel_map = data[0x4c:0x4c + 38]
         packet_channel = data[0x7b]
         packet_event_ctr = u16(data[0x86:0x88])
         packet_rssi = data[0]
 
         if internalblue.last_nesn_sn and ((internalblue.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) != 0b1100:
-            log.info("             ^----------------------------- ERROR --------------------------------")
+            internalblue.logger.info("             ^----------------------------- ERROR --------------------------------")
 
         # currently only supported by eval board: check if we also went into the process payload routine,
         # which probably corresponds to a correct CRC
         # if self.last_success_event and (self.last_success_event + 1) != packet_event_ctr:
-        #    log.debug("             ^----------------------------- MISSED -------------------------------")
+        #    internalblue.logger.debug("             ^----------------------------- MISSED -------------------------------")
 
         # TODO example for setting the channel map
         # timeout needs to be zero, because we are already in an event reception routine!
@@ -159,18 +158,17 @@ def lereceiveStatusCallback(record):
             for channel in range(0, channels_total):
                 channel_map |= (0b1 << 39) >> packet_channel_map[channel]
 
-        log.info("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
-                                                                      (packet_rssi & 0x7f) - (128 * (packet_rssi >> 7)),
-                                                                      color, ' ' * packet_channel))
+        internalblue.logger.info("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
+                                                                                     (packet_rssi & 0x7f) - (128 * (packet_rssi >> 7)),
+                                                                                     color, ' ' * packet_channel))
 
 
-
-log.info("--------------------")
-log.info("Entering InternalBlue CLI to display statistics.")
+internalblue.logger.info("--------------------")
+internalblue.logger.info("Entering InternalBlue CLI to display statistics.")
 
 # add RXDN callback
 internalblue.registerHciCallback(lereceiveStatusCallback)
 
-
 # enter CLI
-cli.commandLoop(internalblue)
+cli = InternalBlueCLI(Namespace(data_directory=None, verbose=False, trace=None, save=None), internalblue)
+sys.exit(cli.cmdloop())

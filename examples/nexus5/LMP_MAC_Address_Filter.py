@@ -3,7 +3,7 @@
 # Jiska Classen, Secure Mobile Networking Lab
 from internalblue import Address
 from internalblue.adbcore import ADBCore
-from internalblue.utils.pwnlib_wrapper import log, asm
+from pwnlib.asm import asm
 from binascii import unhexlify
 """
 Filter connections by MAC address before entering LMP dispatcher.
@@ -96,22 +96,22 @@ internalblue.interface = internalblue.device_list()[0][1] # just use the first d
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
-progress_log = log.info("Writing ASM snippet for LMP MAC address filter.")
+internalblue.logger.info("Writing ASM snippet for LMP MAC address filter.")
 code = asm(ASM_SNIPPET_LMP_FILTER, vma=ASM_LOCATION_LMP_FILTER)
-if not internalblue.writeMem(address=ASM_LOCATION_LMP_FILTER, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+if not internalblue.writeMem(address=ASM_LOCATION_LMP_FILTER, data=code, progress_log=None):
+    internalblue.logger.critical("error!")
     exit(-1)
 
 # all send_lmp functions are in rom...
-log.info("Installing MAC address filter hook patch...")
+internalblue.logger.info("Installing MAC address filter hook patch...")
 patch = asm("b 0x%x" % ASM_LOCATION_LMP_FILTER, vma=HOOK_LMP_FILTER)
 if not internalblue.patchRom(HOOK_LMP_FILTER, patch):
-    log.critical("error!")
+    internalblue.logger.critical("error!")
     exit(-1)
 
 # shutdown connection
 internalblue.shutdown()
-log.info("Goodbye")
+internalblue.logger.info("Goodbye")

