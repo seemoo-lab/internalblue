@@ -2,16 +2,16 @@
 
 # Jiska Classen, Secure Mobile Networking Lab
 
-import sys
-
-from pwn import *
-from internalblue.hcicore import HCICore
-import internalblue.hci as hci
-import internalblue.cli as cli
-import numpy as np
 import os
+import sys
+from argparse import Namespace
 
+import numpy as np
+from pwnlib.asm import asm
 
+import internalblue.hci as hci
+from internalblue.cli import InternalBlueCLI
+from internalblue.hcicore import HCICore
 
 """
 Measure the RNG of the Raspberry Pi 3.
@@ -118,41 +118,31 @@ ASM_SNIPPET_RNG = """
     
 """ % (MEM_ROUNDS, MEM_RNG, PRAND)
 
-
 internalblue = HCICore()
 internalblue.interface = internalblue.device_list()[0][1]  # just use the first device
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
-progress_log = log.info("installing assembly patches...")
-
+internalblue.logger.info("installing assembly patches...")
 
 # Install the RNG code in RAM
 code = asm(ASM_SNIPPET_RNG, vma=ASM_LOCATION_RNG)
-if not internalblue.writeMem(address=ASM_LOCATION_RNG, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+if not internalblue.writeMem(address=ASM_LOCATION_RNG, data=code, progress_log=None):
+    internalblue.logger.critical("error!")
     exit(-1)
 
 # Disable original RNG
 patch = asm("bx lr; bx lr", vma=FUN_RNG)  # 2 times bx lr is 4 bytes and we can only patch 4 bytes
 if not internalblue.patchRom(FUN_RNG, patch):
-    log.critical("Could not disable original RNG!")
+    internalblue.logger.critical("Could not disable original RNG!")
     exit(-1)
 
-
-
-log.info("Installed all RNG hooks.")
-
-#adb.process(["su", "-c", "svc wifi disable"])
+internalblue.logger.info("Installed all RNG hooks.")
 os.system("sudo rfkill block wifi")
-
-log.info("Disabled Wi-Fi core.")
-
-
-
+internalblue.logger.info("Disabled Wi-Fi core.")
 
 """
 We cannot call HCI Read_RAM from this callback as it requires another callback (something goes wrong here),
@@ -161,6 +151,8 @@ than polling a status register in the Bluetooth firmware itself.
 """
 # global status
 internalblue.rnd_done = False
+
+
 def rngStatusCallback(record):
     hcipkt = record[0]  # get HCI Event packet
 
@@ -168,23 +160,19 @@ def rngStatusCallback(record):
         return
 
     if hcipkt.data[0:21] == b'\x2e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00':
-        log.debug("Random data done!")
+        internalblue.logger.debug("Random data done!")
         internalblue.rnd_done = True
+
 
 # add RNG callback
 internalblue.registerHciCallback(rngStatusCallback)
-
-
-## enter CLI
-#cli.commandLoop(internalblue)
-
 
 # read for multiple rounds to get more experiment data
 rounds = 100
 i = 0
 data = bytearray()
 while rounds > i:
-    log.info("RNG round %i..." % i)
+    internalblue.logger.info("RNG round %i..." % i)
 
     # launch assembly snippet
     internalblue.launchRam(ASM_LOCATION_RNG)
@@ -195,28 +183,29 @@ while rounds > i:
     internalblue.rnd_done = False
 
     # and now read and save the random
-    random = internalblue.readMem(MEM_RNG, MEM_ROUNDS*5)
+    random = internalblue.readMem(MEM_RNG, MEM_ROUNDS * 5)
     data.extend(random)
 
     i = i + 1
 
-log.info("Finished acquiring random data!")
+internalblue.logger.info("Finished acquiring random data!")
 
 # every 5th byte i 0x42
 check = data[4::5]
 for c in check:
     if c != 0x42:
-        log.error("Data was corrupted by another process!")
+        internalblue.logger.error("Data was corrupted by another process!")
 
 # uhm and for deleting every 5th let's take numpy (oh why??)
 data = np.delete(data, np.arange(4, data.__len__(), 5))
-
 
 f = open("raspi3p_randomdata_pseudo-%irounds-reg0x%x.bin" % (rounds, PRAND), "wb")
 f.write(data)
 f.close()
 
+internalblue.logger.info("--------------------")
+internalblue.logger.info("Entering InternalBlue CLI to interpret RNG.")
 
-#log.info("--------------------")
-#log.info("Entering InternalBlue CLI to interpret RNG.")
-
+# enter CLI
+cli = InternalBlueCLI(Namespace(data_directory=None, verbose=False, trace=None, save=None), internalblue)
+sys.exit(cli.cmdloop())
