@@ -3,19 +3,22 @@
 # Jiska Classen
 
 # Get receive statistics on a Samsung Galaxy S8 for BLE connection events
+import sys
+from argparse import Namespace
 
-from builtins import range
-from internalblue.adbcore import ADBCore
+from pwnlib.asm import asm
+
 import internalblue.hci as hci
-import internalblue.cli as cli
-from internalblue.utils.pwnlib_wrapper import log, asm, u8, u16
+from internalblue.adbcore import ADBCore
+from internalblue.cli import InternalBlueCLI
+from internalblue.utils import u8, u16
+
 internalblue = ADBCore(serial=True)
 device_list = internalblue.device_list()
 if len(device_list) == 0:
-    log.warn("No HCI devices connected!")
+    internalblue.logger.warn("No HCI devices connected!")
     exit(-1)
-internalblue.interface = device_list[0][1] # just use the first device
-
+internalblue.interface = device_list[0][1]  # just use the first device
 
 """
 # _connTaskRxDone has a Patchram position, S8 fixed almost everything in BLE, because
@@ -23,8 +26,8 @@ internalblue.interface = device_list[0][1] # just use the first device
 # The base address is 0x5E324, and this will jump into the Patchram.
 # You need to adjust the RX_DONE_HOOK_ADDRESS in the beginning.
 """
-#RX_DONE_HOOK_ADDRESS = 0x1344D0  # on S8 with Patchlevel May 1 2019 on stock ROM
-#RX_DONE_HOOK_ADDRESS = 0x134500  # on S8 with Lineage OS Nightly from August 30 2019
+# RX_DONE_HOOK_ADDRESS = 0x1344D0  # on S8 with Patchlevel May 1 2019 on stock ROM
+# RX_DONE_HOOK_ADDRESS = 0x134500  # on S8 with Lineage OS Nightly from August 30 2019
 RX_DONE_HOOK_ADDRESS = 0x134514  # on S8 with Patchlevel September 1 2019 on stock ROM
 HOOKS_LOCATION = 0x210500
 ASM_HOOKS = """
@@ -76,26 +79,25 @@ ASM_HOOKS = """
     //b     0x134504 // August 30 Nightly Build
     b 0x%x
 
-""" % (RX_DONE_HOOK_ADDRESS+4)
+""" % (RX_DONE_HOOK_ADDRESS + 4)
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
 # Install hooks
 code = asm(ASM_HOOKS, vma=HOOKS_LOCATION)
-log.info("Writing hooks to 0x%x..." % HOOKS_LOCATION)
+internalblue.logger.info("Writing hooks to 0x%x..." % HOOKS_LOCATION)
 if not internalblue.writeMem(HOOKS_LOCATION, code):
-    log.critical("Cannot write hooks at 0x%x" % HOOKS_LOCATION)
+    internalblue.logger.critical("Cannot write hooks at 0x%x" % HOOKS_LOCATION)
     exit(-1)
 
-log.info("Installing hook patch...")
+internalblue.logger.info("Installing hook patch...")
 patch = asm("b 0x%x" % HOOKS_LOCATION, vma=RX_DONE_HOOK_ADDRESS)
 if not internalblue.writeMem(RX_DONE_HOOK_ADDRESS, patch):
-    log.critical("Installing patch for _connTaskRxDone failed!")
+    internalblue.logger.critical("Installing patch for _connTaskRxDone failed!")
     exit(-1)
-
 
 # RXDN statistics callback variables
 internalblue.last_nesn_sn = None
@@ -123,10 +125,10 @@ def lereceiveStatusCallback(record):
         if len(data) < 239:
             return
 
-        #if raspi or s8:
+        # if raspi or s8:
         packet_curr_nesn_sn = u8(data[0xa0])
 
-        #elif eval:
+        # elif eval:
         #    packet_curr_nesn_sn = u8(data[0xa4])
 
         packet_channel_map = data[0x54:0x7b]
@@ -135,12 +137,12 @@ def lereceiveStatusCallback(record):
         packet_rssi = data[0]
 
         if internalblue.last_nesn_sn and ((internalblue.last_nesn_sn ^ packet_curr_nesn_sn) & 0b1100) != 0b1100:
-            log.info("             ^----------------------------- ERROR --------------------------------")
+            internalblue.logger.info("             ^----------------------------- ERROR --------------------------------")
 
         # currently only supported by eval board: check if we also went into the process payload routine,
         # which probably corresponds to a correct CRC
         # if self.last_success_event and (self.last_success_event + 1) != packet_event_ctr:
-        #    log.debug("             ^----------------------------- MISSED -------------------------------")
+        #    internalblue.logger.debug("             ^----------------------------- MISSED -------------------------------")
 
         # TODO example for setting the channel map
         # timeout needs to be zero, because we are already in an event reception routine!
@@ -161,18 +163,17 @@ def lereceiveStatusCallback(record):
             for channel in range(0, channels_total):
                 channel_map |= (0b1 << 39) >> packet_channel_map[channel]
 
-        log.info("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
-                                                                      (packet_rssi & 0x7f) - (128 * (packet_rssi >> 7)),
-                                                                      color, ' ' * packet_channel))
+        internalblue.logger.info("LE event %5d, map %10x, RSSI %d: %s%s*\033[0m " % (packet_event_ctr, channel_map,
+                                                                                     (packet_rssi & 0x7f) - (128 * (packet_rssi >> 7)),
+                                                                                     color, ' ' * packet_channel))
 
 
-
-log.info("--------------------")
-log.info("Entering InternalBlue CLI to display statistics.")
+internalblue.logger.info("--------------------")
+internalblue.logger.info("Entering InternalBlue CLI to display statistics.")
 
 # add RXDN callback
 internalblue.registerHciCallback(lereceiveStatusCallback)
 
-
 # enter CLI
-cli.commandLoop(internalblue)
+cli = InternalBlueCLI(Namespace(data_directory=None, verbose=False, trace=None, save=None), internalblue)
+sys.exit(cli.cmdloop())
