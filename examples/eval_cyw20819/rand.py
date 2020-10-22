@@ -3,14 +3,15 @@
 # Jiska Classen, Secure Mobile Networking Lab
 
 import sys
-
-from pwn import *
-from internalblue.hcicore import HCICore
-import internalblue.hci as hci
-import internalblue.cli as cli
-import numpy as np
-import os
+from argparse import Namespace
 from datetime import datetime
+
+import numpy as np
+from pwnlib.asm import asm
+
+import internalblue.hci as hci
+from internalblue.cli import InternalBlueCLI
+from internalblue.hcicore import HCICore
 
 """
 Measure the RNG of the CYW20819 Evaluation Board.
@@ -35,7 +36,7 @@ Changes:
 
 """
 
-#ASM_LOCATION_RNG = 0x271000  # load our snippet into Patchram (we need to disable all patches for this!)
+# ASM_LOCATION_RNG = 0x271000  # load our snippet into Patchram (we need to disable all patches for this!)
 ASM_LOCATION_RNG = 0x219000
 # 0x219000 crashed with 0x1000 in round 27
 # 0x216000 looks emptier but crashed on first attempt
@@ -130,54 +131,47 @@ ASM_SNIPPET_RNG = """
     
 """ % (MEM_ROUNDS, MEM_RNG)
 
-
 internalblue = HCICore()
 internalblue.interface = internalblue.interface = internalblue.device_list()[0][1]  # just use the first device
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
-progress_log = log.info("Installing assembly patches...")
+internalblue.logger.info("Installing assembly patches...")
 
 # Disable Patchram
-#if not internalblue.writeMem(address=0x310404, data=b'\x00\x00\x00\x00\x00', progress_log=progress_log):
-#    progress_log.critical("error!")
+# if not internalblue.writeMem(address=0x310404, data=b'\x00\x00\x00\x00\x00', progress_log=None):
+#    internalblue.logger.critical("error!")
 #    exit(-1)
 
 # Install the RNG code in RAM
 code = asm(ASM_SNIPPET_RNG, vma=ASM_LOCATION_RNG)
-if not internalblue.writeMem(address=ASM_LOCATION_RNG, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+if not internalblue.writeMem(address=ASM_LOCATION_RNG, data=code, progress_log=None):
+    internalblue.logger.critical("error!")
     exit(-1)
 
 # Disable original RNG
 patch = asm("bx lr; bx lr", vma=FUN_RNG)  # 2 times bx lr is 4 bytes and we can only patch 4 bytes
 if not internalblue.patchRom(FUN_RNG, patch):
-    log.critical("Could not disable original RNG!")
+    internalblue.logger.critical("Could not disable original RNG!")
     exit(-1)
 
 # CYW20819 Launch_RAM fix: overwrite an unused HCI handler
 # The Launch_RAM handler is broken so we can just overwrite it to call the function we need.
 # The handler table entry for it is at 0xF2884, and it points to launch_RAM+1.
 if not internalblue.patchRom(0xF2884, b'\x01\x90\x21\x00'):  # 0x219001
-    log.critical("Could not implement our launch RAM fix!")
+    internalblue.logger.critical("Could not implement our launch RAM fix!")
     exit(-1)
-
 
 # Disable functions that crash us when using the target memory region at 0x219000
 patch = asm("bx lr; bx lr", vma=0x79AC6)  # 2 times bx lr is 4 bytes and we can only patch 4 bytes
 if not internalblue.patchRom(0x79AC6, patch):
-    log.critical("Could not disable original bcs_taskDeactivate_blocking!")
+    internalblue.logger.critical("Could not disable original bcs_taskDeactivate_blocking!")
     exit(-1)
 
-
-log.info("Installed all RNG hooks.")
-
-
-
-
+internalblue.logger.info("Installed all RNG hooks.")
 
 """
 We cannot call HCI Read_RAM from this callback as it requires another callback (something goes wrong here),
@@ -186,6 +180,8 @@ than polling a status register in the Bluetooth firmware itself.
 """
 # global status
 internalblue.rnd_done = False
+
+
 def rngStatusCallback(record):
     hcipkt = record[0]  # get HCI Event packet
 
@@ -193,22 +189,19 @@ def rngStatusCallback(record):
         return
 
     if hcipkt.data[0:4] == bytes("RAND", "utf-8"):
-        log.debug("Random data done!")
+        internalblue.logger.debug("Random data done!")
         internalblue.rnd_done = True
+
 
 # add RNG callback
 internalblue.registerHciCallback(rngStatusCallback)
-
-
-#cli.commandLoop(internalblue)
-
 
 # read for multiple rounds to get more experiment data
 rounds = 1000
 i = 0
 data = bytearray()
 while rounds > i:
-    log.info("RNG round %i..." % i)
+    internalblue.logger.info("RNG round %i..." % i)
 
     # launch assembly snippet
     internalblue.launchRam(ASM_LOCATION_RNG)
@@ -219,7 +212,7 @@ while rounds > i:
     internalblue.rnd_done = False
 
     # and now read and save the random
-    random = internalblue.readMem(MEM_RNG, MEM_ROUNDS*5)
+    random = internalblue.readMem(MEM_RNG, MEM_ROUNDS * 5)
 
     # do an immediate check to tell where the corruption happened
     check = random[4::5]
@@ -228,7 +221,7 @@ while rounds > i:
     for c in check:
         pos = pos + 1
         if c != 0x42:
-            log.warn("    Data was corrupted at 0x%x, repeating round." % (MEM_RNG+(pos*5)))
+            internalblue.logger.warning("    Data was corrupted at 0x%x, repeating round." % (MEM_RNG + (pos * 5)))
             failed = True
             break
 
@@ -239,21 +232,18 @@ while rounds > i:
     data.extend(random)
     i = i + 1
 
-log.info("Finished acquiring random data!")
-
+internalblue.logger.info("Finished acquiring random data!")
 
 # uhm and for deleting every 5th let's take numpy (oh why??)
 data = np.delete(data, np.arange(4, data.__len__(), 5))
-
 
 f = open("cyw20819-randomdata-0x500-%irounds-%s.bin" % (rounds, datetime.now()), "wb")
 f.write(data)
 f.close()
 
+internalblue.logger.info("--------------------")
+internalblue.logger.info("Entering InternalBlue CLI to interpret RNG.")
 
-#log.info("--------------------")
-#log.info("Entering InternalBlue CLI to interpret RNG.")
-
-## enter CLI
-#cli.commandLoop(internalblue)
-
+# enter CLI
+cli = InternalBlueCLI(Namespace(data_directory=None, verbose=False, trace=None, save=None), internalblue)
+sys.exit(cli.cmdloop())
