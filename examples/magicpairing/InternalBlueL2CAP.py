@@ -2,17 +2,17 @@
 
 # Dennis Heinze
 
-import sys
-import time
-import os
 import binascii
+import struct
 
-from pwn import *
+from pwnlib import log
+
+from internalblue.utils import p16
+
 
 class L2CAPManager:
-    
     def __init__(self, btconn, mtu=0x30):
-        self.connection = btconn 
+        self.connection = btconn
 
         self.connection.registerACLHandler(self._receptionHandler)
 
@@ -37,7 +37,7 @@ class L2CAPManager:
 
         self.cidHandlers[cid].append(handler)
         log.debug("Registered L2CAP handler for CID %d", cid)
-    
+
     def _receptionHandler(self, data):
         if len(data) > 5:
             l2cap_data = data[5:]
@@ -57,7 +57,6 @@ class L2CAPManager:
 
 
 class L2CAPSignalChannel:
-
     def __init__(self, chanman):
         self.chanman = chanman
         self.chanman.registerCIDHandler(0x01, self._receptionHandler)

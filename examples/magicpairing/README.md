@@ -5,5 +5,5 @@ This folder contains the proof-of-concepts belonging to our WiSec paper
 
 Run the `mp_pocs.py` script to try the PoCs. The script will interactively ask
 for the required information for each of the PoCs. It assumes a connected iOS
-device running InternalBlue. This can be changes by adopting the core to the
+device running InternalBlue. This can be changed by adopting the core to the
 desired one (i.e. for macOS `internalblue = macOSCore()`).

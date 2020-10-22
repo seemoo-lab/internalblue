@@ -3,25 +3,28 @@
 # connections. in general, it is very basic and offers the bare minimum
 # to semi-reliably hold an active l2cap channel.
 
-import time
+import binascii
 import struct
 import threading
+import time
 
-from pwn import *
+from pwnlib import log
+
 import internalblue.hci as hci
+from internalblue.utils import p16, p8
 
 CONNECTION_TYPE_CLASSIC = 0
 CONNECTION_TYPE_BLE = 1
 
-class BluetoothConnection:
 
+class BluetoothConnection:
     def __init__(self, core, bd_addr, reconnect=1, keepalive=True, timeout=5):
-        self.core = core 
+        self.core = core
         self.remote_addr = bd_addr
         self.reconnect = reconnect
         self.keepalive = keepalive
         self.timeout = timeout
-        
+
         # the handle also determines whether there is currently an active connection
         self.handle = None
         self.aclHandlers = []
@@ -59,7 +62,7 @@ class BluetoothConnection:
         event = h4_record.event_code
         hci_data = h4_record.data
         status = hci_data[0]
-        
+
         # connection complete event
         if event == 3:
             # connection complete - sucess
@@ -78,7 +81,7 @@ class BluetoothConnection:
             log.info("Disconnected from " + binascii.hexlify(self.remote_addr).decode("utf-8"))
             if self.reconnect_counter < self.reconnect:
                 log.info("Trying to reconnect (attempt %d of %d)", self.reconnect_counter,
-                        self.reconnect)
+                         self.reconnect)
                 # wait a second, otherwise we sometimes don't get the connection complete event...
                 time.sleep(1)
                 self.connect()
@@ -86,11 +89,11 @@ class BluetoothConnection:
         # authentication complete
         elif event == 6:
             # workaround as there is apparently a bug in pythons struct
-            (status, ) = struct.unpack_from("b", hci_data)
-            (handle, ) = struct.unpack_from("h", hci_data[1:])
+            (status,) = struct.unpack_from("b", hci_data)
+            (handle,) = struct.unpack_from("h", hci_data[1:])
 
             log.info("got Authentication Complete from handle %s, status: %d", hex(handle),
-                    status)
+                     status)
             if status == 0:
                 # authentication was successful, now set connection encryption
                 self.core.sendHciCommand(0x0413, p16(handle) + "\x01")
@@ -98,21 +101,21 @@ class BluetoothConnection:
                 if self.encryption_callback:
                     self.encryption_callback()
                 pass
-            else: 
+            else:
                 handle = 0
         # encryption change complete
         elif event == 8:
             (handle, encrypt) = struct.unpack_from("hb", hci_data)
             log.info("Got Encryption Change Complete from handle %s, encrypt: %d", hex(handle),
-                    encrypt)
+                     encrypt)
         # pin code request
         elif event == 0x16:
-            (bd_addr, ) = struct.unpack_from("6s", hci_data)
+            (bd_addr,) = struct.unpack_from("6s", hci_data)
             log.info("Got Pin Code Request for %s", binascii.hexlify(bd_addr).decode("utf-8"))
-            self.core.sendHciCommand(0x040d, bd_addr + "\x00" + "\x41"*0x10)
+            self.core.sendHciCommand(0x040d, bd_addr + "\x00" + "\x41" * 0x10)
         # link key request
         elif event == 0x17:
-            (bd_addr, ) = struct.unpack_from("6s", hci_data)
+            (bd_addr,) = struct.unpack_from("6s", hci_data)
             log.info("Got Link Key request from %s", binascii.hexlify(bd_addr).decode("utf-8"))
             # link keys are not really implemented yet, just return a random link key
             self.core.sendHciCommand(0x040b, bd_addr + bytes.fromhex("0d2017c7f90a78cefeeed32210e6519a"))
@@ -125,7 +128,7 @@ class BluetoothConnection:
             else:
                 # send negative link key reply, we don't have a key
                 self.core.sendHciCommand(0x040c, bd_addr)
-            
+
         # link key notification
         elif event == 0x18:
             (bd_addr, link_key) = struct.unpack_from("6s16s", hci_data)
@@ -133,20 +136,20 @@ class BluetoothConnection:
             self.link_keys[bd_addr] = link_key
         # io capability request
         elif event == 0x31:
-            (bd_addr, ) = struct.unpack_from("6s", hci_data)
+            (bd_addr,) = struct.unpack_from("6s", hci_data)
             log.info("Got IO capability request from %s", binascii.hexlify(bd_addr).decode("utf-8"))
             # pretend to not have a display or oob data present
             # no display: 0x03, no oob: 0x00, auth requirements: 0x02
             self.core.sendHciCommand(0x042b, bd_addr + "\x03\x00\x02")
         # user confirmation request
         elif event == 0x33:
-            (bd_addr, ) = struct.unpack_from("6s", hci_data)
+            (bd_addr,) = struct.unpack_from("6s", hci_data)
             log.info("Got user confirmation request from %s", binascii.hexlify(bd_addr).decode("utf-8"))
             # we just accept any confirmation requests
             self.core.sendHciCommand(0x42c, bd_addr)
         # simple pairing complete
         elif event == 0x36:
-            (bd_addr, ) = struct.unpack_from("6s", hci_data)
+            (bd_addr,) = struct.unpack_from("6s", hci_data)
             log.info("Got simple pairing complete from %s", binascii.hexlify(bd_addr).decode("utf-8"))
         # le event
         # everything from le lands here...
@@ -225,8 +228,8 @@ class BluetoothConnection:
 
             log.info("Connection timeout")
             if self.reconnect_counter < self.reconnect:
-                log.info("Trying to reconnect (attempt %d of %d)", self.reconnect_counter, 
-                        self.reconnect)
+                log.info("Trying to reconnect (attempt %d of %d)", self.reconnect_counter,
+                         self.reconnect)
                 self.reconnect_counter += 1
                 status = self.connect()
             else:
@@ -236,7 +239,6 @@ class BluetoothConnection:
             log.info("Connection successful")
             if self.connection_callback:
                 self.connection_callback()
-            status = True 
+            status = True
 
         return status
-
