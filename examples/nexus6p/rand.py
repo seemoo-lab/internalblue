@@ -176,7 +176,7 @@ def rngStatusCallback(record):
         return
 
     if hcipkt.data[0:4] == bytes("RAND", "utf-8"):
-        log.debug("Random data done!")
+        internalblue.logger.debug("Random data done!")
         internalblue.rnd_done = True
 
 # add RNG callback
