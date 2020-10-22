@@ -83,7 +83,7 @@ def yesno(message):
             selection = input(f"[🦄] {message} [yes/no] ")
 
 
-def bits(s, endian='big', zero=0, one=1):
+def bits(s, endian='big') -> [int]:
     """bits(s, endian = 'big', zero = 0, one = 1) -> list
 
     Converts the argument a list of bits.
@@ -91,8 +91,6 @@ def bits(s, endian='big', zero=0, one=1):
     Arguments:
         s: A string or number to be converted into bits.
         endian (str): The binary endian, default 'big'.
-        zero: The representing a 0-bit.
-        one: The representing a 1-bit.
 
     Returns:
         A list consisting of the values specified in `zero` and `one`.
@@ -110,7 +108,7 @@ def bits(s, endian='big', zero=0, one=1):
         for b in bytearray(s):
             byte = []
             for _ in range(8):
-                byte.append(one if b & 1 else zero)
+                byte.append(1 if b & 1 else 0)
                 b >>= 1
             if little:
                 out += byte
@@ -163,7 +161,7 @@ def unbits(s, endian='big'):
     return out
 
 
-def bits_str(s, endian='big'):
+def bits_str(s, endian='big') -> str:
     """bits_str(s, endian = 'big') -> str
     A wrapper around :func:`bits`, which converts the output into a string.
     Examples:
@@ -172,4 +170,4 @@ def bits_str(s, endian='big'):
        >>> bits_str(b"bits_str", endian = "little")
        '0100011010010110001011101100111011111010110011100010111001001110'
     """
-    return ''.join(bits(s, endian, 0, 1))
+    return ''.join(map(lambda x: str(x), bits(s, endian)))
