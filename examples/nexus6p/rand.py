@@ -3,15 +3,17 @@
 # Jiska Classen, Secure Mobile Networking Lab
 
 import sys
+from argparse import Namespace
 
-from pwn import *
+from pwnlib import adb
+from pwnlib.asm import asm
+
 from internalblue.adbcore import ADBCore
 import internalblue.hci as hci
-import internalblue.cli as cli
 import numpy as np
 from datetime import datetime
 
-
+from internalblue.cli import InternalBlueCLI
 
 """
 Measure the RNG of the Nexus 6.
@@ -56,7 +58,7 @@ ASM_SNIPPET_RNG = """
     ldr  r1, =0x%x      // dst: store RNG data here
     bl   dump_rng
     
-    // done, let's notify
+    // done, let us notify
     bl   notify_hci
     
     // back to lr
@@ -97,7 +99,7 @@ ASM_SNIPPET_RNG = """
     
     
     
-    //// issue an HCI event once we're done
+    //// issue an HCI event once we are done
     notify_hci:
         
     push  {r0-r4, lr}
@@ -130,40 +132,34 @@ internalblue.interface = internalblue.device_list()[0][1]  # just use the first 
 
 # setup sockets
 if not internalblue.connect():
-    log.critical("No connection to target device.")
+    internalblue.logger.critical("No connection to target device.")
     exit(-1)
 
-progress_log = log.info("installing assembly patches to crash other device on connect requests...")
+internalblue.logger.info("installing assembly patches to crash other device on connect requests...")
 
 
 # Install the RNG code in RAM
 code = asm(ASM_SNIPPET_RNG, vma=ASM_LOCATION_RNG)
-if not internalblue.writeMem(address=ASM_LOCATION_RNG, data=code, progress_log=progress_log):
-    progress_log.critical("error!")
+if not internalblue.writeMem(address=ASM_LOCATION_RNG, data=code, progress_log=None):
+    internalblue.logger.critical("error!")
     exit(-1)
 
 # Nexus 6P Launch_RAM fix: overwrite an unused HCI handler
 # Here it is not called within the handler table but within another function.
 patch = asm("b 0x%x" % ASM_LOCATION_RNG, vma=0x59042)
 if not internalblue.patchRom(0x59042, patch):
-    log.critical("Could not implement our launch RAM fix!")
+    internalblue.logger.critical("Could not implement our launch RAM fix!")
     exit(-1)
 
 # Disable original RNG
 patch = asm("bx lr; bx lr", vma=FUN_RNG)  # 2 times bx lr is 4 bytes and we can only patch 4 bytes
 if not internalblue.patchRom(FUN_RNG, patch):
-    log.critical("Could not disable original RNG!")
+    internalblue.logger.critical("Could not disable original RNG!")
     exit(-1)
 
-
-
-log.info("Installed all RNG hooks.")
-
+internalblue.logger.info("Installed all RNG hooks.")
 adb.process(["su", "-c", "svc wifi disable"])
-
-log.info("Disabled Wi-Fi core.")
-
-
+internalblue.logger.info("Disabled Wi-Fi core.")
 
 
 """
@@ -187,17 +183,12 @@ def rngStatusCallback(record):
 internalblue.registerHciCallback(rngStatusCallback)
 
 
-# enter CLI
-#cli.commandLoop(internalblue)
-
-
-
 # read for multiple rounds to get more experiment data
 rounds = 1000
 i = 0
 data = bytearray()
 while rounds > i:
-    log.info("RNG round %i..." % i)
+    internalblue.logger.info("RNG round %i..." % i)
 
     # launch assembly snippet
     internalblue.launchRam(ASM_LOCATION_RNG)
@@ -217,13 +208,13 @@ while rounds > i:
 
     i = i + 1
 
-log.info("Finished acquiring random data!")
+internalblue.logger.info("Finished acquiring random data!")
 
 # every 5th byte i 0x42
 check = data[4::5]
 for c in check:
     if c != 0x42:
-        log.error("Data was corrupted by another process!")
+        internalblue.logger.error("Data was corrupted by another process!")
 
 # uhm and for deleting every 5th let's take numpy (oh why??)
 data = np.delete(data, np.arange(4, data.__len__(), 5))
@@ -234,9 +225,9 @@ f.write(data)
 f.close()
 
 
-#log.info("--------------------")
-#log.info("Entering InternalBlue CLI to interpret RNG.")
+internalblue.logger.info("--------------------")
+internalblue.logger.info("Entering InternalBlue CLI to interpret RNG.")
 
-## enter CLI
-#cli.commandLoop(internalblue)
-
+# enter CLI
+cli = InternalBlueCLI(Namespace(data_directory=None, verbose=False, trace=None, save=None), internalblue)
+sys.exit(cli.cmdloop())
