@@ -122,7 +122,7 @@ def read(path, count=-1, skip=0):
 
 
 class InternalBlueCLI(cmd2.Cmd):
-    def __init__(self, main_args):
+    def __init__(self, main_args, core: InternalBlue = None):
         # get and store 'InternalBlue' logger
         self.logger = getInternalBlueLogger()
 
@@ -188,6 +188,8 @@ class InternalBlueCLI(cmd2.Cmd):
             log_level = "debug"
         else:
             log_level = "info"
+
+        HookClass = None
         if main_args.trace:
             from .socket_hooks import hook
             from internalblue import socket_hooks
@@ -199,65 +201,16 @@ class InternalBlueCLI(cmd2.Cmd):
             hook(HCICore, TraceToFileHook, filename=main_args.save)
             hook(ADBCore, TraceToFileHook, filename=main_args.save)
 
-        connection_methods = []  # type: List[InternalBlue]
+        # Connection method passed in constructor (POCs)
+        if core is not None:
+            self.internalblue = core
+            return
         # Connection methods for replay script
-        if main_args.replay:
-            from .socket_hooks import hook, ReplaySocket
-            from .macoscore import macOSCore
-
-            replay_devices = ["macos_replay", "adb_replay", "hci_replay", "ios_replay"]
-            if main_args.device == "macos_replay":
-                from .macoscore import macOSCore
-
-                hook(macOSCore, ReplaySocket, filename=main_args.replay)
-                connection_methods = [
-                    macOSCore(
-                        log_level=log_level, data_directory=data_directory, replay=True
-                    )
-                ]
-            elif main_args.device == "hci_replay":
-                hook(HCICore, ReplaySocket, filename=main_args.replay)
-                connection_methods = [
-                    HCICore(log_level=log_level, data_directory=data_directory, replay=True)
-                ]
-            elif main_args.device == "adb_replay":
-                hook(ADBCore, ReplaySocket, filename=main_args.replay)
-                connection_methods = [
-                    ADBCore(log_level=log_level, data_directory=data_directory, replay=True)
-                ]
-            elif main_args.device == "ios_replay":
-                raise NotImplementedError("ios replay is not implemented yet")
-            else:
-                raise ValueError(
-                    "--device is required with --replay and has to be one of {}".format(
-                        replay_devices
-                    )
-                )
+        elif main_args.replay:
+            connection_methods: List[InternalBlue] = self._get_connection_methods_replay(main_args, log_level, data_directory)
         # Connection methods for normal operation
         else:
-            # if /var/run/usbmuxd exists, we can check for iOS devices
-            if os.path.exists("/var/run/usbmuxd"):
-                from .ioscore import iOSCore
-                connection_methods.append(iOSCore(log_level=log_level, data_directory=data_directory))
-            if sys.platform == "darwin":
-                try:
-                    from .macoscore import macOSCore
-                    connection_methods.append(macOSCore(log_level=log_level, data_directory=data_directory,
-                                                        replay=(main_args.replay and main_args.device == "mac")))
-                except ImportError:
-                    macOSCore = None
-                    self.logger.warning("Couldn't import macOSCore. Is IOBluetoothExtended.framework installed?")
-                if main_args.trace:
-                    from .socket_hooks import hook
-                    hook(macOSCore, HookClass)
-                elif main_args.save:
-                    from .socket_hooks import hook
-                    hook(macOSCore, TraceToFileHook, filename=main_args.save)
-            else:
-                connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
-
-            # ADB core can always be used
-            connection_methods.append(ADBCore(log_level=log_level, data_directory=data_directory, serial=main_args.serialsu))
+            connection_methods: List[InternalBlue] = self._get_connection_methods_normal(main_args, log_level, data_directory, HookClass)
 
         devices = []  # type: List[DeviceTuple]
         for connection_method in connection_methods:
@@ -301,6 +254,69 @@ class InternalBlueCLI(cmd2.Cmd):
 
             # Enter command loop (runs until user quits)
             self.logger.info("Starting commandLoop for self.internalblue {}".format(self.internalblue))
+
+    def _get_connection_methods_replay(self, main_args, log_level, data_directory) -> [InternalBlue]:
+        from .socket_hooks import hook, ReplaySocket
+        from .macoscore import macOSCore
+
+        replay_devices = ["macos_replay", "adb_replay", "hci_replay", "ios_replay"]
+        if main_args.device == "macos_replay":
+            from .macoscore import macOSCore
+
+            hook(macOSCore, ReplaySocket, filename=main_args.replay)
+            connection_methods = [
+                macOSCore(
+                    log_level=log_level, data_directory=data_directory, replay=True
+                )
+            ]
+        elif main_args.device == "hci_replay":
+            hook(HCICore, ReplaySocket, filename=main_args.replay)
+            connection_methods = [
+                HCICore(log_level=log_level, data_directory=data_directory, replay=True)
+            ]
+        elif main_args.device == "adb_replay":
+            hook(ADBCore, ReplaySocket, filename=main_args.replay)
+            connection_methods = [
+                ADBCore(log_level=log_level, data_directory=data_directory, replay=True)
+            ]
+        elif main_args.device == "ios_replay":
+            raise NotImplementedError("ios replay is not implemented yet")
+        else:
+            raise ValueError(
+                "--device is required with --replay and has to be one of {}".format(
+                    replay_devices
+                )
+            )
+        return connection_methods
+
+    def _get_connection_methods_normal(self, main_args, log_level, data_directory, HookClass):
+        from internalblue.socket_hooks import TraceToFileHook
+
+        # if /var/run/usbmuxd exists, we can check for iOS devices
+        connection_methods = []
+        if os.path.exists("/var/run/usbmuxd"):
+            from .ioscore import iOSCore
+            connection_methods.append(iOSCore(log_level=log_level, data_directory=data_directory))
+        if sys.platform == "darwin":
+            try:
+                from .macoscore import macOSCore
+                connection_methods.append(macOSCore(log_level=log_level, data_directory=data_directory,
+                                                    replay=(main_args.replay and main_args.device == "mac")))
+            except ImportError:
+                macOSCore = None
+                self.logger.warning("Couldn't import macOSCore. Is IOBluetoothExtended.framework installed?")
+            if main_args.trace:
+                from .socket_hooks import hook
+                hook(macOSCore, HookClass)
+            elif main_args.save:
+                from .socket_hooks import hook
+                hook(macOSCore, TraceToFileHook, filename=main_args.save)
+        else:
+            connection_methods.append(HCICore(log_level=log_level, data_directory=data_directory))
+
+        # ADB core can always be used
+        connection_methods.append(ADBCore(log_level=log_level, data_directory=data_directory, serial=main_args.serialsu))
+        return connection_methods
 
     """
     $$$$$$$$$$$$$$$$$
