@@ -12,7 +12,7 @@ from pwnlib.asm import asm
 from internalblue import Address, hci
 from internalblue.cli import InternalBlueCLI, auto_int
 from internalblue.hcicore import HCICore
-from internalblue.utils import p16, u16
+from internalblue.utils.packing import p16, u16
 
 """
 This is a standalone PoC for the KNOB attack on a Raspberry Pi 3.

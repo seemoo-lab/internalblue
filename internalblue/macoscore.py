@@ -3,21 +3,19 @@
 from __future__ import absolute_import
 
 import os
+import queue as queue2k
 import random
+import socket
 import time
+from builtins import str
 
 from future import standard_library
 
-from .utils import p8
+from . import hci
+from .core import InternalBlue
+from .utils.packing import p8
 
 standard_library.install_aliases()
-from builtins import str
-import socket
-import queue as queue2k
-from . import hci
-
-from .core import InternalBlue
-
 filepath = os.path.dirname(os.path.abspath(__file__))
 
 IOBE = None

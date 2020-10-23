@@ -25,3 +25,4 @@ venv3
 
 # pycharm
 *.idea
+*.egg-info

@@ -7,7 +7,7 @@ import struct
 
 from pwnlib import log
 
-from internalblue.utils import p16
+from internalblue.utils.packing import p16
 
 
 class L2CAPManager:

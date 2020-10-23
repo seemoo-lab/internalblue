@@ -16,7 +16,8 @@ from ppadb.connection import Connection
 from ppadb.client import Client as AdbClient
 
 from . import hci
-from .utils import bytes_to_hex, u32
+from .utils import bytes_to_hex
+from .utils.packing import u32
 from .core import InternalBlue
 standard_library.install_aliases()
 

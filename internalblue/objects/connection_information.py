@@ -1,6 +1,7 @@
 from builtins import object
-from internalblue.utils import u32, u16, u8
 from typing import Any
+
+from internalblue.utils.packing import u8, u16, u32
 
 
 class ConnectionInformation(object):

@@ -13,7 +13,7 @@ from pwnlib.asm import asm
 import internalblue.hci as hci
 from internalblue.cli import InternalBlueCLI
 from internalblue.hcicore import HCICore
-from internalblue.utils import p32
+from internalblue.utils.packing import p32
 
 """
 Measure the RNG of the CYW20819 Evaluation Board.

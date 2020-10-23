@@ -4,10 +4,9 @@
 #
 # This file is meant to be executed by the user in order to start
 # an interactive CLI. It creates an instance of the framework and
-# enters a command loop which is implemented with the readline
-# interface. Commands entered by the user are matched to the
-# corresponding Cmd subclass in the cmds.py file and dispatched
-# accordingly.
+# enters a command loop which is implemented using cmd2.
+# Commands entered by the user are automatically matched
+# to functions starting with do_* and executed accordingly.
 #
 # Copyright (c) 2018 Dennis Mantz. (MIT License)
 #
@@ -50,7 +49,8 @@ from cmd2 import fg, style
 
 from . import Address
 from .hci import HCI_COMND
-from .utils import bytes_to_hex, p8, p16, p32, u32, flat, yesno
+from .utils import bytes_to_hex, flat, yesno
+from .utils.packing import p8, p16, p32, u32
 from .utils.progress_logger import ProgressLogger
 from .utils.internalblue_logger import getInternalBlueLogger
 from .hcicore import HCICore
@@ -80,7 +80,7 @@ else:
     _has_pwnlib = True
 
 
-def needs_pwnlibs(func):
+def needs_pwnlib(func):
     # this decorator copies over
     # function name, docstring,
     # arguments list etc. so our
@@ -88,7 +88,7 @@ def needs_pwnlibs(func):
     @wraps(func)
     def inner(*args, **kwargs):
         if not _has_pwnlib:
-            raise ImportError("pwnlibs is required for this function.")
+            raise ImportError("pwnlib is required for this function.")
         return func(*args, **kwargs)
 
     return inner
@@ -404,8 +404,7 @@ class InternalBlueCLI(cmd2.Cmd):
 
     @staticmethod
     def getCmdList():
-        """ Returns a list of all commands which are defined in this cmds.py file.
-        This is done by searching for all subclasses of Cmd """
+        """ Returns a list of all CLI commands which are defined in this file."""
         return [name for name, obj in inspect.getmembers(InternalBlueCLI, predicate=inspect.isfunction) if name.startswith("do_")]
 
     def findCmd(self, keyword):
@@ -954,7 +953,7 @@ class InternalBlueCLI(cmd2.Cmd):
     disasm_parser.add_argument('address', type=auto_int, help='Start address of the disassembly.')
 
     @cmd2.with_argparser(disasm_parser)
-    @needs_pwnlibs
+    @needs_pwnlib
     def do_disasm(self, args):
         """Display a disassembly of a specified region in the memory."""
         if not self.isAddressInSections(args.address, args.length):
@@ -971,7 +970,7 @@ class InternalBlueCLI(cmd2.Cmd):
             return False
         else:
             # PyCharm thinks disasm wants a str and not bytes
-            # so until pwnlibs gets type annotations we just trick the type checker to to prevent a false positive
+            # so until pwnlib gets type annotations we just trick the type checker to to prevent a false positive
             if TYPE_CHECKING:
                 d = str(dump)
             else:
@@ -1034,7 +1033,7 @@ class InternalBlueCLI(cmd2.Cmd):
     writeasm_parser.add_argument('code', nargs='*', help='Assembler code as string')
 
     @cmd2.with_argparser(writeasm_parser)
-    @needs_pwnlibs
+    @needs_pwnlib
     def do_writeasm(self, args):
         """Writes assembler instructions to a specified memory address."""
         if args.file is not None:
@@ -1104,7 +1103,7 @@ class InternalBlueCLI(cmd2.Cmd):
     exec_parser.add_argument('cmd', help='Name of the command to execute (corresponds to file exec_<cmd>.s)')
 
     @cmd2.with_argparser(exec_parser)
-    @needs_pwnlibs
+    @needs_pwnlib
     def do_exec(self, args):
         """Writes assembler instructions to RAM and jumps there."""
         filename = self.internalblue.data_directory + "/exec_%s.s" % args.cmd
@@ -1200,7 +1199,7 @@ class InternalBlueCLI(cmd2.Cmd):
     patch_parser.add_argument('data', nargs='*', help='Data as string (or hexstring/integer/instruction, see --hex, --int, --asm)')
 
     @cmd2.with_argparser(patch_parser)
-    @needs_pwnlibs
+    @needs_pwnlib
     def do_patch(self, args):
         """Patches 4 byte of data at a specified ROM address."""
         if args.slot is not None:
@@ -1438,7 +1437,7 @@ class InternalBlueCLI(cmd2.Cmd):
             self.logger.info("    - Address:    %s" % bt_addr_str)
             return None
 
-        @needs_pwnlibs
+        @needs_pwnlib
         def infoPatchram(_):
             if not hasattr(self.internalblue.fw, "PATCHRAM_NUMBER_OF_SLOTS"):
                 self.logger.warning("PATCHRAM_NUMBER_OF_SLOTS not defined in fw.")

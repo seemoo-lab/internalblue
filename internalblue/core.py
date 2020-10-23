@@ -47,7 +47,8 @@ from .fw.fw import Firmware
 from .hci import HCI, HCI_COMND
 from .objects.connection_information import ConnectionInformation
 from .objects.queue_element import QueueElement
-from .utils import p16, p8, u32, u16, p32, flat, bits, unbits, bytes_to_hex
+from .utils import flat, bytes_to_hex
+from .utils.packing import p8, p16, u16, p32, u32, bits, unbits
 from .utils.internalblue_logger import getInternalBlueLogger
 standard_library.install_aliases()
 
@@ -70,15 +71,15 @@ except ImportError:
     _has_pwnlib = False
     import warnings
     warnings.formatwarning = (lambda x, *args, **kwargs: f"\x1b[31m[!] {x}\x1b[0m\n")
-    warnings.warn("pwnlibs is not installed. Some features will not work.")
+    warnings.warn("pwnlib is not installed. Some features will not work.")
 else:
     _has_pwnlib = True
 
 
-def needs_pwnlibs(func):
+def needs_pwnlib(func):
     def inner(*args, **kwargs):
         if not _has_pwnlib:
-            raise ImportError("pwnlibs is required for this function.")
+            raise ImportError("pwnlib is required for this function.")
         return func(*args, **kwargs)
 
     return inner
@@ -209,7 +210,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         # If the --replay flag was used and a chip is spoofed.
         self.replay = replay
 
-    @needs_pwnlibs
+    @needs_pwnlib
     def check_binutils(self, fix=True):
         """
         Test if ARM binutils is in path so that asm and disasm (provided by
@@ -484,7 +485,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 f.write(dump)
                 f.close()
 
-    @needs_pwnlibs
+    @needs_pwnlib
     def addTracepoint(self, address):
         # type: (Address) -> bool
         # Check if constants are defined in fw.py
@@ -1054,7 +1055,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             retry = 3  # this round worked, so we re-enable retries
         return outbuffer
 
-    @needs_pwnlibs
+    @needs_pwnlib
     def readMemAligned(
             self, address, length, progress_log=None, bytes_done=0, bytes_total=0
     ):
@@ -1626,7 +1627,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         return True
 
-    @needs_pwnlibs
+    @needs_pwnlib
     def fuzzLmp(self):
         # type: ()-> bool
         """
@@ -1668,7 +1669,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
 
         return True
 
-    @needs_pwnlibs
+    @needs_pwnlib
     def sendLmpPacketLegacy(self, conn_nr, opcode, payload, extended_op=False):
         # type: (int, Opcode, bytes, bool) -> bool
         """
@@ -1731,7 +1732,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             self.logger.warning("sendLmpPacket: launchRam failed!")
             return False
 
-    @needs_pwnlibs
+    @needs_pwnlib
     def sendLcpPacket(self, conn_idx, payload):
         # type: (ConnectionIndex, bytes) -> bool
         """

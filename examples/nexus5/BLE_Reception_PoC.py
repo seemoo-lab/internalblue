@@ -9,7 +9,7 @@ from builtins import range
 import internalblue.hci as hci
 from internalblue.adbcore import ADBCore
 from internalblue.cli import InternalBlueCLI
-from internalblue.utils import u16
+from internalblue.utils.packing import u16
 from pwnlib.asm import asm
 
 internalblue = ADBCore(serial=False)

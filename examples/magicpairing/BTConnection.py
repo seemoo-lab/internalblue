@@ -11,7 +11,7 @@ import time
 from pwnlib import log
 
 import internalblue.hci as hci
-from internalblue.utils import p16, p8
+from internalblue.utils.packing import p8, p16
 
 CONNECTION_TYPE_CLASSIC = 0
 CONNECTION_TYPE_BLE = 1

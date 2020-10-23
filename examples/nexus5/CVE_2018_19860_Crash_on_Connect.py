@@ -4,7 +4,7 @@
 from pwnlib.asm import asm
 
 from internalblue.adbcore import ADBCore
-from internalblue.utils import p32
+from internalblue.utils.packing import p32
 
 """
 This is a crash only test for CVE-2018-19860. Install this patch and connect

@@ -2,23 +2,22 @@
 
 from __future__ import absolute_import
 
+import datetime
+import fcntl
+import queue as queue2k
 import socket
 import struct
+import threading
+from builtins import range
+from builtins import str
+from builtins import zip
+from typing import List, cast, TYPE_CHECKING
 
 from future import standard_library
 
-from builtins import str
-from builtins import zip
-from builtins import range
-import datetime
-from internalblue.utils import p32, u16, p16, u32
-import fcntl
-from .core import InternalBlue
 from . import hci
-import queue as queue2k
-import threading
-
-from typing import List, cast, TYPE_CHECKING
+from .core import InternalBlue
+from .utils.packing import p16, u16, p32, u32
 
 if TYPE_CHECKING:
     from internalblue import Device

@@ -11,7 +11,7 @@ from pwnlib.asm import asm
 import internalblue.hci as hci
 from internalblue.adbcore import ADBCore
 from internalblue.cli import InternalBlueCLI
-from internalblue.utils import u8, u16
+from internalblue.utils.packing import u8, u16
 
 internalblue = ADBCore(serial=True)
 device_list = internalblue.device_list()

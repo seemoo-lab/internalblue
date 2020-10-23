@@ -26,26 +26,16 @@
 #   Software.
 
 from __future__ import absolute_import
-from builtins import hex
-from builtins import range
-from builtins import object
-from enum import Enum
-from datetime import datetime
 
-from internalblue.utils import (
-    p8,
-    u16,
-    p16,
-    unbits,
-    bits_str,
-    u8,
-    bits,
-    p32,
-    u32,
-)
+from builtins import hex
+from builtins import object
+from builtins import range
+from datetime import datetime
+from enum import Enum
 
 from internalblue.utils import flat
 from internalblue.utils.internalblue_logger import getInternalBlueLogger
+from internalblue.utils.packing import p8, u8, p16, u16, p32, u32, bits, unbits, bits_str
 
 
 class HCI_COMND(Enum):

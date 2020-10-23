@@ -11,7 +11,7 @@ from cmd2 import CommandSet
 from internalblue import Address
 from internalblue.adbcore import ADBCore
 import internalblue.hci as hci
-from internalblue.utils import p16, u16
+from internalblue.utils.packing import p16, u16
 from internalblue.cli import auto_int
 from internalblue.cli import InternalBlueCLI
 from pwnlib.asm import asm
