@@ -1812,8 +1812,12 @@ def parse_args():
     return parser.parse_known_args()
 
 
-if __name__ == "__main__":
+def internalblue_entry_point():
     arg, unknown_args = parse_args()
     sys.argv = sys.argv[:1] + unknown_args
     cli = InternalBlueCLI(arg)
     sys.exit(cli.cmdloop())
+
+
+if __name__ == "__main__":
+    internalblue_entry_point()
