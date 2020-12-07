@@ -44,6 +44,10 @@ was also recorded and gives a more high level overview.
 
   Our talk [Playing with Bluetooth](https://media.ccc.de/v/2019-185-playing-with-bluetooth) focuses on new device support
   within *InternalBlue* and the Patchram state of various devices.
+
+* **Bachelor Thesis** (12/2019)
+  
+  *InternalBlue* was ported to macOS as part of Davide Toldo's [Bachelor Thesis](macos_bluetooth_stack_thesis_davide_toldo.pdf), in which he explores how the Bluetooth stack works in macOS and how it is possible to send and receive HCI and ACL packets through unofficial APIs.
   
 * **36C3 Talk** (12/2019)
   
