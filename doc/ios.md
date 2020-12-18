@@ -24,7 +24,7 @@ PCIe devices:
 1. Transfer the `.deb` file to your iOS device
 2. Run `dpkg -i your-deb-file.deb` to install `internalblued` on your device
 
-The installer depends on `jtool` version 1, which can be downloaded [here](http://www.newosxbook.com/tools/jtool.html)
+The installer depends on `jtool2`, which can be downloaded [here](http://www.newosxbook.com/tools/jtool.html)
 or from the [kiiimo](http://cydia.kiiimo.org/) repo via Cydia.
 
 On *Linux*, `libimobiledevice` bindings see to be slightly different and you might to adjust the following line:
