@@ -1,0 +1,12 @@
+- main.m:
+    changed proxy_fn to invoke the pcie methods instead of old ones
+- ios-proxy.h:
+    added new methods, new struct for the transport references
+- ios-proxy.m:
+    functions to load AppleConvergedTransport.dylib and the relevant methods
+    functions to Create new Transports for BTI, HCI, ACL, SCO
+    Proxy function that relays data between tcp port and the bt chip via PCIe
+- layout/Library/LaunchDaemons/com.ttdennis.internalblued.plist
+    added Logging of STDIN and STDERR to /var/mobile/internalblued.log
+- layout/DEBIAN/postinst 
+    added shell commands to copy entitlements from bluetoothd to internalblued after installation
