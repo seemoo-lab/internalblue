@@ -91,3 +91,8 @@ If you do excessive IO such as dumping the ROM and get the message `Failure: cre
 files`, you need to change the `ulimit`, i.e., `ulimit -n 1000`.
 
 
+macOS Big Sur
+-------------
+*InternalBlue* also works on macOS Big Sur! Note that the `writemem` command is blocked. Moreover, to get it working,
+you might need to downgrade `pwntools`, i.e., version `4.0.1` seems to work.
+

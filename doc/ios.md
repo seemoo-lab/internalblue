@@ -94,6 +94,10 @@ To get Bluetooth working properly again after replacing `BlueTool`, the iPhone n
 
 **Bluetooth will only work while the device is jailbroken with a modified BlueTool version!
 Use at your own risk and make a backup of the original.** Without jailbreak, the integrity check
-for `BlueTool` seems to fail and Bluetooth is constantly restarting.
+for `BlueTool` fails. **You can only reboot the device in this state with checkm8, your device will
+be bricked if you do this on unthethered jailbreaks like unc0ver!** You can still unbrick it by re-flashing
+iOS, but if you did not have a blob backup, you'll need to upgrade it to the latest signed iOS version.
 
-[BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other <A12 devices.
+[BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other pre-A12 devices.
+[BlueTool for iOS 14.3 on an iPhone 8](../ios/BlueTool_iPhone8_iOS14.3), might also work on other pre-A12 devices.
+
