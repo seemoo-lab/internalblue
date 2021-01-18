@@ -60,8 +60,8 @@ Table of Contents
 * [General setup and usage](doc/setup.md)
 * Operating system specific setup
     * [Android](doc/android.md) *6—10 (rooted)*
-    * [iOS](doc/ios.md) *12—13 (jailbroken)*
-    * [macOS](doc/macos.md) *High Sierra—Catalina*
+    * [iOS](doc/ios.md) *12—14 (jailbroken)*
+    * [macOS](doc/macos.md) *High Sierra—Big Sur*
     * [Linux](doc/linux_bluez.md) with *BlueZ* (default) but __not__ WSL
 * [Firmware overview](doc/firmware.md)
 * [SEEMOO talks and publications](doc/publications.md)

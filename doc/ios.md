@@ -99,5 +99,5 @@ be bricked if you do this on unthethered jailbreaks like unc0ver!** You can stil
 iOS, but if you did not have a blob backup, you'll need to upgrade it to the latest signed iOS version.
 
 [BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other pre-A12 devices.
-[BlueTool for iOS 14.3 on an iPhone 8](../ios/BlueTool_iPhone8_iOS14.3), might also work on other pre-A12 devices.
+[BlueTool for iOS 14.3 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.3), might also work on other pre-A12 devices.
 

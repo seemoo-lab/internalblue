@@ -1,9 +1,19 @@
 Prerequisites
------------
+-------------
 
 *InternalBlue* runs as regular user, no administrator access is required.
 
-Install `homebrew` (see https://brew.sh/) and then use it to install `python3` and `git` (optional).
+Install `homebrew` (see https://brew.sh/) and then use it to install `python3`  and optionally `git`.
+
+Hardware and OS
+---------------
+
+*InternalBlue* support is the best on *macOS Catalina* with a *BCM20703A2* chip. Symbols for this particular chip
+are in our [Polypyus](https://github.com/seemoo-lab/polypyus) repo, and on *Catalina*, the HCI command for writing
+to RAM still works.
+
+Basic operation and Bluetooth hacking is supported on anything from *macOS High Sierra* to *macOS Big Sur* as long
+as it is a Broadcom chip :)
 
 Installation
 -----------
@@ -23,6 +33,7 @@ cd internalblue-master
 
 #### [2] New virtual environment.
 ```sh
+pip3 install virtualenv
 virtualenv -p python3 venv
 source venv/bin/activate
 ```
@@ -41,7 +52,9 @@ pip install -e .\[macoscore\]
 #### [3b] Install With binutils
 If you want to use ARM assembly and disassembly, which is required for some patches and debugging, install [binutils](https://github.com/Gallopsled/pwntools-binutils).
 ```sh
-brew install https://raw.githubusercontent.com/Gallopsled/pwntools-binutils/master/macos/binutils-arm.rb
+brew install wget
+wget https://raw.githubusercontent.com/Gallopsled/pwntools-binutils/master/macos/binutils-arm.rb
+brew install binutils-arm.rb
 ```
 Also add the `binutils` requirement so that `pip install` looks like this:
 ```sh
