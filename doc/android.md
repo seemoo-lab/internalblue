@@ -67,7 +67,7 @@ is available in [`samsung_s8_2020-06_vendor_firmware_rng-patched_rw-ram-unpatche
 
 
 New dirty hack that should work for the *Samsung Galaxy Note 20 5G* from which this file was extracted
-but also on the *S10/10e/10+/20/* and *Note 20*: Use the file [`samsung_s10e_note20-5g_2020-01-21_bcm4375B1_semco.hcd`](../android/samsung_s10e_note20-5g_2020-01-21_bcm4375B1_semco.hcd).
+but also on the *S10/10e/10+/20/* and *Note 20*: Use the file [`samsung_s10e_note20-5g_2021-01-21_bcm4375B1_semco.hcd`](../android/samsung_s10e_note20-5g_2021-01-21_bcm4375B1_semco.hcd).
 Your new `Write_RAM` handler must be set in `hci.py`:
 
 ```
