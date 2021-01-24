@@ -300,7 +300,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         while not self.exit_requested:
             # Wait for 'send task' in send queue
             try:
-                task = self.sendQueue.get(timeout=0.5)
+                task = self.sendQueue.get(timeout=2)
             except queue2k.Empty:
                 continue
 
@@ -383,7 +383,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             # Wait for the HCI event response by polling the recvQueue
             if queue is not None and filter_function is not None:
                 try:
-                    record = recvQueue.get(timeout=2)
+                    record = recvQueue.get(timeout=6)
                     hcipkt = record[0]
                     data = hcipkt.data
                 except queue2k.Empty:
@@ -837,7 +837,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
         self.logger.warning("registerHciRecvQueue: no such queue is registered!")
 
     def sendHciCommand(
-            self, hci_opcode: HCI_COMND, data: bytes, timeout: int = 3
+            self, hci_opcode: HCI_COMND, data: bytes, timeout: int = 8   # adbcore (serial netcat) can take quite long
     ) -> Optional[bytearray]:
         """
         Send an arbitrary HCI command packet by pushing a send-task into the

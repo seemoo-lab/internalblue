@@ -59,7 +59,7 @@ Table of Contents
 * [Feature overview](doc/features.md)
 * [General setup and usage](doc/setup.md)
 * Operating system specific setup
-    * [Android](doc/android.md) *6—10 (rooted)*
+    * [Android](doc/android.md) *6—11 (rooted)*
     * [iOS](doc/ios.md) *12—14 (jailbroken)*
     * [macOS](doc/macos.md) *High Sierra—Big Sur*
     * [Linux](doc/linux_bluez.md) with *BlueZ* (default) but __not__ WSL
@@ -79,7 +79,7 @@ Table of Contents
 License
 -------
 
-Copyright 2018-2020 The InternalBlue Team
+Copyright 2018-2021 The InternalBlue Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
