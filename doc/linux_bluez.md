@@ -79,3 +79,8 @@ the vendor diagnostics are missing.
 traffic, simply run:
 
     btmon
+    
+If your device is not supported within the Linux kernel for vendor diagnostics,
+you can still patch around in the kernel, such as the [BIAS](https://github.com/francozappa/bias/tree/master/linux-4.14.111)
+PoC did it. A diff against the original kernel can be found [here](../linux/bias_linux-4.14.111.diff).
+Since this means recompiling the kernel, use this at your own risk.

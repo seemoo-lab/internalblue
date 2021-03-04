@@ -1,0 +1,168 @@
+diff --git linux-4.14.111/drivers/bluetooth/hci_h4.c linux-4.14.111/drivers/bluetooth/hci_h4.c
+index 7bedfa5..d428117 100644
+--- linux-4.14.111/drivers/bluetooth/hci_h4.c
++++ linux-4.14.111/drivers/bluetooth/hci_h4.c
+@@ -47,20 +47,6 @@
+ 
+ #include "hci_uart.h"
+ 
+-int hci_recv_bcm_diag(struct hci_dev *hdev, struct sk_buff *skb)
+-{
+-    /* Mark as diagnostic packet */
+-    hci_skb_pkt_type(skb) = HCI_BCM_DIAG_PKT;
+-
+-    /* Time stamp */
+-    __net_timestamp(skb);
+-
+-    skb_queue_tail(&hdev->rx_q, skb);
+-    queue_work(hdev->workqueue, &hdev->rx_work);
+-
+-    return 0;
+-}
+-
+ struct h4_struct {
+ 	struct sk_buff *rx_skb;
+ 	struct sk_buff_head txq;
+@@ -132,7 +118,6 @@ static const struct h4_recv_pkt h4_recv_pkts[] = {
+ 	{ H4_RECV_ACL,   .recv = hci_recv_frame },
+ 	{ H4_RECV_SCO,   .recv = hci_recv_frame },
+ 	{ H4_RECV_EVENT, .recv = hci_recv_frame },
+-    { H4_RECV_BCM_DIAG, .recv = hci_recv_bcm_diag },
+ };
+ 
+ /* Recv data */
+@@ -252,20 +237,9 @@ struct sk_buff *h4_recv_buf(struct hci_dev *hdev, struct sk_buff *skb,
+ 
+ 			switch ((&pkts[i])->lsize) {
+ 			case 0:
+-                if (hci_skb_pkt_type(skb) == HCI_BCM_DIAG_PKT) {
+-                    printk("Found a BCM diag packet!");
+-                    dlen = 62;
+-                    hci_skb_expect(skb) += dlen;
+-                    if (skb_tailroom(skb) < dlen) {
+-                        kfree_skb(skb);
+-                        return ERR_PTR(-EMSGSIZE);
+-                    }
+-                    break;
+-                } else {
+-                    /* No variable data length */
+-                    dlen = 0;
+-                    break;
+-                }
++				/* No variable data length */
++				dlen = 0;
++				break;
+ 			case 1:
+ 				/* Single octet variable length */
+ 				dlen = skb->data[(&pkts[i])->loff];
+diff --git linux-4.14.111/drivers/bluetooth/hci_uart.h linux-4.14.111/drivers/bluetooth/hci_uart.h
+index 7bb5ad4..66e8c68 100644
+--- linux-4.14.111/drivers/bluetooth/hci_uart.h
++++ linux-4.14.111/drivers/bluetooth/hci_uart.h
+@@ -155,13 +155,6 @@ struct h4_recv_pkt {
+ 	.lsize = 1, \
+ 	.maxlen = HCI_MAX_EVENT_SIZE
+ 
+-#define H4_RECV_BCM_DIAG \
+-    .type = HCI_BCM_DIAG_PKT, \
+-    .hlen = HCI_BCM_DIAG_HDR_SIZE, \
+-    .loff = 0, \
+-    .lsize = 0, \
+-    .maxlen = HCI_MAX_BCM_DIAG_SIZE
+-
+ struct sk_buff *h4_recv_buf(struct hci_dev *hdev, struct sk_buff *skb,
+ 			    const unsigned char *buffer, int count,
+ 			    const struct h4_recv_pkt *pkts, int pkts_count);
+diff --git linux-4.14.111/include/net/bluetooth/hci.h linux-4.14.111/include/net/bluetooth/hci.h
+index a9c33fc..fe98f0a 100644
+--- linux-4.14.111/include/net/bluetooth/hci.h
++++ linux-4.14.111/include/net/bluetooth/hci.h
+@@ -30,10 +30,6 @@
+ #define HCI_MAX_EVENT_SIZE	260
+ #define HCI_MAX_FRAME_SIZE	(HCI_MAX_ACL_SIZE + 4)
+ 
+-#define HCI_MAX_BCM_DIAG_SIZE 63
+-#define HCI_BCM_DIAG_PKT    0x07
+-#define HCI_BCM_DIAG_HDR_SIZE 1
+-
+ #define HCI_LINK_KEY_SIZE	16
+ #define HCI_AMP_LINK_KEY_SIZE	(2 * HCI_LINK_KEY_SIZE)
+ 
+diff --git linux-4.14.111/net/bluetooth/hci_core.c linux-4.14.111/net/bluetooth/hci_core.c
+index 4441a48..6bc679c 100644
+--- linux-4.14.111/net/bluetooth/hci_core.c
++++ linux-4.14.111/net/bluetooth/hci_core.c
+@@ -3283,7 +3283,6 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
+ 
+ 	if (hci_skb_pkt_type(skb) != HCI_EVENT_PKT &&
+ 	    hci_skb_pkt_type(skb) != HCI_ACLDATA_PKT &&
+-	    hci_skb_pkt_type(skb) != HCI_BCM_DIAG_PKT &&
+ 	    hci_skb_pkt_type(skb) != HCI_SCODATA_PKT) {
+ 		kfree_skb(skb);
+ 		return -EINVAL;
+@@ -4286,19 +4285,3 @@ static void hci_cmd_work(struct work_struct *work)
+ 		}
+ 	}
+ }
+-
+-/* Receive BCM diagnostic message from HCI drivers */
+-int hci_recv_bcm_diag(struct hci_dev *hdev, struct sk_buff *skb)
+-{
+-	/* Mark as diagnostic packet */
+-	hci_skb_pkt_type(skb) = HCI_BCM_DIAG_PKT;
+-
+-	/* Time stamp */
+-	__net_timestamp(skb);
+-
+-	skb_queue_tail(&hdev->rx_q, skb);
+-	queue_work(hdev->workqueue, &hdev->rx_work);
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL(hci_recv_bcm_diag);
+diff --git linux-4.14.111/net/bluetooth/hci_sock.c linux-4.14.111/net/bluetooth/hci_sock.c
+index 1330608..4a05235 100644
+--- linux-4.14.111/net/bluetooth/hci_sock.c
++++ linux-4.14.111/net/bluetooth/hci_sock.c
+@@ -211,7 +211,6 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
+ 			if (hci_skb_pkt_type(skb) != HCI_COMMAND_PKT &&
+ 			    hci_skb_pkt_type(skb) != HCI_EVENT_PKT &&
+ 			    hci_skb_pkt_type(skb) != HCI_ACLDATA_PKT &&
+-			    hci_skb_pkt_type(skb) != HCI_BCM_DIAG_PKT &&
+ 			    hci_skb_pkt_type(skb) != HCI_SCODATA_PKT)
+ 				continue;
+ 			if (is_filtered_packet(sk, skb))
+@@ -221,7 +220,6 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
+ 				continue;
+ 			if (hci_skb_pkt_type(skb) != HCI_EVENT_PKT &&
+ 			    hci_skb_pkt_type(skb) != HCI_ACLDATA_PKT &&
+-			    hci_skb_pkt_type(skb) != HCI_BCM_DIAG_PKT &&
+ 			    hci_skb_pkt_type(skb) != HCI_SCODATA_PKT)
+ 				continue;
+ 		} else {
+@@ -1685,8 +1683,7 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+ 			       MSG_CMSG_COMPAT))
+ 		return -EINVAL;
+ 
+-	// if (len < 4 || len > HCI_MAX_FRAME_SIZE)
+-	if (len < 3 || len > HCI_MAX_FRAME_SIZE)
++	if (len < 4 || len > HCI_MAX_FRAME_SIZE)
+ 		return -EINVAL;
+ 
+ 	lock_sock(sk);
+@@ -1744,7 +1741,6 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+ 		 */
+ 		if (hci_skb_pkt_type(skb) != HCI_COMMAND_PKT &&
+ 		    hci_skb_pkt_type(skb) != HCI_ACLDATA_PKT &&
+-		    hci_skb_pkt_type(skb) != HCI_BCM_DIAG_PKT &&
+ 		    hci_skb_pkt_type(skb) != HCI_SCODATA_PKT) {
+ 			err = -EINVAL;
+ 			goto drop;
+@@ -1789,7 +1785,6 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+ 		}
+ 
+ 		if (hci_skb_pkt_type(skb) != HCI_ACLDATA_PKT &&
+-		    hci_skb_pkt_type(skb) != HCI_BCM_DIAG_PKT &&
+ 		    hci_skb_pkt_type(skb) != HCI_SCODATA_PKT) {
+ 			err = -EINVAL;
+ 			goto drop;
