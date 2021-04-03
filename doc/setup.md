@@ -23,8 +23,9 @@ Requirements
 * For most commands: Privileged access
 
 #### iOS
-* A jailbroken iOS device (tested on iOS 12 and 13 with iPhone 6, SE, 7, 8, X,
-  does not work on iPhones newer than XR, these devices have a Bluetooth chip connected via PCIe)
+* A jailbroken iOS device (tested on iOS 12 and 13 with iPhone 6, SE, 7, 8, X, 11, SE2)
+* For iPhones older than XR, use the ios/ daemon 
+* For iPhones newer than XR, use the ios-pcie/ daemon (these devices have a Bluetooth chip connected via PCIe)
 * iOS 12 and 13 have been tested as of now
 * `usbmuxd`, which is pre installed on macOS but is available on most Linux distributions as well. Alternatively it can
 be obtained from [here](https://github.com/libimobiledevice/usbmuxd).
