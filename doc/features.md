@@ -14,7 +14,7 @@ On any Broadcom Bluetooth chip:
 * Read and write assembly to RAM
 * Read ROM
 * Set defined breakpoints that crash on execution
-* Inject arbitrary valid LMP messages (opcode and length must me standard compliant, contents and order are arbitrary)
+* Inject arbitrary valid LMP messages (opcode and length must be standard compliant, contents and order are arbitrary)
 * Use diagnostic features to monitor LMP and LCP (with new **Android** H4 driver patch, still needs to be integrated into BlueZ)
 * Read AFH channel map
 
