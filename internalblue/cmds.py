@@ -126,6 +126,21 @@ def parse_bt_addr(bt_addr):
 
     return addr
 
+def faster_flat(sections, filler=b'\x00'):
+    # type: (dict, byte) -> bytearray
+    # reimplementation of pwntools flat() for our specific usecase
+    # this is much faster for some reason.
+    image = bytearray()
+    maxkey = max(sections.keys())
+    maxlen = len(sections[maxkey])
+    image += filler * (maxkey + maxlen)
+    for key in sections.keys():
+        addr = key
+        data = sections[key]
+        size = len(data)
+        image[addr:addr+size] = data
+
+    return image
 
 class Cmd(object):
     """ This class is the superclass of a CLI command. Every CLI command
@@ -233,8 +248,11 @@ class Cmd(object):
                     bytes_total,
                 ))
                 bytes_done += section.size()
+                #self.progress_log.success(f"Done with Section {section.start_addr:x}")
             self.progress_log.success("Received Data: complete")
-            Cmd.memory_image = flat(dumped_sections, filler=b'\x00')  # this is really slow in current pwntools
+            #Cmd.memory_image = flat(dumped_sections, filler=b'\x00')  # this is really slow in current pwntools
+            Cmd.memory_image = faster_flat(dumped_sections, filler=b'\x00')  # this is really slow in current pwntools
+            #self.progress_log.success("Flat: complete. Writing to disk...")
             f = open(self.memory_image_template_filename, "wb")
             f.write(Cmd.memory_image)
             f.close()
@@ -287,6 +305,8 @@ class Cmd(object):
 
     def launchRam(self, address):
         return self.internalblue.launchRam(address)
+
+
 
 
 #
