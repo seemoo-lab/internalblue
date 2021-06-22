@@ -72,3 +72,20 @@ was also recorded and gives a more high level overview.
 
   We looked into Apple's Bluetooth ecosystem, especially MagicPairing, which secures AirPods.
   For more details, read our paper [MagicPairing: Apple's Take on Securing Bluetooth Peripherals](https://arxiv.org/abs/2005.07255).
+  
+* **Binary Analysis Research Workshop Paper** (01/2021)
+
+  We built a tool that can diff raw firmware and benchmarked it on Broadcom/Cypress chips.
+  The source code is on the [Polypyus](https://github.com/seemoo-lab/polypyus) GitHub page.
+  There's also a [video](https://www.youtube.com/watch?v=kQS0pGs7bsM) and a [paper](https://www.ndss-symposium.org/wp-content/uploads/bar2021_23004_paper.pdf).
+  
+* **WiSec Paper** (07/2021)
+
+  New paper demonstrating that all major operating systems don't show warnings if Bluetooth
+  keys break due to MitM attacks, presented at WiSec. Also see [PoC](keychange.md) scripts.
+  
+* **WiSec Tutorial** (07/2021)
+
+  [Tutorial](https://sites.nyuad.nyu.edu/wisec21/tutorials/) revisiting the current state of InternalBlue. Basically an update from the REcon 2019
+  talk, but with more recent explanations, bypassing anti-patching, and explanations on all
+  the operating system specific hooks.

@@ -773,7 +773,7 @@ class InternalBlueCLI(cmd2.Cmd):
         repcmdline = " ".join(args.command[1:])
         cmdclass = self.findCmd(args.command[0])
         if cmdclass is None:
-            self.logger.warning("Unknown command: " + args.command)
+            self.logger.warning("Unknown command: " + args.command[0])
             return False
 
         while True:

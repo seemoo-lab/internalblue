@@ -36,7 +36,7 @@ be obtained from [here](https://github.com/libimobiledevice/usbmuxd).
 
 #### macOS
 * Homebrew
-* Xcode 10.2.1
+* Xcode
 * Instructions see [here](macos.md)
 
 Setup and Installation
@@ -59,7 +59,7 @@ The *InternalBlue* framework supports and requires Python 3.6 and above.
 
 ### Install from PyPI
 
-Currently there is no package published on PyPI for Python 3, this will happen in the near future.
+Currently, there is no package published on PyPI for Python 3, this will happen in the near future.
 
 
 ### Install as package from GitHub `master` or any other branch

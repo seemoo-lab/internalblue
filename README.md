@@ -41,12 +41,16 @@ to be triggered. *Frankenstein* is in a separate repository, but depends on *Int
 to take state snapshots etc. on a physical device.
 
 Moreover, we just published [Polypyus](https://github.com/seemoo-lab/polypyus).
-It enables binary-only binary diffing, independent from *IDA* and *Ghidra*. However,
+It enables binary-only binary diffing, independent of *IDA* and *Ghidra*. However,
 it integrates into that workflow by identifying good starting points for further
 analysis. We already tried it across various *Broadcom* Wi-Fi and Bluetooth firmware.
 
 Looking for our random number generator measurements that we did within the analysis
 of CVE-2020-6616? You can find them [here](doc/rng.md).
+
+There are also some more dynamic hooks for HCI with [Frida on iOS and Android](doc/keychange.md).
+We used this to study the warning behavior in the user interface upon MitM attacks.
+Likely useful for a lot of other experiments, though.
 
 Due to Spectra 👻🌈 the write and read RAM commands are disabled after driver initialization.
 Workarounds for this are described in the according *Android* and *iOS* instructions,

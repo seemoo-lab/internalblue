@@ -186,7 +186,7 @@ class HCI_COMND(Enum):
     Read_LE_Host_Support = 0xC6C
     Write_LE_Host_Support = 0xC6D
     Set_MWS_Channel_Parameters = 0xC6E
-    Set_External_Frame_Configuration = 0xC6F
+    #Set_External_Frame_Configuration = 0xC6F #TODO
     Set_MWS_Signaling = 0xC70
     Set_MWS_Transport_Layer = 0xC71
     Set_MWS_Scan_Frequency_Table = 0xC72
@@ -269,7 +269,7 @@ class HCI_COMND(Enum):
     VSC_WriteBdAddr = 0xFC01
     VSC_DumpSRAM = 0xFC02
     VSC_ChannelClassConfig = 0xFC03
-    VSC_READ_PAGE_SCAN_REPETITION_MODE = 0xFC04
+    #VSC_READ_PAGE_SCAN_REPETITION_MODE = 0xFC04
     VSC_WRITE_PAGE_SCAN_REPETITION_MODE = 0xFC05
     VSC_READ_PAGE_RESPONSE_TIMEOUT = 0xFC06
     VSC_WRITE_PAGE_RESPONSE_TIMEOUT = 0xFC07
@@ -329,7 +329,8 @@ class HCI_COMND(Enum):
     VSC_ReadRawRssi = 0xFC48
     # VSC_ChannelClassConfig = 0XFC49
     VSC_Write_RAM = 0xFC4C
-    VSC_Read_RAM = 0xFC4D
+    #VSC_Write_RAM = 0xC6F
+    VSC_Read_RAM = 0xFC4D #TODO
     VSC_Launch_RAM = 0xFC4E
     VSC_InstallPatches = 0xFC4F
     VSC_RadioTxTest = 0xFC51
@@ -967,7 +968,7 @@ class StackDumpReceiver(object):
         """
         Write the stack dump to a file once it is finished.
         """
-        dump = flat(self.memdumps)  # flatten, as we have one entry per address chunk
+        dump = flat(self.memdumps, filler='\x00')  # flatten, as we have one entry per address chunk
         self.logger.warning(
             "Stack dump @0x%08x written to %s!"
             % (self.memdump_addr, self.stack_dump_filename)
