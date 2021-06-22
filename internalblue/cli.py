@@ -378,6 +378,11 @@ class InternalBlueCLI(cmd2.Cmd):
                     [(f'{reset}{chr(c)}{reset}' if 32 <= c <= 127 else f'{red if c == 0x00 or c == 0x0a else blue}·{reset}') + ('|' if j % 4 == 3 else '')
                      for j, c in enumerate(data[i - 15:i+1])])
                 dump += '\n'
+        try:
+            if dump[-1] != '\n':
+                dump += '\n'
+        except:
+            pass
         sys.stdout.write(dump)
 
     @staticmethod
@@ -763,17 +768,24 @@ class InternalBlueCLI(cmd2.Cmd):
 
     @cmd2.with_argparser(repeat_parser)
     def do_repeat(self, args):
-        """Repeat a given command until user stops it."""
+        """Repeat a given command until user stops it.
+        Put the command to be repeated in quotes."""
         try:
             timeout = int(args.timeout)
+            # command has to be a string (in quotes)
+            # and is then split into an array
+            command = args.command[0].split()
+            repcmdline = " ".join(command[1:])
+            cmdclass = self.findCmd(command[0])
         except ValueError:
             self.logger.info("Not a number: " + args.timeout)
             return False
+        except IndexError:
+            self.logger.info("Command may not be empty.")
+            return False
 
-        repcmdline = " ".join(args.command[1:])
-        cmdclass = self.findCmd(args.command[0])
         if cmdclass is None:
-            self.logger.warning("Unknown command: " + args.command[0])
+            self.logger.warning("Unknown command: " + command[0])
             return False
 
         while True:
