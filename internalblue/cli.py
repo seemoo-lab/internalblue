@@ -923,7 +923,7 @@ class InternalBlueCLI(cmd2.Cmd):
                 s = ""
                 for c in data:
                     if isprint(c):
-                        s += c
+                        s += str(c)
                     else:
                         break
                 return [val, s]

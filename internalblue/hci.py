@@ -968,7 +968,7 @@ class StackDumpReceiver(object):
         """
         Write the stack dump to a file once it is finished.
         """
-        dump = flat(self.memdumps, filler='\x00')  # flatten, as we have one entry per address chunk
+        dump = flat(self.memdumps, filler=0)  # flatten, as we have one entry per address chunk
         self.logger.warning(
             "Stack dump @0x%08x written to %s!"
             % (self.memdump_addr, self.stack_dump_filename)
@@ -976,6 +976,8 @@ class StackDumpReceiver(object):
         f = open(self.stack_dump_filename, "wb")
         f.write(dump)
         f.close()
+
+        self.stack_dump_filename = self.stack_dump_filename + '-dup'  # might be called twice
 
         # Shut down:
         self.stack_dump_has_happened = True
