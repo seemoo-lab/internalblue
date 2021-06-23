@@ -169,7 +169,7 @@ class InternalBlueCLI(cmd2.Cmd):
             'leconnect': 'connectle', 'cle': 'connectle', 'lec': 'connectle',
             'sendh4': 'diag'})
 
-        super().__init__(shortcuts=shortcuts, persistent_history_file=data_directory + "/_internalblue.hist", use_ipython=True)
+        super().__init__(shortcuts=shortcuts, persistent_history_file=data_directory + "/_internalblue.hist", include_ipy=True)
 
         # Aliases have to be used instead of shortcuts
         # When the alias is equal with the beginning
