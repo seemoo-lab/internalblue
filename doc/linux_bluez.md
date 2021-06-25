@@ -97,3 +97,21 @@ you can still patch around in the kernel, such as the [BIAS](https://github.com/
 PoC did it. A diff against the original kernel can be found [here](../linux/bias_linux-4.14.111.diff).
 Since this means recompiling the kernel, use this at your own risk. This is definitely not how
 it is meant to be used.
+
+
+Firmware Downgrade
+------------------
+
+The Spectra bug fixes are a bit special on Linux, at least for the Raspberry Pi 3+/4/4B chip. Reading
+RAM still works except the Patchram region. Thus, commands like `info patchram` result in a timeout
+in InternalBlue. Further analysis with `btmon` shows that the return status on HCI is `Status: Invalid HCI Command Parameters (0x12)`
+when reading the Patchram bitfield.
+
+You can work around this by downgrading the firmware as follows:
+
+```
+cd /usr/lib/firmware/brcm/
+cp BCM4345C0.hcd BCM4345C0_orig.hcd
+wget https://github.com/RPi-Distro/bluez-firmware/blob/96eefffcccc725425fd83be5e0704a5c32b79e54/broadcom/BCM4345C0.hcd?raw=true
+mv 'BCM4345C0.hcd?raw=true' BCM4345C0.hcd
+```
