@@ -70,6 +70,7 @@ Vendor | Version | SubVersion | Firmware    | Devices | Firmware Build Date
 0x0131 |    0x09 |     0x6119 | BCM4345C0   | Raspberry Pi 3+/4 --- *with Bluetooth 5 patches, same ROM as 3+* | Aug 19 2014
 0x000f |    0x09 |     0x6214 | BCM4355C1   | iPad 6th gen 3D575FD/A, iPad 6th gen MRJN2FD/A, iPad 6th gen MR7J2FD/A A1893 (FigaroA)
 0x000f |    0x0a |     0x4228 | BCM4378B1   | iPhone 11 (Hei), iPhone 11 Pro (Moana), iPhone 11 Pro Max (Tala) --- *announce BT 5.1 over the air but are BT 5* | Oct 25 2018
+0x000f |    0x0b |     0x6308 | BCM4387C2   | iPhone 12 | Oct 29 2019
 
 
 
