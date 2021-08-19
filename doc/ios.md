@@ -18,6 +18,7 @@ PCIe devices:
 * iPhone Xs (not tested)
 * iPhone 11
 * iPhone SE2
+* iPhone 12
 
 
 ## Installing
@@ -89,7 +90,11 @@ ROM:0014617C 0A 2D                       CMP     R5, #0xA        ; fc0a: VSC_Sup
 We can simply replace the `0x4c`, which is the WriteRAM command, with `0x42`, which is not used.
 Note that `BlueTool` contains multiple copies of these `.hcd` files and you should replace all of them.
 The accordingly modified `BlueTool` needs to be copied to `/usr/sbin/BlueTool` and `/usr/sbin/BlueTool.sbin`.
-To get Bluetooth working properly again after replacing `BlueTool`, the iPhone needs to be rebooted.
+To get Bluetooth working properly again after replacing `BlueTool`, run:
+```
+killall -9 bluetoothd internalblued BlueTool
+```
+Then, start a new *InternalBlue* Session.
 
 
 **Bluetooth will only work while the device is jailbroken with a modified BlueTool version!
@@ -100,4 +105,5 @@ iOS, but if you did not have a blob backup, you'll need to upgrade it to the lat
 
 [BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other pre-A12 devices.
 [BlueTool for iOS 14.3 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.3), might also work on other pre-A12 devices.
+[BlueTool for iOS 14.7 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.7), might also work on other pre-A12 devices.
 
