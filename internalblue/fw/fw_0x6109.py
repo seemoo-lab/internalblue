@@ -195,7 +195,7 @@ class BCM4335C0(FirmwareDefinition):
             add.w r6, r0, r7, lsl #5
             ldrb  r0, [r6, #0x1f]
             cmp   r0, #1
-            // skip check in conection struct
+            // skip check in connection struct
             ldrb  r0, [r4, #0xc] // ptr_to_opcode = buffer_cpy + 12;
             lsrs  r1, r0, #1     // buffer_cpy[12] >> 1
             add.w r0, r4, #0x0c
@@ -203,7 +203,7 @@ class BCM4335C0(FirmwareDefinition):
             // enable for debugging: ignore the remaining code and continue like normal opcode
             //b     0xF870
     
-            // now we regularily would call the opcode conversion table function
+            // now we regularly would call the opcode conversion table function
             // however, we do not use lm_getLmpInfoType_3F2D8 but insert our own table here        
             ldr    r1, =table_entry // table_ptr with exactly one entry, so no offsets included here
             ldr    r0, =table_entry

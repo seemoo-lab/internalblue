@@ -1330,11 +1330,12 @@ class InternalBlueCLI(cmd2.Cmd):
 
         self.logger.info(
             "Sending op=%d data=%s to connection handle=0x%04x"
-            % (args.opcode, data.decode("utf-8"), args.conn_handle)
+            % (args.opcode, data, args.conn_handle)  # data is binary, don't decode even if ugly
         )
-        return self.internalblue.sendLmpPacket(
+        self.internalblue.sendLmpPacket(
             args.opcode, data, is_master, args.conn_handle, extended_op=args.extended
         )
+        return None  # do not terminate cli
 
     # noinspection PyUnusedLocal
     def do_fuzzlmp(self, args):
