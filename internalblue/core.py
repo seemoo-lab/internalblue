@@ -1341,6 +1341,13 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 self.logger.warning("patchRom: '%s' not in fw.py. FEATURE NOT SUPPORTED!" % const)
                 return False
 
+        # working around pwntools, which adds two leading zeros if we're not at a 4-byte aligned
+        # offset in version 4.6.0.
+        if len(patch) == 6 and patch[0] == 0 and patch[1] == 0:
+            patch = bytearray(patch)
+            patch = patch[2:]
+            self.logger.info("patchRom: got a 6-byte patch, removed two leading zeros!" % patch)
+
         if len(patch) != 4:
             self.logger.warning("patchRom: patch (%s) must be a 32-bit dword!" % patch)
             return False
