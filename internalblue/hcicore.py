@@ -11,6 +11,9 @@ import threading
 from builtins import range
 from builtins import str
 from builtins import zip
+
+from ctypes import *
+
 from typing import List, cast, TYPE_CHECKING
 
 from future import standard_library
@@ -24,6 +27,13 @@ if TYPE_CHECKING:
 
 standard_library.install_aliases()
 
+
+class sockaddr_hci(Structure):
+    _fields_ = [
+        ("sin_family",      c_ushort),
+        ("hci_dev",         c_ushort),
+        ("hci_channel",     c_ushort),
+    ]
 
 # from /usr/include/bluetooth/hci.h:
 # define HCIDEVUP	_IOW('H', 201, int)
@@ -52,6 +62,7 @@ class HCICore(InternalBlue):
             log_level="info",
             data_directory=".",
             replay=False,
+            user_channel=False,
     ):
         super(HCICore, self).__init__(
             queue_size,
@@ -63,6 +74,7 @@ class HCICore(InternalBlue):
         self.btsnooplog_file_lock = threading.Lock()
         self.serial = False
         self.doublecheck = False
+        self.user_channel = user_channel
 
     def getHciDeviceList(self):
         # type: () -> List[Device]
@@ -206,7 +218,12 @@ class HCICore(InternalBlue):
             self.logger.warn("No HCI identifier is set")
             return False
 
-        if not self._setupSockets():
+        if self.user_channel:
+            success = self._setupSocketsUserChannel()
+        else:
+            success = self._setupSockets()
+
+        if not success:
             self.logger.critical("HCI socket could not be established!")
             return False
 
@@ -323,6 +340,18 @@ class HCICore(InternalBlue):
 
         self.logger.debug("Receive Thread terminated.")
 
+    def _writeBTSnoopHeader(self):
+        # Write Header to btsnoop file (if file is still empty):
+        if self.write_btsnooplog and self.btsnooplog_file.tell() == 0:
+            # BT Snoop Header: btsnoop\x00, version: 1, data link type: 1002
+            btsnoop_hdr = (
+                    b"btsnoop\x00" + p32(1, endian="big") + p32(1002, endian="big")
+            )
+            with self.btsnooplog_file_lock:
+                self.btsnooplog_file.write(btsnoop_hdr)
+                self.btsnooplog_file.flush()
+
+
     def _setupSockets(self):
         """
         Linux already allows to open HCI sockets to Bluetooth devices,
@@ -376,15 +405,48 @@ class HCICore(InternalBlue):
         # same socket for input and output (this is different from adb here!)
         self.s_inject = self.s_snoop
 
-        # Write Header to btsnoop file (if file is still empty):
-        if self.write_btsnooplog and self.btsnooplog_file.tell() == 0:
-            # BT Snoop Header: btsnoop\x00, version: 1, data link type: 1002
-            btsnoop_hdr = (
-                    b"btsnoop\x00" + p32(1, endian="big") + p32(1002, endian="big")
-            )
-            with self.btsnooplog_file_lock:
-                self.btsnooplog_file.write(btsnoop_hdr)
-                self.btsnooplog_file.flush()
+        self._writeBTSnoopHeader()
+
+        return True
+
+    def _setupSocketsUserChannel(self):
+        """
+            Python's socket API does not allow to set up an HCI User Channel
+            so we need to use ctypes here. Most parts of this are taken from
+            scapy's code (https://github.com/secdev/scapy/blob/master/scapy/layers/bluetooth.py#L1482)
+        """
+
+        sockaddr_hcip = POINTER(sockaddr_hci)
+        cdll.LoadLibrary("libc.so.6")
+        libc = CDLL("libc.so.6")
+
+        socket_c = libc.socket
+        socket_c.argtypes = (c_int, c_int, c_int);
+        socket_c.restype = c_int
+
+        bind = libc.bind
+        bind.argtypes = (c_int, POINTER(sockaddr_hci), c_int)
+        bind.restype = c_int
+
+        s = socket_c(31, 3, 1) # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
+        if s < 0:
+            self.logger.error("Unable to open PF_BLUETOOTH socket")
+
+        sa = sockaddr_hci()
+        sa.sin_family = 31  # AF_BLUETOOTH
+        sa.hci_dev = 0      # adapter index
+        sa.hci_channel = 1  # HCI_USER_CHANNEL
+
+        r = bind(s, sockaddr_hcip(sa), sizeof(sa))
+        if r != 0:
+            self.logger.error("Unable to bind")
+
+        self.s_snoop = socket.fromfd(s, 31, 3, 1)
+
+        # same socket for input and output (this is different from adb here!)
+        self.s_inject = self.s_snoop
+
+        self._writeBTSnoopHeader()
 
         return True
 
