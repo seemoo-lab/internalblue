@@ -205,7 +205,8 @@ class iOSCore(InternalBlue):
             except socket.timeout:
                 continue  # this is ok. just try again without error
 
-            self.logger.debug("H4 Data: %s", received_data)
+            if len(received_data) > 0:
+                self.logger.debug("H4 Data: %s", received_data)
 
             (record_data, is_more) = self._getLatestH4Blob(new_data=received_data)
             while record_data is not None:

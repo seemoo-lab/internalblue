@@ -242,15 +242,16 @@ class InternalBlueCLI(cmd2.Cmd):
             self.internalblue = device[0]
             self.internalblue.interface = device[1]
 
-            self.memory_image_template_filename = (
-                    self.internalblue.data_directory + "/memdump__template.bin"
-            )
-            self.memory_image: Optional[bytes] = None
-
             # Connect to device
             if not self.internalblue.connect():
                 self.logger.critical("No connection to target device.")
                 exit(-1)
+
+            # now we have firmware info and can set firmware-specific variables
+            self.memory_image_template_filename = (
+                    self.internalblue.data_directory + "/memdump_" + self.internalblue.fw.FW_NAME + "_template.bin"
+            )
+            self.memory_image: Optional[bytes] = None
 
             # Enter command loop (runs until user quits)
             self.logger.info("Starting commandLoop for self.internalblue {}".format(self.internalblue))
