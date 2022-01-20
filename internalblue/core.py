@@ -2140,17 +2140,7 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 index,
                 current_queue_struct_address,
                 queue_fields[2] * 4,
-                queue_fields[3],
-                queue_fields[4],
-                queue_fields[5],
-                queue_fields[6],
-                queue_fields[7],
-                queue_fields[8],
-                queue_fields[9],
-                queue_fields[10],
-                queue_fields[11],
-                queue_fields[12],
-                queue_fields[13],
+                *queue_fields[3:14:1],
                 self.fw.QUEUE_NAMES[index],
             )
 
