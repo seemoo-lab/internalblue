@@ -45,7 +45,7 @@ from threading import Timer
 from functools import wraps
 
 import cmd2
-from cmd2 import fg, style
+from cmd2 import Fg, style
 
 from . import Address
 from .hci import HCI_COMND
@@ -139,7 +139,7 @@ class InternalBlueCLI(cmd2.Cmd):
                  + r"/___/_//_/\__/\__/_/ /_//_/\_,_/_/____/_/\_,_/\__/" + "\n" + "\n" \
                  + "type <help -v> for usage information!"
 
-        self.intro = style(banner, fg=fg.blue)
+        self.intro = style(banner, fg=Fg.BLUE)
 
         # History file
         if main_args.data_directory is not None:
