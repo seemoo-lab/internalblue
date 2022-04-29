@@ -19,6 +19,7 @@ PCIe devices:
 * iPhone 11
 * iPhone SE2
 * iPhone 12
+* iPhone 13 (same as iPhone 12)
 
 
 ## Installing
@@ -59,7 +60,7 @@ to access the RNG area and execute the `LE_Rand` HCI command. Note that the inpu
 decimal but the output is hexadecimal. Similar to `internalblued`, `BlueTool` can only
 run while Bluetooth is turned off.
 
-```
+```commandline
 device -D
 hci cmd 0xfc4d 0 38 96 0 32
   HCI Command Response: 01 4D FC 00 03 00 00 00 01 00 00 02 DC 70 02 76 77 77 77 77 77 77 77 77 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -67,7 +68,7 @@ hci cmd 0x2018
   HCI Command Response: 01 18 20 00 2A FC 1F 73 67 11 06 F9
 ```
 
-## Bypassing the WriteRAM Restriction 
+## Bypassing the WriteRAM Restriction on UART iPhones
 
 After iOS 13.3, WriteRAM is blocked. This is part of the Spectra mitigation and should prevent 
 an attacker with control over `bluetoothd` to escalate into the Wi-Fi chip (yes, Wi-Fi, not Bluetooth, this is
@@ -91,7 +92,8 @@ We can simply replace the `0x4c`, which is the WriteRAM command, with `0x42`, wh
 Note that `BlueTool` contains multiple copies of these `.hcd` files and you should replace all of them.
 The accordingly modified `BlueTool` needs to be copied to `/usr/sbin/BlueTool` and `/usr/sbin/BlueTool.sbin`.
 To get Bluetooth working properly again after replacing `BlueTool`, run:
-```
+
+```commandline
 killall -9 bluetoothd internalblued BlueTool
 ```
 Then, start a new *InternalBlue* Session.
@@ -106,4 +108,23 @@ iOS, but if you did not have a blob backup, you'll need to upgrade it to the lat
 [BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other pre-A12 devices.
 [BlueTool for iOS 14.3 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.3), might also work on other pre-A12 devices.
 [BlueTool for iOS 14.7 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.7), might also work on other pre-A12 devices.
+
+
+## Bypassing WriteRAM Restriction on PCIe iPhones
+
+Same principle but the firmware has checksums. Thanks to r0bre we how have
+[fpibro.py](https://github.com/seemoo-lab/frankenstein/blob/master/projects/BCM4387C2/ios_scripts/fpibro.py),
+which is capable of fixing these after modification.
+
+Instead of overwriting the file, copy it to the `/tmp` folder and load it with `BlueTool`.
+Everything else will bootloop an A12+ device (see above).
+
+```commandline
+power off
+device -D
+bcm -w /tmp/firmware.bin
+```
+
+Hazelnut firmware with a WriteRAM bypass, compatible with iPhone 12+13:
+[Hazelnut_iPhone12+13_iOS15.2.bin](../ios/Hazelnut_iPhone12+13_iOS15.2.bin), might also work on other pre-A12 devices.
 
