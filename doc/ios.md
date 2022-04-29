@@ -126,5 +126,6 @@ bcm -w /tmp/firmware.bin
 ```
 
 Hazelnut firmware with a WriteRAM bypass, compatible with iPhone 12+13:
-[Hazelnut_iPhone12+13_iOS15.2.bin](../ios/Hazelnut_iPhone12+13_iOS15.2.bin), might also work on other pre-A12 devices.
+[Hazelnut_iPhone12+13_iOS15.2.bin](../ios/Hazelnut_iPhone12+13_iOS15.2.bin),
+will also work on jailbroken iOS 14.x iPhone 12.
 
