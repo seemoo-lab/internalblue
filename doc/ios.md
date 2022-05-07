@@ -1,4 +1,5 @@
-# iOS internalblued 
+## Installation of internalblued on iOS
+
 This project is a proxy that redirects the *iOS* Bluetooth socket and exposes it as a
 TCP socket which can be used to send HCI commands to the Bluetooth controller of the device.
 A jailbroken device is required.
@@ -22,7 +23,6 @@ PCIe devices:
 * iPhone 13 (same as iPhone 12)
 
 
-## Installing
 1. Transfer the `.deb` file to your iOS device
 2. Run `dpkg -i your-deb-file.deb` to install `internalblued` on your device
 
@@ -43,32 +43,44 @@ In case the Bluetooth chip stops responding, Bluetooth has to be turned on and o
 
 There is a Settings App pane for `internalblued` to turn off the daemon and adapt the listening port. However, this is usually not required. As long as `internalblue` is not connected to `internalblued`'s socket, Bluetooth can be used without any restrictions.
 
-## Building internalblued
-1. Install [theos](https://github.com/theos/theos)
-2. Install the correct version of PrivateFramework header files (e.g. from [here](https://github.com/xybp888/iOS-SDKs)) for your build into your SDK
-3. Run `make package`
-4. A `.deb` file should be in the `packages` folder now
 
+## Bypassing WriteRAM Restriction on PCIe iPhones (unc0ver)
 
-## BlueTool
+Same principle but the firmware has checksums. Thanks to r0bre we how have
+[fpibro.py](https://github.com/seemoo-lab/frankenstein/blob/master/projects/BCM4387C2/ios_scripts/fpibro.py),
+which is capable of fixing these after modification.
 
-More inconvenient to use, but still an option for unsupported devices, is `BlueTool`.
-It can even be scripted, but the scripts must be located in `/etc/bluetool`.
-
-For example, during our Random Number Generator (RNG) tests, we used the following commands
-to access the RNG area and execute the `LE_Rand` HCI command. Note that the input must be
-decimal but the output is hexadecimal. Similar to `internalblued`, `BlueTool` can only
-run while Bluetooth is turned off.
+Instead of overwriting the file, copy it to the `/tmp` folder and load it with `BlueTool`.
+Everything else will bootloop an A12+ device (see above).
 
 ```commandline
+power off
 device -D
-hci cmd 0xfc4d 0 38 96 0 32
-  HCI Command Response: 01 4D FC 00 03 00 00 00 01 00 00 02 DC 70 02 76 77 77 77 77 77 77 77 77 00 00 00 00 00 00 00 00 00 00 00 00 
-hci cmd 0x2018
-  HCI Command Response: 01 18 20 00 2A FC 1F 73 67 11 06 F9
+bcm -w /tmp/firmware.bin
 ```
 
-## Bypassing the WriteRAM Restriction on UART iPhones
+None of the commands should return an error (e.g., no `bcm returned -1` error etc.).
+
+***iPhone 12+13***
+
+Hazelnut firmware with a WriteRAM bypass, compatible with iPhone 12+13:
+[Hazelnut_iPhone12+13_iOS15.2.bin](../ios-pcie/firmware/Hazelnut_iPhone12+13_iOS15.2.bin),
+will also work on jailbroken iOS 14.x iPhone 12.
+
+Firmware modification and writing patches in C is supported as part of Frankenstein.
+Tooling and symbols for the [BCM4387C2](https://github.com/seemoo-lab/frankenstein/tree/master/projects/BCM4387C2)
+chip are available to perform research on the iPhone 12 and 13.
+
+
+***iPhone 11+SE2020***
+
+Moana (iPhone 11) firmware with a WriteRAM bypass, compatible with iPhone 11+SE2020:
+[Moana_iPhone11+SE2_iOS15.bin](../ios-pcie/firmware/Moana_iPhone11+SE2_iOS15.bin),
+will also work with jailbroken iOS 14.x on iPhone SE2020.
+
+
+
+## Bypassing the WriteRAM Restriction on UART iPhones (checkm8)
 
 After iOS 13.3, WriteRAM is blocked. This is part of the Spectra mitigation and should prevent 
 an attacker with control over `bluetoothd` to escalate into the Wi-Fi chip (yes, Wi-Fi, not Bluetooth, this is
@@ -105,27 +117,39 @@ for `BlueTool` fails. **You can only reboot the device in this state with checkm
 be bricked if you do this on unthethered jailbreaks like unc0ver!** You can still unbrick it by re-flashing
 iOS, but if you did not have a blob backup, you'll need to upgrade it to the latest signed iOS version.
 
-[BlueTool for iOS 13.6 on an iPhone 8](../ios/BlueTool_iPhone8_iOS13.6), might also work on other pre-A12 devices.
-[BlueTool for iOS 14.3 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.3), might also work on other pre-A12 devices.
-[BlueTool for iOS 14.7 on an iPhone 7+8](../ios/BlueTool_iPhone7+8_iOS14.7), might also work on other pre-A12 devices.
+[BlueTool for iOS 13.6 on an iPhone 8](../ios/firmware/BlueTool_iPhone8_iOS13.6), might also work on other pre-A12 devices.
+[BlueTool for iOS 14.3 on an iPhone 7+8](../ios/firmware/BlueTool_iPhone7+8_iOS14.3), might also work on other pre-A12 devices.
+[BlueTool for iOS 14.7 on an iPhone 7+8](../ios/firmware/BlueTool_iPhone7+8_iOS14.7), might also work on other pre-A12 devices.
 
 
-## Bypassing WriteRAM Restriction on PCIe iPhones
+## Building internalblued (optional)
 
-Same principle but the firmware has checksums. Thanks to r0bre we how have
-[fpibro.py](https://github.com/seemoo-lab/frankenstein/blob/master/projects/BCM4387C2/ios_scripts/fpibro.py),
-which is capable of fixing these after modification.
+1. Install [theos](https://github.com/theos/theos)
+2. Install the correct version of PrivateFramework header files (e.g. from [here](https://github.com/xybp888/iOS-SDKs)) for your build into your SDK
+3. Run `make package`
+4. A `.deb` file should be in the `packages` folder now
 
-Instead of overwriting the file, copy it to the `/tmp` folder and load it with `BlueTool`.
-Everything else will bootloop an A12+ device (see above).
+
+
+## BlueTool
+
+Instead of using InternalBlue, it is also possible to use Apple's undocumented internal
+tool `BlueTool`. It is way more inconvenient to use, has a lot of commands that will not show
+in the help menu, and easily crashes when using it inappropriately. Apple does not consider
+this to be an issue, since `BlueTool` cannot be called from sandboxed processes.
+
+If you consider using `BlueTool` instead of InternalBlue, e.g., because your device is not
+yet supported, you can even script it. All scripts must be located in `/etc/bluetool`.
+
+For example, during our Random Number Generator (RNG) tests, we used the following commands
+to access the RNG area and execute the `LE_Rand` HCI command. Note that the input must be
+decimal but the output is hexadecimal. Similar to `internalblued`, `BlueTool` can only
+run while Bluetooth is turned off.
 
 ```commandline
-power off
 device -D
-bcm -w /tmp/firmware.bin
+hci cmd 0xfc4d 0 38 96 0 32
+  HCI Command Response: 01 4D FC 00 03 00 00 00 01 00 00 02 DC 70 02 76 77 77 77 77 77 77 77 77 00 00 00 00 00 00 00 00 00 00 00 00 
+hci cmd 0x2018
+  HCI Command Response: 01 18 20 00 2A FC 1F 73 67 11 06 F9
 ```
-
-Hazelnut firmware with a WriteRAM bypass, compatible with iPhone 12+13:
-[Hazelnut_iPhone12+13_iOS15.2.bin](../ios/Hazelnut_iPhone12+13_iOS15.2.bin),
-will also work on jailbroken iOS 14.x iPhone 12.
-
