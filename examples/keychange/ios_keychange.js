@@ -19,18 +19,21 @@ var base = Module.getBaseAddress('bluetoothd');
 // *** SELECT YOUR IOS VERSION HERE ***
 // Functions contain function name strings, easy to determine.
 var OI_HCIIfc_DataReceived = base.add(0xee5a4);  // iOS 14.1, iPhone 12
-//var OI_HCIIfc_DataReceived = base.add(0xed0b8);  // iOS 14.4, iPhone 8
+// var OI_HCIIfc_DataReceived = base.add(0xed9f8);  // iOS 14.8, iPhone 8
+// var OI_HCIIfc_DataReceived = base.add(0xed0b8);  // iOS 14.4, iPhone 8
 // var OI_HCIIfc_DataReceived = base.add(0xee9f0);  // iOS 14.3, iPhone 8 (18C66)
 // var OI_HCIIfc_DataReceived = base.add(0x108e04);  // iOS 13.5, iPhone SE2
 
 var OI_HciIfc_CopyPayload = base.add(0xe3d7c);  // iOS 14.1, iPhone 12
-//var OI_HciIfc_CopyPayload = base.add(0xe2ddc);  // iOS 14.4, iPhone 8
+// var OI_HciIfc_CopyPayload = base.add(0xe3764);  // iOS 14.8, iPhone 8
+// var OI_HciIfc_CopyPayload = base.add(0xe2ddc);  // iOS 14.4, iPhone 8
 // var OI_HciIfc_CopyPayload = base.add(0xFE690);  // iOS 13.5, iPhone SE2
 // var OI_HciIfc_CopyPayload = base.add(0xee9f0);  // iOS 14.3, iPhone 8 (18C66)
 
 var HCIIfc_src_ptr = base.add(0x671388); // iOS 14.1, iPhone 12
-//var HCIIfc_src_ptr = base.add(0x654318); // iOS 14.4, iPhone 8
-//var HCIIfc_src_ptr = base.add(0x6118A0); // iOS 13.5, iPhone SE2
+// var HCIIfc_src_ptr = base.add(0x688518); // iOS 14.8, iPhone 8
+// var HCIIfc_src_ptr = base.add(0x654318); // iOS 14.4, iPhone 8
+// var HCIIfc_src_ptr = base.add(0x6118A0); // iOS 13.5, iPhone SE2
 
 
 // Helper function to print hex
