@@ -5,7 +5,7 @@ Linux Setup
 The following steps are required to use the CYW20735B1/CYW20819A evaluation kit as normal HCI device on Linux with BlueZ.
  
 
-##1. Setup as HCI device
+## 1. Setup as HCI device
 
 
 **CYW20819**: Set up the device with a baud rate of 115200 and the Broadcom driver. The baud rate will be upgraded
