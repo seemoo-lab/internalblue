@@ -39,7 +39,7 @@ You can list your HCI devices:
 
     hcitool dev
 
-##3. Command line tools for connections
+## 3. Command line tools for connections
 
 Scanning for devices:
 
