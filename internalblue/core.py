@@ -312,10 +312,11 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 self.logger.debug("Failed to unpack queue item.")
                 continue
 
-            # Special handling of ADBCore and HCICore
+            # Special handling of ADBCore, HCICore, BTstack Daemon
             # ADBCore: adb transport requires to prepend the H4 data with its length
             # HCICore: need to manually save the data to btsnoop log as it is not
             #          reflected to us as with adb
+		    # BTstack: custom header { packet type, channel, payload len }
             if self.__class__.__name__ == "ADBCore":
                 # prepend with total length for H4 over adb with modified Bluetooth module
                 if not self.serial:
@@ -331,6 +332,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                 #   0x3322...:  Parameters
                 #
                 # ...and that's how the data is formatted already anyway
+
+                # Prepend UART TYPE and length.
+                out = p8(h4type) + data
 
             elif self.__class__.__name__ == "HCICore":
                 if self.write_btsnooplog:
@@ -354,8 +358,17 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
                         self.btsnooplog_file.write(btsnoop_data)
                         self.btsnooplog_file.flush()
 
-            # Prepend UART TYPE and length.
-            out = p8(h4type) + data
+                # Prepend UART TYPE and length.
+                out = p8(h4type) + data
+
+            elif self.__class__.__name__ == "BTstackCore":
+
+                # Prepend BTstack network header
+                packet_type = h4type
+                channel = 0
+                length = len(data)
+                header = struct.pack("<HHH", packet_type, channel, length)
+                out = header + data
 
             # if the caller expects a response: register a queue to receive the response
             if queue is not None and filter_function is not None:
