@@ -67,6 +67,7 @@ Table of Contents
     * [iOS](doc/ios.md) *12—14 (jailbroken)*
     * [macOS](doc/macos.md) *High Sierra—Big Sur*
     * [Linux](doc/linux_bluez.md) with *BlueZ* (default) but __not__ WSL
+    * [User-space macOS, Linux, Windows](doc/btstack.md) with *BTstack* 
 * [Firmware overview](doc/firmware.md)
 * [SEEMOO talks and publications](doc/publications.md)
 * [Examples](doc/examples.md)
