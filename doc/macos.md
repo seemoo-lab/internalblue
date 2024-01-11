@@ -3,7 +3,7 @@ Prerequisites
 
 *InternalBlue* runs as regular user, no administrator access is required.
 
-Install `homebrew` (see https://brew.sh/) and then use it to install `python3`  and optionally `git`.
+Install `homebrew` (see https://brew.sh/) and then use it to install `python3`, `cmake`, and optionally `git`.
 
 Hardware and OS
 ---------------
