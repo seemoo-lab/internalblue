@@ -729,9 +729,9 @@ class InternalBlue(with_metaclass(ABCMeta, object)):
             )
             return False
 
-        # Broadcom uses 0x000f as vendor ID, Cypress 0x0131
+        # Broadcom uses 0x000f as vendor ID, Cypress 0x0131, Infineon 0x0009
         vendor = (version[9] << 8) + version[8]
-        if vendor != 0xF and vendor != 0x131:
+        if vendor != 0xF and vendor != 0x131 and vendor != 0x9:
             self.logger.critical("Not running on a Broadcom or Cypress chip!")
             return False
         else:
