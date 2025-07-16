@@ -8,6 +8,8 @@ import queue as queue2k
 import socket
 import struct
 import threading
+import os
+import serial
 from builtins import range
 from builtins import str
 from builtins import zip
@@ -41,6 +43,8 @@ class sockaddr_hci(Structure):
 # define HCIGETDEVINFO	_IOR('H', 211, int)
 
 # ioctl numbers. see http://code.activestate.com/recipes/578225-linux-ioctl-numbers-in-python/
+
+
 def _IOR(_type, nr, size):
     return 2 << 30 | _type << 8 | nr << 0 | size << 16
 
@@ -91,7 +95,8 @@ class HCICore(InternalBlue):
 
         # Open Bluetooth socket to execute ioctl's:
         try:
-            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+            s = socket.socket(socket.AF_BLUETOOTH,
+                              socket.SOCK_RAW, socket.BTPROTO_HCI)
         # Ticket 6: does not run on Windows with Kali subsystem
         except socket.error:
             self.logger.warn(
@@ -105,7 +110,8 @@ class HCICore(InternalBlue):
         arg += b"\x00" * (8 * 16)
         devices_raw = fcntl.ioctl(s.fileno(), HCIGETDEVLIST, arg)
         num_devices = u16(devices_raw[:2])
-        self.logger.debug("Found %d HCI devices via ioctl(HCIGETDEVLIST)!" % num_devices)
+        self.logger.debug(
+            "Found %d HCI devices via ioctl(HCIGETDEVLIST)!" % num_devices)
 
         device_list = []
         for dev_nr in range(num_devices):
@@ -114,9 +120,11 @@ class HCICore(InternalBlue):
             # arg is struct hci_dev_info (/usr/include/bluetooth/hci.h)
             arg = p16(dev_id)  # di->dev_id = <device_id>
             arg += b"\x00" * 20  # Enough space for name, bdaddr and flags
-            dev_info_raw = bytearray(fcntl.ioctl(s.fileno(), HCIGETDEVINFO, arg))
+            dev_info_raw = bytearray(fcntl.ioctl(
+                s.fileno(), HCIGETDEVINFO, arg))
             dev_name = dev_info_raw[2:10].replace(b"\x00", b"").decode()
-            dev_bdaddr = ":".join(["%02X" % x for x in dev_info_raw[10:16][::-1]])
+            dev_bdaddr = ":".join(
+                ["%02X" % x for x in dev_info_raw[10:16][::-1]])
             dev_flags = u32(dev_info_raw[16:20])
             if dev_flags == 0:
                 dev_flags_str = "DOWN"
@@ -162,17 +170,20 @@ class HCICore(InternalBlue):
         """
 
         if dev_id < 0 or dev_id > 16:
-            self.logger.warn("bringHciDeviceUp: Invalid device id: %d." % dev_id)
+            self.logger.warn(
+                "bringHciDeviceUp: Invalid device id: %d." % dev_id)
             return False
 
         # Open bluetooth socket to execute ioctl's:
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        s = socket.socket(socket.AF_BLUETOOTH,
+                          socket.SOCK_RAW, socket.BTPROTO_HCI)
 
         # Do ioctl(s, HCIDEVUP, dev_id) to bring device up:
         try:
             fcntl.ioctl(s.fileno(), HCIDEVUP, dev_id)
             s.close()
-            self.logger.info("Device with id=%d was set up successfully!" % dev_id)
+            self.logger.info(
+                "Device with id=%d was set up successfully!" % dev_id)
             return True
         except IOError as e:
             s.close()
@@ -205,6 +216,10 @@ class HCICore(InternalBlue):
                 )
             )
 
+        if os.path.exists('/dev/ttyTHS1'):
+            device_list.append(
+                (self, '/dev/ttyTHS1', 'UART hci: /dev/ttyTHS1'))
+
         if len(device_list) == 0:
             self.logger.info("No connected HCI device found")
 
@@ -218,6 +233,9 @@ class HCICore(InternalBlue):
             self.logger.warn("No HCI identifier is set")
             return False
 
+        if self.interface == '/dev/ttyTHS1':
+            return self._setup_uart_socket(self.interface)
+
         if self.user_channel:
             success = self._setupSocketsUserChannel()
         else:
@@ -228,6 +246,27 @@ class HCICore(InternalBlue):
             return False
 
         return True
+
+    def _setup_uart_socket(self, device_path):
+        # Configure the serial port with software flow control
+        try:
+            ser = serial.Serial(
+                port=device_path,    # Device name
+                baudrate=3000000,        # Baud rate
+                bytesize=serial.EIGHTBITS,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                timeout=0,              # Read timeout
+                rtscts=True            # Enable hardware flow control
+            )
+            self.s_snoop = SerialSocketWrapper(ser)
+            self.s_inject = self.s_snoop
+            self._writeBTSnoopHeader()
+            return True
+        except Exception as ex:
+            self.logger.error(
+                'Exception thrown while initializing serial port: {}. msg:'.format(device_path, ex))
+            return False
 
     def _btsnoop_pack_time(self, time):
         """
@@ -298,7 +337,8 @@ class HCICore(InternalBlue):
             )
 
             self.logger.debug(
-                "_recvThreadFunc Recv: [" + str(btsnoop_time) + "] " + str(record[0])
+                "_recvThreadFunc Recv: [" +
+                str(btsnoop_time) + "] " + str(record[0])
             )
 
             # Write to btsnoop file:
@@ -345,12 +385,11 @@ class HCICore(InternalBlue):
         if self.write_btsnooplog and self.btsnooplog_file.tell() == 0:
             # BT Snoop Header: btsnoop\x00, version: 1, data link type: 1002
             btsnoop_hdr = (
-                    b"btsnoop\x00" + p32(1, endian="big") + p32(1002, endian="big")
+                b"btsnoop\x00" + p32(1, endian="big") + p32(1002, endian="big")
             )
             with self.btsnooplog_file_lock:
                 self.btsnooplog_file.write(btsnoop_hdr)
                 self.btsnooplog_file.flush()
-
 
     def _setupSockets(self):
         """
@@ -369,7 +408,8 @@ class HCICore(InternalBlue):
 
         if device["dev_flags"] == 0:
             self.logger.warn("Device %s is DOWN!" % self.interface)
-            self.logger.info("Trying to set %s to state 'UP' (requires root)" % self.interface)
+            self.logger.info(
+                "Trying to set %s to state 'UP' (requires root)" % self.interface)
             if not self.bringHciDeviceUp(device["dev_id"]):
                 self.logger.warn("Failed to bring up %s." % self.interface)
                 return False
@@ -421,14 +461,14 @@ class HCICore(InternalBlue):
         libc = CDLL("libc.so.6")
 
         socket_c = libc.socket
-        socket_c.argtypes = (c_int, c_int, c_int);
+        socket_c.argtypes = (c_int, c_int, c_int)
         socket_c.restype = c_int
 
         bind = libc.bind
         bind.argtypes = (c_int, POINTER(sockaddr_hci), c_int)
         bind.restype = c_int
 
-        s = socket_c(31, 3, 1) # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
+        s = socket_c(31, 3, 1)  # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
         if s < 0:
             self.logger.error("Unable to open PF_BLUETOOTH socket")
 
@@ -461,3 +501,17 @@ class HCICore(InternalBlue):
             self.s_snoop = None
 
         return True
+
+
+class SerialSocketWrapper:
+    def __init__(self, serial_port):
+        self.serial_port = serial_port
+
+    def recv(self, bufsize):
+        return self.serial_port.read(bufsize)
+
+    def send(self, data):
+        return self.serial_port.write(data)
+
+    def close(self):
+        self.serial_port.close()
